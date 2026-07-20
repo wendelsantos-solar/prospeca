@@ -93,6 +93,46 @@
         "vite": "^8.0.16",
       },
     },
+    "packages/contracts": {
+      "name": "@leads/contracts",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "^3.24.2",
+      },
+      "devDependencies": {
+        "typescript": "^5.8.3",
+      },
+    },
+    "packages/domain": {
+      "name": "@leads/domain",
+      "version": "0.0.0",
+      "dependencies": {
+        "@leads/contracts": "workspace:*",
+        "@leads/geo": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.8.3",
+      },
+    },
+    "packages/geo": {
+      "name": "@leads/geo",
+      "version": "0.0.0",
+      "devDependencies": {
+        "typescript": "^5.8.3",
+      },
+    },
+    "packages/providers": {
+      "name": "@leads/providers",
+      "version": "0.0.0",
+      "dependencies": {
+        "@leads/contracts": "workspace:*",
+        "@leads/domain": "workspace:*",
+        "@leads/geo": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.8.3",
+      },
+    },
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.0", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw=="],
@@ -250,6 +290,14 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@leads/contracts": ["@leads/contracts@workspace:packages/contracts"],
+
+    "@leads/domain": ["@leads/domain@workspace:packages/domain"],
+
+    "@leads/geo": ["@leads/geo@workspace:packages/geo"],
+
+    "@leads/providers": ["@leads/providers@workspace:packages/providers"],
 
     "@leads/web": ["@leads/web@workspace:apps/web"],
 
