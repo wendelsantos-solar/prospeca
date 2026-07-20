@@ -111,6 +111,7 @@ interface LeadsState {
   searching: boolean;
   searchError: string | null;
   currentSearch: Search | null;
+  previewLocation: { lat: number; lng: number; radiusKm: number; label: string } | null;
   history: Search[];
   filters: LeadFilters;
   savedFilters: SavedFilter[];
@@ -125,6 +126,7 @@ interface LeadsState {
   setSearching: (v: boolean) => void;
   setSearchError: (msg: string | null) => void;
   setLeads: (leads: Lead[], search: Search) => void;
+  setPreviewLocation: (p: LeadsState["previewLocation"]) => void;
   reset: () => void;
   updateLead: (id: string, patch: Partial<Lead>) => void;
   removeLead: (id: string) => void;
@@ -167,6 +169,7 @@ export const useLeadsStore = create<LeadsState>()(
       searching: false,
       searchError: null,
       currentSearch: null,
+      previewLocation: null,
       history: [],
       filters: defaultFilters,
       savedFilters: [],
@@ -189,12 +192,14 @@ export const useLeadsStore = create<LeadsState>()(
           searching: false,
           searchError: null,
           currentSearch: search,
+          previewLocation: null,
           history: [{ ...search }, ...s.history].slice(0, 20),
           selectedIds: [],
           focusedId: null,
           kanbanOrder: {},
         }));
       },
+      setPreviewLocation: (previewLocation) => set({ previewLocation }),
       reset: () =>
         set({
           leads: [],
@@ -366,11 +371,22 @@ export const useLeadsStore = create<LeadsState>()(
 );
 
 // ---- Message template ----
+export type MessageTemplateType =
+  | "first_contact"
+  | "follow_up"
+  | "return"
+  | "reengagement"
+  | "proposal"
+  | "custom";
+
 interface MessageState {
   templateName: string;
   template: string;
+  templateType: MessageTemplateType;
+  lastEditedAt: string | null;
   setTemplateName: (n: string) => void;
   setTemplate: (t: string) => void;
+  setTemplateType: (t: MessageTemplateType) => void;
   reset: () => void;
 }
 export const useMessageStore = create<MessageState>()(
@@ -378,9 +394,20 @@ export const useMessageStore = create<MessageState>()(
     (set) => ({
       templateName: "Abordagem padrão",
       template: DEFAULT_MESSAGE_TEMPLATE,
-      setTemplateName: (templateName) => set({ templateName }),
-      setTemplate: (template) => set({ template }),
-      reset: () => set({ template: DEFAULT_MESSAGE_TEMPLATE, templateName: "Abordagem padrão" }),
+      templateType: "first_contact",
+      lastEditedAt: null,
+      setTemplateName: (templateName) =>
+        set({ templateName, lastEditedAt: new Date().toISOString() }),
+      setTemplate: (template) => set({ template, lastEditedAt: new Date().toISOString() }),
+      setTemplateType: (templateType) =>
+        set({ templateType, lastEditedAt: new Date().toISOString() }),
+      reset: () =>
+        set({
+          template: DEFAULT_MESSAGE_TEMPLATE,
+          templateName: "Abordagem padrão",
+          templateType: "first_contact",
+          lastEditedAt: new Date().toISOString(),
+        }),
     }),
     { name: `${STORAGE_KEY}:msg`, storage: createJSONStorage(() => safeStorage()) },
   ),
@@ -404,6 +431,26 @@ export const usePeriodStore = create<PeriodState>()(
       setCustomRange: (customFrom, customTo) => set({ customFrom, customTo }),
     }),
     { name: `${STORAGE_KEY}:period`, storage: createJSONStorage(() => safeStorage()) },
+  ),
+);
+
+// ---- Última localização escolhida (memória de onboarding) ----
+export interface SavedLocation {
+  label: string;
+  lat: number;
+  lng: number;
+}
+interface LocationState {
+  lastLocation: SavedLocation | null;
+  setLastLocation: (l: SavedLocation) => void;
+}
+export const useLocationStore = create<LocationState>()(
+  persist(
+    (set) => ({
+      lastLocation: null,
+      setLastLocation: (lastLocation) => set({ lastLocation }),
+    }),
+    { name: `${STORAGE_KEY}:location`, storage: createJSONStorage(() => safeStorage()) },
   ),
 );
 
