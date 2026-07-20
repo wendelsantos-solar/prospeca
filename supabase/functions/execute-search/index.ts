@@ -65,33 +65,66 @@ Deno.serve(async (req) => {
     const [centerLng, centerLat] = center;
 
     const maxResults: number = search.max_results ?? 60;
-    let pageToken: string | undefined;
+    const textQuery = search.category ? `${search.query} ${search.category}` : search.query;
     let requestCount = 0;
     let collected: GooglePlace[] = [];
 
-    for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
-      const res = await textSearch({
-        textQuery: search.category ? `${search.query} ${search.category}` : search.query,
+    // Strangler: OSM (Overpass) only when explicitly enabled; Google is default.
+    // Dynamic import keeps the OSM module unloaded when the flag is off.
+    const useOsm = Deno.env.get("USE_OSM_PLACES") === "true";
+
+    if (useOsm) {
+      const { osmSearchBusinesses } = await import("../_shared/osm.ts");
+      const res = await osmSearchBusinesses({
+        query: textQuery,
         latitude: centerLat,
         longitude: centerLng,
         radiusMeters: search.radius_meters,
-        pageToken,
+        maxResults,
       });
-      requestCount++;
+      collected = res.places;
+      requestCount = 1;
       await recordUsage(admin, {
         organizationId: search.organization_id,
         eventType: "place_search_request",
-        provider: "google_places",
+        provider: "overpass",
         quantity: 1,
-        metadata: { searchId, page },
+        metadata: { searchId },
       });
-      collected = collected.concat(res.places);
       await admin
         .from("searches")
-        .update({ provider_request_count: requestCount, found_count: collected.length })
+        .update({
+          provider_request_count: 1,
+          found_count: collected.length,
+          search_provider: "overpass",
+        })
         .eq("id", searchId);
-      if (!res.nextPageToken || collected.length >= maxResults) break;
-      pageToken = res.nextPageToken;
+    } else {
+      let pageToken: string | undefined;
+      for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
+        const res = await textSearch({
+          textQuery,
+          latitude: centerLat,
+          longitude: centerLng,
+          radiusMeters: search.radius_meters,
+          pageToken,
+        });
+        requestCount++;
+        await recordUsage(admin, {
+          organizationId: search.organization_id,
+          eventType: "place_search_request",
+          provider: "google_places",
+          quantity: 1,
+          metadata: { searchId, page },
+        });
+        collected = collected.concat(res.places);
+        await admin
+          .from("searches")
+          .update({ provider_request_count: requestCount, found_count: collected.length })
+          .eq("id", searchId);
+        if (!res.nextPageToken || collected.length >= maxResults) break;
+        pageToken = res.nextPageToken;
+      }
     }
 
     collected = collected.slice(0, maxResults);

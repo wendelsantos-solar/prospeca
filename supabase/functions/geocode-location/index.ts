@@ -25,14 +25,23 @@ Deno.serve(async (req) => {
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "geocode_request", 10);
 
+    // Strangler: OSM (Nominatim) only when explicitly enabled; Google remains
+    // the default. Dynamic import keeps the OSM module unloaded when flag is off.
+    const useOsm = Deno.env.get("USE_OSM_GEOCODER") === "true";
+
     if ("latitude" in parsed.data) {
-      const geo = await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
+      const geo = useOsm
+        ? await (await import("../_shared/osm.ts")).osmReverseGeocode(
+            parsed.data.latitude,
+            parsed.data.longitude,
+          )
+        : await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
       if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
       await recordUsage(ctx.adminClient, {
         organizationId: ctx.organizationId,
         userId: ctx.userId,
         eventType: "geocode_request",
-        provider: "google_geocoding",
+        provider: useOsm ? "nominatim" : "google_geocoding",
       });
       logEvent({ requestId, operation: "geocode-location", status: "ok" });
       return json({ ...geo, cached: false });
@@ -51,14 +60,16 @@ Deno.serve(async (req) => {
       return json({ label: cached.label, latitude: lat, longitude: lng, cached: true });
     }
 
-    const geo = await geocode(parsed.data.query);
+    const geo = useOsm
+      ? await (await import("../_shared/osm.ts")).osmGeocode(parsed.data.query)
+      : await geocode(parsed.data.query);
     if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
 
     await recordUsage(ctx.adminClient, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       eventType: "geocode_request",
-      provider: "google_geocoding",
+      provider: useOsm ? "nominatim" : "google_geocoding",
     });
     await ctx.adminClient.from("geocode_cache").upsert(
       {
