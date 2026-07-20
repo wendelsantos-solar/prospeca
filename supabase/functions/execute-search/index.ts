@@ -74,27 +74,82 @@ Deno.serve(async (req) => {
     const useOsm = Deno.env.get("USE_OSM_PLACES") === "true";
 
     if (useOsm) {
-      const { osmSearchBusinesses } = await import("../_shared/osm.ts");
-      const res = await osmSearchBusinesses({
-        query: textQuery,
+      const { placesCacheKey } = await import("../_shared/cache.ts");
+      const cacheKey = placesCacheKey({
+        provider: "overpass",
+        category: textQuery,
         latitude: centerLat,
         longitude: centerLng,
         radiusMeters: search.radius_meters,
-        maxResults,
       });
-      collected = res.places;
-      requestCount = 1;
-      await recordUsage(admin, {
-        organizationId: search.organization_id,
-        eventType: "place_search_request",
-        provider: "overpass",
-        quantity: 1,
-        metadata: { searchId },
-      });
+
+      // Cache: skip the external Overpass call when an equivalent recent search
+      // exists (region+category bucketed). TTL enforced via expires_at.
+      const { data: cachedRow } = await admin
+        .from("provider_search_cache")
+        .select("payload, hit_count")
+        .eq("cache_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (cachedRow?.payload) {
+        collected = cachedRow.payload as GooglePlace[];
+        requestCount = 0;
+        await admin
+          .from("provider_search_cache")
+          .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
+          .eq("cache_key", cacheKey);
+      } else {
+        const { osmSearchBusinesses } = await import("../_shared/osm.ts");
+        const { dedupeRecords } = await import("../_shared/dedup.ts");
+        const res = await osmSearchBusinesses({
+          query: textQuery,
+          latitude: centerLat,
+          longitude: centerLng,
+          radiusMeters: search.radius_meters,
+          maxResults,
+        });
+        // Overpass returns node + way for the same business; collapse duplicates
+        // by the multi-signal matcher before persisting.
+        const keep = new Set(
+          dedupeRecords(
+            res.places.map((p) => ({
+              id: p.id,
+              name: p.displayName?.text ?? "",
+              phone: p.nationalPhoneNumber ?? p.internationalPhoneNumber ?? null,
+              website: p.websiteUri ?? null,
+              latitude: p.location?.latitude ?? null,
+              longitude: p.location?.longitude ?? null,
+              externalId: p.id,
+              source: "overpass",
+            })),
+          ).map((r) => r.id),
+        );
+        collected = res.places.filter((p) => keep.has(p.id));
+        requestCount = 1;
+        await recordUsage(admin, {
+          organizationId: search.organization_id,
+          eventType: "place_search_request",
+          provider: "overpass",
+          quantity: 1,
+          metadata: { searchId },
+        });
+        await admin.from("provider_search_cache").upsert(
+          {
+            cache_key: cacheKey,
+            organization_id: search.organization_id,
+            provider: "overpass",
+            payload: collected,
+            result_count: collected.length,
+          },
+          { onConflict: "cache_key" },
+        );
+      }
+
       await admin
         .from("searches")
         .update({
-          provider_request_count: 1,
+          provider_request_count: requestCount,
           found_count: collected.length,
           search_provider: "overpass",
         })
