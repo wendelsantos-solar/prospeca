@@ -5,8 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { NICHES, RADIUS_OPTIONS, CITY_SUGGESTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
-import { useLeadsStore, useSettingsStore } from "@/stores";
+import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
 import { toast } from "sonner";
 import type { PresenceFilter } from "@/types";
 import { isRealMode } from "@/lib/env";
@@ -29,6 +31,42 @@ export interface SuggestSearchDetail {
   lng: number;
   presence: PresenceFilter;
   radiusKm?: number;
+}
+
+function GpsButton({
+  radiusKm,
+  onLocated,
+}: {
+  radiusKm: number;
+  onLocated: (label: string, lat: number, lng: number) => void;
+}) {
+  const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
+  const setLastLocation = useLocationStore((s) => s.setLastLocation);
+  const { status, request, supported } = useGeolocation((coords) => {
+    setPreviewLocation({ lat: coords.lat, lng: coords.lng, radiusKm, label: "Localizando..." });
+    onLocated("Localizando...", coords.lat, coords.lng);
+    reverseGeocodeCoords(coords.lat, coords.lng).then((resolved) => {
+      const label = resolved ?? "Minha localização";
+      setPreviewLocation({ lat: coords.lat, lng: coords.lng, radiusKm, label });
+      setLastLocation({ label, lat: coords.lat, lng: coords.lng });
+      onLocated(label, coords.lat, coords.lng);
+    });
+  });
+  if (!supported) return null;
+  return (
+    <button
+      type="button"
+      onClick={request}
+      className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline"
+    >
+      {status === "prompting" ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <MapPin className="h-3 w-3" />
+      )}
+      Usar minha localização
+    </button>
+  );
 }
 
 export function SearchForm() {
@@ -81,12 +119,21 @@ export function SearchForm() {
     run(payload);
   }
 
-  // Busca inicial + eventos globais (home page, histórico, retry).
+  // Eventos globais (home page, histórico, retry, geolocalização).
   useEffect(() => {
-    const s = useLeadsStore.getState();
-    if (!s.loaded) runSearch();
+    // Retornante: hidrata os campos com a última localização escolhida.
+    const last = useLocationStore.getState().lastLocation;
+    if (last) {
+      setLocation(last.label);
+      setLocCoords({ lat: last.lat, lng: last.lng });
+    }
 
     const onFocusNiche = () => nicheButtonRef.current?.focus();
+    const onGeoLocated = (e: Event) => {
+      const d = (e as CustomEvent<{ label: string; lat: number; lng: number }>).detail;
+      setLocation(d.label);
+      setLocCoords({ lat: d.lat, lng: d.lng });
+    };
     const onSuggest = (e: Event) => {
       const d = (e as CustomEvent<SuggestSearchDetail>).detail;
       setNiche(d.niche);
@@ -107,10 +154,12 @@ export function SearchForm() {
     window.addEventListener("focus-niche", onFocusNiche);
     window.addEventListener("suggest-search", onSuggest);
     window.addEventListener("retry-search", onRetry);
+    window.addEventListener("geo-located", onGeoLocated);
     return () => {
       window.removeEventListener("focus-niche", onFocusNiche);
       window.removeEventListener("suggest-search", onSuggest);
       window.removeEventListener("retry-search", onRetry);
+      window.removeEventListener("geo-located", onGeoLocated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -208,6 +257,13 @@ export function SearchForm() {
             </Command>
           </PopoverContent>
         </Popover>
+        <GpsButton
+          radiusKm={radius}
+          onLocated={(label, lat, lng) => {
+            setLocation(label);
+            setLocCoords({ lat, lng });
+          }}
+        />
       </div>
 
       <div className="space-y-1.5">
