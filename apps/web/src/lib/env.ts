@@ -17,7 +17,14 @@ interface Env {
   supabaseAnonKey: string | undefined;
   googleMapsBrowserKey: string | undefined;
   dataMode: DataMode;
+  mapTileUrl: string;
+  mapAttribution: string;
 }
+
+// OSM defaults — no vendor lock-in. Attribution is mandatory per tile TOS and
+// is always rendered on the map (never disable it).
+const DEFAULT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const DEFAULT_ATTRIBUTION = "© OpenStreetMap contributors";
 
 function readEnv(): Env {
   const rawMode = import.meta.env.VITE_DATA_MODE as string | undefined;
@@ -27,6 +34,10 @@ function readEnv(): Env {
     supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined,
     googleMapsBrowserKey: import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY as string | undefined,
     dataMode,
+    mapTileUrl:
+      (import.meta.env.VITE_MAP_TILE_URL as string | undefined)?.trim() || DEFAULT_TILE_URL,
+    mapAttribution:
+      (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined)?.trim() || DEFAULT_ATTRIBUTION,
   };
 }
 

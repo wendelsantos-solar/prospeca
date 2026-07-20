@@ -10,6 +10,7 @@ import { useMoveLeadMutation } from "@/hooks/useLeadsQuery";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
+import { env } from "@/lib/env";
 import { toast } from "sonner";
 
 const tempColor: Record<Lead["temperature"], string> = {
@@ -85,10 +86,13 @@ export function MapView({ leads }: { leads: Lead[] }) {
     try {
       const map = L.map(containerRef.current, {
         zoomControl: true,
-        attributionControl: false,
+        // Attribution is mandatory per tile provider TOS — always on.
+        attributionControl: true,
       }).setView([currentSearch?.latitude ?? -30.0346, currentSearch?.longitude ?? -51.2177], 13);
-      const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      // Tile source is configurable (VITE_MAP_TILE_URL) — no hardcoded provider.
+      const tiles = L.tileLayer(env.mapTileUrl, {
         maxZoom: 19,
+        attribution: env.mapAttribution,
       });
       tiles.on("tileerror", () => setMapError(true));
       tiles.on("load", () => {
