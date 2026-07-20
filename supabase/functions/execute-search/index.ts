@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
     }
 
     collected = collected.slice(0, maxResults);
+    const providerName = useOsm ? "overpass" : "google_places";
 
     // Cancelled mid-flight?
     const { data: fresh } = await admin
@@ -214,7 +215,7 @@ Deno.serve(async (req) => {
         .upsert(
           {
             organization_id: search.organization_id,
-            provider: "google_places",
+            provider: providerName,
             provider_place_id: place.id,
             name: place.displayName?.text ?? "Sem nome",
             primary_type: place.primaryType ?? null,
