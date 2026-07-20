@@ -84,7 +84,16 @@ export function SearchForm() {
   const [niche, setNiche] = useState("Clínica médica");
   const [location, setLocation] = useState("Porto Alegre, Rio Grande do Sul");
   const [locCoords, setLocCoords] = useState({ lat: -30.0346, lng: -51.2177 });
-  const [radius, setRadius] = useState<number>(defaultRadius);
+  const radiusFromDefault = RADIUS_OPTIONS.indexOf(defaultRadius as (typeof RADIUS_OPTIONS)[number]);
+  const [sliderIndex, setSliderIndex] = useState(radiusFromDefault === -1 ? 2 : radiusFromDefault);
+  const radius = RADIUS_OPTIONS[sliderIndex]!;
+
+  // Sincroniza com hidratação assíncrona do Zustand (localStorage)
+  useEffect(() => {
+    const idx = RADIUS_OPTIONS.indexOf(defaultRadius as (typeof RADIUS_OPTIONS)[number]);
+    if (idx !== -1) setSliderIndex(idx);
+  }, [defaultRadius]);
+
   const [presence, setPresence] = useState<PresenceFilter>(defaultPresence);
   const [nicheOpen, setNicheOpen] = useState(false);
   const [locOpen, setLocOpen] = useState(false);
@@ -277,8 +286,8 @@ export function SearchForm() {
           <span className="text-xs font-semibold tabular-nums">{radius} km</span>
         </div>
         <Slider
-          value={[Math.max(0, RADIUS_OPTIONS.indexOf(radius as (typeof RADIUS_OPTIONS)[number]))]}
-          onValueChange={(v) => setRadius(RADIUS_OPTIONS[v[0]!])}
+          value={[sliderIndex]}
+          onValueChange={(v) => setSliderIndex(v[0]!)}
           min={0}
           max={RADIUS_OPTIONS.length - 1}
           step={1}

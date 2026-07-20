@@ -6,6 +6,7 @@ import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { hasRealWebsite } from "../_shared/normalize.ts";
+import { readPoint } from "../_shared/geo.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
 
@@ -58,11 +59,12 @@ Deno.serve(async (req) => {
       .update({ status: "searching", started_at: new Date().toISOString() })
       .eq("id", searchId);
 
-    // center comes back as GeoJSON via PostgREST
-    const [centerLng, centerLat] = (search.center?.coordinates ?? [null, null]) as [number, number];
-    if (centerLat == null) throw new AppError("INVALID_LOCATION", "Centro da busca inválido.");
+    // PostgREST returns geography(point) as hex EWKB, not GeoJSON — decode it.
+    const center = readPoint(search.center);
+    if (!center) throw new AppError("INVALID_LOCATION", "Centro da busca inválido.");
+    const [centerLng, centerLat] = center;
 
-    const maxResults: number = search.max_results ?? 20;
+    const maxResults: number = search.max_results ?? 60;
     let pageToken: string | undefined;
     let requestCount = 0;
     let collected: GooglePlace[] = [];

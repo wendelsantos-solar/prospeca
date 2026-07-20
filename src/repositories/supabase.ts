@@ -158,7 +158,7 @@ export class SupabaseLeadRepository implements LeadRepository {
   async list(input: ListLeadsInput): Promise<PaginatedResult<Lead>> {
     const supabase = getSupabase();
     const page = input.page ?? 1;
-    const pageSize = Math.min(input.pageSize ?? 50, 100);
+    const pageSize = Math.min(input.pageSize ?? 50, 500);
     const from = (page - 1) * pageSize;
 
     let query = supabase

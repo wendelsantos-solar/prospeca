@@ -40,14 +40,25 @@ export const searchService = {
     await delay(400);
     maybeFail();
 
-    // Filter mock leads to those "reasonably close" to the location; if none, take a slice.
-    const results = MOCK_LEADS.map((l) => ({
+    // Calcula distância de todos os leads mock para o centro da busca
+    const withDistance = MOCK_LEADS.map((l) => ({
       ...l,
       distanceKm: Number(
         haversine(input.latitude, input.longitude, l.latitude, l.longitude).toFixed(1),
       ),
-    }))
-      .filter((l) => l.distanceKm <= input.radiusKm)
+    }));
+
+    // Filtro por raio (opcional: se raio for muito restritivo, ordena por distância como fallback)
+    const withinRadius = withDistance.filter((l) => l.distanceKm <= input.radiusKm);
+
+    // Se o raio capturou poucos leads, expande para os mais próximos (sem limite artificial)
+    const base = withinRadius.length >= 10
+      ? withinRadius
+      : withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    // Aplica filtros de presença digital e nicho (match parcial, determinístico)
+    const nicheLower = input.niche.toLowerCase();
+    const final = base
       .filter((l) =>
         input.presence === "no-website"
           ? !l.hasWebsite
@@ -57,30 +68,10 @@ export const searchService = {
       )
       .filter(
         (l) =>
-          l.category.toLowerCase().includes(input.niche.toLowerCase()) ||
-          input.niche === "" ||
-          Math.random() > 0.3,
+          nicheLower === "" ||
+          l.category.toLowerCase().includes(nicheLower) ||
+          l.companyName.toLowerCase().includes(nicheLower),
       );
-
-    // Ensure at least 15 leads to make the demo feel populated: fall back to nearest N regardless of radius
-    let final = results;
-    if (final.length < 15) {
-      final = MOCK_LEADS.map((l) => ({
-        ...l,
-        distanceKm: Number(
-          haversine(input.latitude, input.longitude, l.latitude, l.longitude).toFixed(1),
-        ),
-      }))
-        .sort((a, b) => a.distanceKm - b.distanceKm)
-        .slice(0, 30)
-        .filter((l) =>
-          input.presence === "no-website"
-            ? !l.hasWebsite
-            : input.presence === "with-website"
-              ? l.hasWebsite
-              : true,
-        );
-    }
 
     const withoutSite = final.filter((l) => !l.hasWebsite).length;
     const enriched = final.filter((l) => l.phone || l.whatsapp || l.email).length;

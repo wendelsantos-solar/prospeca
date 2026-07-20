@@ -6,6 +6,7 @@ import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
+import { readPoint } from "../_shared/geo.ts";
 
 const InputSchema = z.object({
   query: z.string().min(2).max(120),
@@ -61,8 +62,9 @@ Deno.serve(async (req) => {
             .gt("expires_at", new Date().toISOString())
             .maybeSingle();
 
-          if (cached?.location?.coordinates) {
-            [longitude, latitude] = cached.location.coordinates as [number, number];
+          const cachedPoint = cached?.location ? readPoint(cached.location) : null;
+          if (cachedPoint) {
+            [longitude, latitude] = cachedPoint;
           } else {
             const geo = await geocode(input.location.label);
             if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
             presence_filter: input.presenceFilter,
             status: "queued",
             provider: "google_places",
-            max_results: Math.min(input.maxResults ?? 20, 60),
+            max_results: Math.min(input.maxResults ?? 60, 60),
           })
           .select("id, status")
           .single();

@@ -66,9 +66,9 @@ function KanbanPage() {
   const { data, isLoading } = useLeadsList(filters, sort);
   const allLeads = useMemo(() => data?.items ?? [], [data]);
 
-  const cities = useMemo(() => [...new Set(allLeads.map((l) => l.city))].sort(), [allLeads]);
+  const cities = useMemo(() => [...new Set(allLeads.map((l) => l.city).filter(Boolean))].sort(), [allLeads]);
   const categories = useMemo(
-    () => [...new Set(allLeads.map((l) => l.category))].sort(),
+    () => [...new Set(allLeads.map((l) => l.category).filter(Boolean))].sort(),
     [allLeads],
   );
 
