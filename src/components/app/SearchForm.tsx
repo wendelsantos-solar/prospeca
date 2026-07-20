@@ -52,6 +52,11 @@ function GpsButton({
       onLocated(label, coords.lat, coords.lng);
     });
   });
+  useEffect(() => {
+    if (status === "denied" || status === "error") {
+      toast.error("Sem acesso à localização — escolha uma cidade.");
+    }
+  }, [status]);
   if (!supported) return null;
   return (
     <button
