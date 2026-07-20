@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo } from "react";
-import { useLeadsStore } from "@/stores";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { applyFilters, sortLeads } from "@/lib/filters";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { HOME_SUGGESTIONS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { MapIcon, Search, Sparkles, Loader2 } from "lucide-react";
+import { LocationPrompt } from "@/components/app/LocationPrompt";
 import type { SuggestSearchDetail } from "@/components/app/SearchForm";
 
 const MapView = lazy(() =>
@@ -101,6 +102,26 @@ function MapaPage() {
   const searching = useLeadsStore((s) => s.searching);
   const searchError = useLeadsStore((s) => s.searchError);
   const setSearchError = useLeadsStore((s) => s.setSearchError);
+  const previewLocation = useLeadsStore((s) => s.previewLocation);
+  const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
+  const lastLocation = useLocationStore((s) => s.lastLocation);
+  const defaultRadius = useSettingsStore((s) => s.defaultRadius);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+
+  // On mount: hydrate preview from saved location (returning user); otherwise the
+  // prompt card will be shown.
+  useEffect(() => {
+    const s = useLeadsStore.getState();
+    if (s.loaded || s.previewLocation) return;
+    if (lastLocation) {
+      setPreviewLocation({
+        lat: lastLocation.lat,
+        lng: lastLocation.lng,
+        radiusKm: defaultRadius,
+        label: lastLocation.label,
+      });
+    }
+  }, [lastLocation, setPreviewLocation, defaultRadius]);
 
   // CRM real — leads now come from TanStack Query (Phase 3)
   const { data } = useLeadsList(filters, sort);
@@ -129,6 +150,25 @@ function MapaPage() {
   }
 
   if (!loaded && allLeads.length === 0) {
+    const showPrompt = !lastLocation && !previewLocation && !promptDismissed;
+    if (previewLocation || showPrompt) {
+      return (
+        <div className="relative h-full w-full">
+          <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
+            <MapView leads={[]} />
+          </Suspense>
+          {showPrompt && (
+            <LocationPrompt
+              onDismiss={() => setPromptDismissed(true)}
+              onPickCity={() => {
+                setPromptDismissed(true);
+                window.dispatchEvent(new CustomEvent("focus-niche"));
+              }}
+            />
+          )}
+        </div>
+      );
+    }
     return <HomeState />;
   }
 
