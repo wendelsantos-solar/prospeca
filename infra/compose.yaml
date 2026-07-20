@@ -1,0 +1,30 @@
+# Local infra for the leads platform.
+#
+# The backend is Supabase (Postgres + PostGIS + Auth + Edge Functions). For the
+# full local stack use the Supabase CLI (`supabase start`), which manages
+# Postgres, Auth, Storage, Studio and the Edge runtime together — that is the
+# recommended path (see docs/local-development.md).
+#
+# This compose file is a lightweight fallback that brings up ONLY Postgres+PostGIS
+# for package/integration tests when you don't need the whole Supabase stack.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: leads_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: leads
+    ports:
+      - "54322:5432"
+    volumes:
+      - leads_db_data:/var/lib/postgresql/data
+      - ../supabase/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  leads_db_data:
