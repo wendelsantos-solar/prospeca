@@ -68,6 +68,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const previewLocation = useLeadsStore((s) => s.previewLocation);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setFocused = useLeadsStore((s) => s.setFocused);
   const setDetails = useLeadsStore((s) => s.setDetails);
@@ -157,6 +158,34 @@ export function MapView({ leads }: { leads: Lead[] }) {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || currentSearch || !previewLocation) return;
+    const { lat, lng, radiusKm } = previewLocation;
+    map.setView([lat, lng], 13);
+    if (circleRef.current) {
+      map.removeLayer(circleRef.current);
+      circleRef.current = null;
+    }
+    if (showCircle) {
+      circleRef.current = L.circle([lat, lng], {
+        radius: radiusKm * 1000,
+        color: "oklch(0.58 0.14 155)",
+        fillColor: "oklch(0.58 0.14 155)",
+        fillOpacity: 0.06,
+        weight: 1.5,
+      }).addTo(map);
+    }
+    if (centerRef.current) map.removeLayer(centerRef.current);
+    centerRef.current = L.marker([lat, lng], {
+      icon: L.divIcon({
+        html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
+        className: "",
+        iconSize: [12, 12],
+      }),
+    }).addTo(map);
+  }, [previewLocation, currentSearch, showCircle]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     const cluster = clusterRef.current;
     if (!map || !cluster) return;
     cluster.clearLayers();
@@ -240,7 +269,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
   );
 
   return (
-    <div className={`relative h-full w-full ${mapDark ? "map-dark" : ""}`}>
+    <div className={`relative isolate h-full w-full ${mapDark ? "map-dark" : ""}`}>
       <div
         ref={containerRef}
         className="h-full w-full"
