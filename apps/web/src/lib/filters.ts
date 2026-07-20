@@ -1,7 +1,8 @@
 import type { Lead, LeadFilters } from "@/types";
 import type { SortValue } from "@/lib/constants";
+import { env } from "@/lib/env";
 
-export const QUICK_FILTERS = [
+const ALL_QUICK_FILTERS = [
   { id: "whatsapp", label: "WhatsApp", predicate: (l: Lead) => !!l.whatsapp },
   { id: "phone", label: "Telefone", predicate: (l: Lead) => !!l.phone },
   { id: "instagram", label: "Instagram", predicate: (l: Lead) => !!l.instagram },
@@ -15,6 +16,12 @@ export const QUICK_FILTERS = [
   { id: "uncontacted", label: "Não contatado", predicate: (l: Lead) => l.stage === "new" },
   { id: "has-value", label: "Com valor", predicate: (l: Lead) => (l.estimatedValue ?? 0) > 0 },
 ];
+
+// OSM/Overpass provides no ratings — hide the rating chip so users don't
+// accidentally filter every result out (as happens with "Nota > 4" on OSM data).
+export const QUICK_FILTERS = env.useOsm
+  ? ALL_QUICK_FILTERS.filter((f) => f.id !== "rating-4")
+  : ALL_QUICK_FILTERS;
 
 export function applyFilters(leads: Lead[], filters: LeadFilters): Lead[] {
   return leads.filter((l) => {

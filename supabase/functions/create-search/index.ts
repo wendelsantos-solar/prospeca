@@ -19,7 +19,7 @@ const InputSchema = z.object({
   }),
   radiusMeters: z.number().int().min(100).max(100000),
   presenceFilter: z.enum(["without_website", "with_website", "all"]),
-  maxResults: z.number().int().min(1).max(60).optional(),
+  maxResults: z.number().int().min(1).max(500).optional(),
 });
 
 Deno.serve(async (req) => {
@@ -105,7 +105,13 @@ Deno.serve(async (req) => {
             presence_filter: input.presenceFilter,
             status: "queued",
             provider: "google_places",
-            max_results: Math.min(input.maxResults ?? 60, 60),
+            // OSM/Overpass has no per-result cost -> higher ceiling than Google.
+            // Override with SEARCH_MAX_RESULTS.
+            max_results: (() => {
+              const osm = Deno.env.get("USE_OSM_PLACES") === "true";
+              const cap = Number(Deno.env.get("SEARCH_MAX_RESULTS") ?? (osm ? 300 : 60));
+              return Math.min(input.maxResults ?? cap, cap);
+            })(),
           })
           .select("id, status")
           .single();
