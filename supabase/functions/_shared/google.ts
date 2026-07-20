@@ -168,3 +168,44 @@ export async function geocode(query: string): Promise<{
     longitude: first.geometry.location.lng,
   };
 }
+
+type AddressComponent = { long_name: string; short_name: string; types: string[] };
+
+/** Monta "Bairro, Cidade" a partir dos address_components do Geocoding. */
+export function buildReverseLabel(
+  components: AddressComponent[],
+  formattedAddress: string,
+): string {
+  const pick = (...types: string[]) =>
+    components.find((c) => types.some((t) => c.types.includes(t)))?.long_name;
+
+  const neighborhood = pick("sublocality_level_1", "sublocality", "neighborhood");
+  const city = pick("administrative_area_level_2", "locality");
+  const state = pick("administrative_area_level_1");
+
+  if (neighborhood && city) return `${neighborhood}, ${city}`;
+  if (city && state) return `${city}, ${state}`;
+  if (city) return city;
+  return formattedAddress;
+}
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<{ label: string; latitude: number; longitude: number } | null> {
+  const url = new URL(GEOCODE_BASE);
+  url.searchParams.set("latlng", `${lat},${lng}`);
+  url.searchParams.set("region", "br");
+  url.searchParams.set("language", "pt-BR");
+  url.searchParams.set("key", serverKey());
+  const res = await fetch(url);
+  if (!res.ok) throw new AppError("PROVIDER_UNAVAILABLE", "Falha na geocodificação reversa.");
+  const data = await res.json();
+  const first = data.results?.[0];
+  if (!first) return null;
+  return {
+    label: buildReverseLabel(first.address_components ?? [], first.formatted_address ?? ""),
+    latitude: lat,
+    longitude: lng,
+  };
+}

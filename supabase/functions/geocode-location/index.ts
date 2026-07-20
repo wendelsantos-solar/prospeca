@@ -3,9 +3,15 @@ import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
-import { geocode } from "../_shared/google.ts";
+import { geocode, reverseGeocode } from "../_shared/google.ts";
 
-const InputSchema = z.object({ query: z.string().min(2).max(200) });
+const InputSchema = z.union([
+  z.object({ query: z.string().min(2).max(200) }),
+  z.object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+  }),
+]);
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);
@@ -18,6 +24,19 @@ Deno.serve(async (req) => {
     if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Consulta inválida.");
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "geocode_request", 10);
+
+    if ("latitude" in parsed.data) {
+      const geo = await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
+      if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
+      await recordUsage(ctx.adminClient, {
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        eventType: "geocode_request",
+        provider: "google_geocoding",
+      });
+      logEvent({ requestId, operation: "geocode-location", status: "ok" });
+      return json({ ...geo, cached: false });
+    }
 
     const normalized = parsed.data.query.trim().toLowerCase();
     const { data: cached } = await ctx.adminClient
