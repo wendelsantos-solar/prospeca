@@ -135,9 +135,12 @@ export function LeadDetailsDrawer() {
     <Sheet open={!!detailsId} onOpenChange={(v) => !v && setDetails(null)}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+          <>
+            <SheetTitle className="sr-only">Carregando lead…</SheetTitle>
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          </>
         ) : lead ? (
           <>
             <div className="border-b p-5">
@@ -594,7 +597,9 @@ export function LeadDetailsDrawer() {
               </TabsContent>
             </Tabs>
           </>
-        ) : null}
+        ) : (
+          <SheetTitle className="sr-only">Lead não encontrado</SheetTitle>
+        )}
       </SheetContent>
     </Sheet>
   );

@@ -23,6 +23,8 @@ function ssrStubLeaflet() {
 }
 
 export default defineConfig({
+  // Monorepo: env files live at the repo root, not in apps/web.
+  envDir: `${import.meta.dirname}/../..`,
   plugins: [
     ssrStubLeaflet(),
     tanstackStart({
