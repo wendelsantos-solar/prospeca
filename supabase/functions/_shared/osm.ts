@@ -71,10 +71,14 @@ export async function osmReverseGeocode(
 
 // ── Overpass business discovery ─────────────────────────────────────────────
 const CATEGORY_SELECTORS: Record<string, string[]> = {
+  barbe: ["shop=hairdresser"], // barbearia / barbeiro
+  cabele: ["shop=hairdresser"], // cabeleireiro
   clinica: ["amenity=clinic", "amenity=doctors", "healthcare=clinic"],
   medic: ["amenity=doctors", "amenity=clinic"],
   dentist: ["amenity=dentist", "healthcare=dentist"],
   restaurant: ["amenity=restaurant"],
+  lanchonete: ["amenity=fast_food"],
+  padaria: ["shop=bakery"],
   bar: ["amenity=bar", "amenity=pub"],
   farmacia: ["amenity=pharmacy"],
   pharmac: ["amenity=pharmacy"],
@@ -83,8 +87,10 @@ const CATEGORY_SELECTORS: Record<string, string[]> = {
   loja: ['shop~"."'],
   salao: ["shop=hairdresser", "shop=beauty"],
   beleza: ["shop=beauty", "shop=hairdresser"],
+  estetica: ["shop=beauty"],
   pet: ["shop=pet", "amenity=veterinary"],
   veterin: ["amenity=veterinary"],
+  oficina: ["shop=car_repair"],
   escola: ["amenity=school"],
   advocacia: ["office=lawyer"],
   contabil: ["office=accountant"],
@@ -101,10 +107,11 @@ function normalizeCategory(query: string): string {
 }
 
 function selectorsFor(query: string): string[] {
-  const q = normalizeCategory(query);
+  // Word-based match so "barbearia" doesn't match the "bar" keyword.
+  const words = normalizeCategory(query).split(" ").filter(Boolean);
   const matched: string[] = [];
   for (const [kw, sels] of Object.entries(CATEGORY_SELECTORS)) {
-    if (q.includes(kw)) matched.push(...sels);
+    if (words.some((w) => w === kw || (kw.length >= 4 && w.startsWith(kw)))) matched.push(...sels);
   }
   if (matched.length) return [...new Set(matched)];
   const safe = query.replace(/["\\]/g, "");

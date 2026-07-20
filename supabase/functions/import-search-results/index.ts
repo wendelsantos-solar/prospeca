@@ -3,7 +3,8 @@
 // Never overwrites commercial data on existing leads.
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
-import { requireAuth } from "../_shared/auth.ts";
+import { adminClient, requireAuth } from "../_shared/auth.ts";
+import { readPoint } from "../_shared/geo.ts";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import {
@@ -27,11 +28,39 @@ Deno.serve(async (req) => {
   const requestId = newRequestId();
 
   try {
-    const ctx = await requireAuth(req);
-    const parsed = InputSchema.safeParse(await req.json());
+    const raw = await req.json();
+    const parsed = InputSchema.safeParse(raw);
     if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Entrada inválida.");
     const input = parsed.data;
     const idempotencyKey = req.headers.get("x-idempotency-key");
+
+    // Internal (service-role) calls — e.g. auto-import fired by execute-search —
+    // carry org/user in the body and skip requireAuth.
+    const internal =
+      (req.headers.get("Authorization") ?? "") ===
+      `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+    let ctx: {
+      adminClient: ReturnType<typeof adminClient>;
+      userClient: ReturnType<typeof adminClient>;
+      organizationId: string;
+      userId: string;
+    };
+    if (internal) {
+      const admin = adminClient();
+      const organizationId = raw.organizationId as string | undefined;
+      const userId = raw.userId as string | undefined;
+      if (!organizationId || !userId)
+        throw new AppError("VALIDATION_ERROR", "organizationId/userId obrigatórios (interno).");
+      ctx = { adminClient: admin, userClient: admin, organizationId, userId };
+    } else {
+      const authed = await requireAuth(req);
+      ctx = {
+        adminClient: authed.adminClient,
+        userClient: authed.userClient,
+        organizationId: authed.organizationId,
+        userId: authed.userId,
+      };
+    }
 
     const result = await withIdempotency(
       ctx.adminClient,
@@ -60,7 +89,7 @@ Deno.serve(async (req) => {
         let duplicates = 0;
 
         for (const row of results ?? []) {
-          const place = row.places as Record<string, unknown> | null;
+          const place = row.places as unknown as Record<string, unknown> | null;
           if (!place) continue;
 
           const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as
@@ -109,7 +138,8 @@ Deno.serve(async (req) => {
           }
 
           const websiteReal = hasRealWebsite(place.website_uri as string | null);
-          const coords = (place.location as { coordinates?: [number, number] } | null)?.coordinates;
+          // PostgREST serializes geography as hex EWKB, not GeoJSON — decode it.
+          const coords = readPoint(place.location); // [lng, lat] | null
           const breakdown = calculateScore({
             hasWebsite: websiteReal,
             hasValidPhone: phone?.isValid ?? false,

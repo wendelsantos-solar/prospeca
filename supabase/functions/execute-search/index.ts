@@ -261,6 +261,28 @@ Deno.serve(async (req) => {
       })
       .eq("id", searchId);
 
+    // Auto-materialize leads from this search (default on; set
+    // AUTO_IMPORT_LEADS=false to keep import as a manual user action).
+    if (Deno.env.get("AUTO_IMPORT_LEADS") !== "false") {
+      try {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/import-search-results`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            searchId,
+            importAll: true,
+            organizationId: search.organization_id,
+            userId: search.created_by,
+          }),
+        });
+      } catch (_e) {
+        // Non-fatal: leads can still be imported manually from the UI.
+      }
+    }
+
     logEvent({
       requestId,
       searchId,
