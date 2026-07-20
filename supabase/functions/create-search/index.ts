@@ -66,7 +66,12 @@ Deno.serve(async (req) => {
           if (cachedPoint) {
             [longitude, latitude] = cachedPoint;
           } else {
-            const geo = await geocode(input.location.label);
+            // Strangler: OSM (Nominatim) when enabled; Google default. Dynamic
+            // import keeps the OSM module unloaded when the flag is off.
+            const useOsmGeo = Deno.env.get("USE_OSM_GEOCODER") === "true";
+            const geo = useOsmGeo
+              ? await (await import("../_shared/osm.ts")).osmGeocode(input.location.label)
+              : await geocode(input.location.label);
             if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
             latitude = geo.latitude;
             longitude = geo.longitude;
@@ -74,7 +79,7 @@ Deno.serve(async (req) => {
               organizationId: ctx.organizationId,
               userId: ctx.userId,
               eventType: "geocode_request",
-              provider: "google_geocoding",
+              provider: useOsmGeo ? "nominatim" : "google_geocoding",
             });
             await ctx.adminClient.from("geocode_cache").upsert(
               {
