@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -64,7 +64,7 @@ const stageColor: Record<LeadStage, string> = {
   discarded: "border-t-destructive",
 };
 
-function KanbanCard({
+const KanbanCard = memo(function KanbanCard({
   lead,
   density,
   overlay,
@@ -79,7 +79,7 @@ function KanbanCard({
   });
   const setDetails = useLeadsStore((s) => s.setDetails);
   const bulkMode = useLeadsStore((s) => s.bulkMode);
-  const selectedIds = useLeadsStore((s) => s.selectedIds);
+  const isSelected = useLeadsStore((s) => s.selectedIds.includes(lead.id));
   const toggleSelect = useLeadsStore((s) => s.toggleSelect);
   const setPendingWin = useLeadsStore((s) => s.setPendingWin);
   const setPendingDiscard = useLeadsStore((s) => s.setPendingDiscard);
@@ -113,7 +113,7 @@ function KanbanCard({
         <div className="flex items-start gap-1.5 min-w-0">
           {bulkMode && (
             <Checkbox
-              checked={selectedIds.includes(lead.id)}
+              checked={isSelected}
               onCheckedChange={() => {
                 const r = toggleSelect(lead.id, bulkLimit);
                 if (r === "limit") toast.warning(`Limite de ${bulkLimit} selecionados atingido`);
@@ -211,7 +211,7 @@ function KanbanCard({
       </div>
     </Card>
   );
-}
+});
 
 function KanbanColumn({
   stage,
