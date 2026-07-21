@@ -84,7 +84,9 @@ export function SearchForm() {
   const [niche, setNiche] = useState("Clínica médica");
   const [location, setLocation] = useState("Porto Alegre, Rio Grande do Sul");
   const [locCoords, setLocCoords] = useState({ lat: -30.0346, lng: -51.2177 });
-  const radiusFromDefault = RADIUS_OPTIONS.indexOf(defaultRadius as (typeof RADIUS_OPTIONS)[number]);
+  const radiusFromDefault = RADIUS_OPTIONS.indexOf(
+    defaultRadius as (typeof RADIUS_OPTIONS)[number],
+  );
   const [sliderIndex, setSliderIndex] = useState(radiusFromDefault === -1 ? 2 : radiusFromDefault);
   const radius = RADIUS_OPTIONS[sliderIndex]!;
 
@@ -154,7 +156,10 @@ export function SearchForm() {
       setLocation(d.location);
       setLocCoords({ lat: d.lat, lng: d.lng });
       setPresence(d.presence);
-      if (d.radiusKm) setRadius(d.radiusKm);
+      if (d.radiusKm) {
+        const idx = RADIUS_OPTIONS.indexOf(d.radiusKm as (typeof RADIUS_OPTIONS)[number]);
+        if (idx !== -1) setSliderIndex(idx);
+      }
       runSearch({
         niche: d.niche,
         location: d.location,
