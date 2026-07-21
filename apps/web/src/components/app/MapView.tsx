@@ -7,6 +7,7 @@ import "leaflet.markercluster";
 import type { Lead } from "@/types";
 import { useLeadsStore, useSearchDraftStore } from "@/stores";
 import { distanceKm } from "@/lib/geo";
+import { RadarPill } from "./RadarPill";
 import { useMoveLeadMutation } from "@/hooks/useLeadsQuery";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
@@ -114,6 +115,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
       });
       map.addLayer(cluster);
       clusterRef.current = cluster;
+      const setDraft = useSearchDraftStore.getState().setDraft;
       const updateVisible = () => {
         const bounds = map.getBounds();
         let count = 0;
@@ -122,7 +124,12 @@ export function MapView({ leads }: { leads: Lead[] }) {
         });
         setVisibleCount(count);
       };
+      const syncCenterToDraft = () => {
+        const c = map.getCenter();
+        setDraft({ coords: { lat: c.lat, lng: c.lng } });
+      };
       map.on("moveend zoomend", updateVisible);
+      map.on("moveend", syncCenterToDraft);
       mapRef.current = map;
       return () => {
         map.remove();
@@ -314,6 +321,8 @@ export function MapView({ leads }: { leads: Lead[] }) {
         role="application"
         aria-label="Mapa de leads"
       />
+
+      <RadarPill onSearch={() => window.dispatchEvent(new CustomEvent("radar-search"))} />
 
       {(searching || !mapReady) && !mapError && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-background/60 backdrop-blur-sm">

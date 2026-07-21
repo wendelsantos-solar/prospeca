@@ -7,6 +7,7 @@ import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSearchDraftStore } from "@/stores";
 import { distanceKm } from "@/lib/geo";
+import { useIsDirty } from "@/hooks/useIsDirty";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
@@ -100,6 +101,9 @@ export function SearchForm() {
     [leads, draft.coords.lat, draft.coords.lng, draft.radiusKm],
   );
 
+  const { dirty } = useIsDirty();
+  const hasResults = useLeadsStore((s) => s.currentSearch) != null;
+
   const [nicheOpen, setNicheOpen] = useState(false);
   const [locOpen, setLocOpen] = useState(false);
   const nicheButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -169,14 +173,17 @@ export function SearchForm() {
       });
     };
     const onRetry = () => runSearch();
+    const onRadarSearch = () => runSearch();
     window.addEventListener("focus-niche", onFocusNiche);
     window.addEventListener("suggest-search", onSuggest);
     window.addEventListener("retry-search", onRetry);
+    window.addEventListener("radar-search", onRadarSearch);
     window.addEventListener("geo-located", onGeoLocated);
     return () => {
       window.removeEventListener("focus-niche", onFocusNiche);
       window.removeEventListener("suggest-search", onSuggest);
       window.removeEventListener("retry-search", onRetry);
+      window.removeEventListener("radar-search", onRadarSearch);
       window.removeEventListener("geo-located", onGeoLocated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,10 +349,17 @@ export function SearchForm() {
         onClick={() => runSearch()}
         disabled={loading}
         size="lg"
-        className="w-full gap-2 shadow-elegant"
+        className={cn(
+          "w-full gap-2 shadow-elegant",
+          dirty && hasResults && "bg-amber-500 hover:bg-amber-600 text-white",
+        )}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-        {loading ? "Buscando empresas..." : "Buscar empresas"}
+        {loading
+          ? "Buscando empresas..."
+          : dirty && hasResults
+            ? "Atualizar busca"
+            : "Buscar empresas"}
       </Button>
 
       {progress && (
