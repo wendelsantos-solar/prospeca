@@ -5,7 +5,8 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { Lead } from "@/types";
-import { useLeadsStore } from "@/stores";
+import { useLeadsStore, useSearchDraftStore } from "@/stores";
+import { distanceKm } from "@/lib/geo";
 import { useMoveLeadMutation } from "@/hooks/useLeadsQuery";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
@@ -70,6 +71,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
   const centerRef = useRef<L.Marker | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
+  const draft = useSearchDraftStore((s) => s.draft);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setFocused = useLeadsStore((s) => s.setFocused);
   const setDetails = useLeadsStore((s) => s.setDetails);
@@ -188,6 +190,26 @@ export function MapView({ leads }: { leads: Lead[] }) {
     }).addTo(map);
   }, [previewLocation, currentSearch, showCircle]);
 
+  // Live draft circle: redraws while the user drags the radius slider / edits
+  // location, before any (paid) search runs. Cheap, client-only.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showCircle) return;
+    const center: [number, number] = [draft.coords.lat, draft.coords.lng];
+    if (circleRef.current) {
+      circleRef.current.setLatLng(center);
+      circleRef.current.setRadius(draft.radiusKm * 1000);
+    } else {
+      circleRef.current = L.circle(center, {
+        radius: draft.radiusKm * 1000,
+        color: "oklch(0.58 0.14 155)",
+        fillColor: "oklch(0.58 0.14 155)",
+        fillOpacity: 0.06,
+        weight: 1.5,
+      }).addTo(map);
+    }
+  }, [draft.coords.lat, draft.coords.lng, draft.radiusKm, showCircle]);
+
   useEffect(() => {
     const map = mapRef.current;
     const cluster = clusterRef.current;
@@ -199,6 +221,9 @@ export function MapView({ leads }: { leads: Lead[] }) {
         "click",
         () => setFocused(l.id),
       );
+      const within =
+        distanceKm(draft.coords, { lat: l.latitude, lng: l.longitude }) <= draft.radiusKm;
+      m.setOpacity(within ? 1 : 0.25);
       m.bindPopup(popupHtml(l));
       m.on("popupopen", () => {
         // Use event delegation on the popup container — more reliable than
@@ -238,7 +263,16 @@ export function MapView({ leads }: { leads: Lead[] }) {
       markersRef.current.set(l.id, m);
     });
     setVisibleCount(leads.length);
-  }, [leads, focusedId, setFocused, setDetails, moveMutation]);
+  }, [
+    leads,
+    focusedId,
+    setFocused,
+    setDetails,
+    moveMutation,
+    draft.coords.lat,
+    draft.coords.lng,
+    draft.radiusKm,
+  ]);
 
   useEffect(() => {
     if (!focusedId) return;
