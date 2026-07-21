@@ -93,14 +93,14 @@ Após o baseline ficar verde, o knip apontou 43 exports sem consumidores. Removi
 
 ### 9b. App-level — provavelmente features planejadas (mid-refactor)
 
-| Símbolo | Arquivo | Suspeita |
-|---|---|---|
-| `signOut`, `getSessionOrNull` | `hooks/useAuth.ts` | 0 usos — mas `signOut` = **logout ainda não conectado** (provável feature faltando, não código morto) |
-| `useUpdateLeadMutation` | `hooks/useLeadsQuery.ts` | 0 usos — provável edição de lead planejada |
-| `LeadCardSkeleton`, `MetricCardSkeleton`, `DashboardSkeleton`, `DetailsSkeleton` | `components/shared/Skeletons.tsx` | 0 usos — loading states planejados |
-| `featureFlags` | `lib/env.ts` | 0 usos — infra de flags (scaffolding) |
-| `MESSAGE_CHAR_LIMIT` | `components/app/message-template/constants.tsx` | exportado, usado só internamente |
-| `applyPresenceFilter` (função em `stores/index.ts`) | `stores/index.ts:457` | 0 callers após remover o re-export; pode ser util planejada |
+| Símbolo                                                                          | Arquivo                                         | Suspeita                                                                                              |
+| -------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `signOut`, `getSessionOrNull`                                                    | `hooks/useAuth.ts`                              | 0 usos — mas `signOut` = **logout ainda não conectado** (provável feature faltando, não código morto) |
+| `useUpdateLeadMutation`                                                          | `hooks/useLeadsQuery.ts`                        | 0 usos — provável edição de lead planejada                                                            |
+| `LeadCardSkeleton`, `MetricCardSkeleton`, `DashboardSkeleton`, `DetailsSkeleton` | `components/shared/Skeletons.tsx`               | 0 usos — loading states planejados                                                                    |
+| `featureFlags`                                                                   | `lib/env.ts`                                    | 0 usos — infra de flags (scaffolding)                                                                 |
+| `MESSAGE_CHAR_LIMIT`                                                             | `components/app/message-template/constants.tsx` | exportado, usado só internamente                                                                      |
+| `applyPresenceFilter` (função em `stores/index.ts`)                              | `stores/index.ts:457`                           | 0 callers após remover o re-export; pode ser util planejada                                           |
 
 **Risco de remoção:** médio — em mid-refactor, "export sem consumidor" costuma ser **integração ainda não fiada**, não lixo. Apagar `signOut` removeria a capacidade de logout que deveria existir.
 **Como validar:** confirmar com o autor do refactor quais features serão conectadas.
