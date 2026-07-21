@@ -454,6 +454,41 @@ export const useLocationStore = create<LocationState>()(
   ),
 );
 
+// ---- Search draft (rascunho da config do Radar; NÃO persistido) ----
+export interface SearchDraft {
+  niche: string;
+  location: string;
+  coords: { lat: number; lng: number };
+  radiusKm: number;
+  presence: PresenceFilter;
+}
+interface SearchDraftState {
+  draft: SearchDraft;
+  setDraft: (patch: Partial<SearchDraft>) => void;
+  resetDraftTo: (search: Search) => void;
+}
+const initialDraft: SearchDraft = {
+  niche: "Clínica médica",
+  location: "Porto Alegre, Rio Grande do Sul",
+  coords: { lat: -30.0346, lng: -51.2177 },
+  radiusKm: 10,
+  presence: "no-website",
+};
+export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
+  draft: initialDraft,
+  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
+  resetDraftTo: (search) =>
+    set({
+      draft: {
+        niche: search.niche,
+        location: search.location,
+        coords: { lat: search.latitude, lng: search.longitude },
+        radiusKm: search.radiusKm,
+        presence: search.presence,
+      },
+    }),
+}));
+
 export function applyPresenceFilter(presence: PresenceFilter, leads: Lead[]) {
   if (presence === "no-website") return leads.filter((l) => !l.hasWebsite);
   if (presence === "with-website") return leads.filter((l) => l.hasWebsite);
