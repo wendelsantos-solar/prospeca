@@ -19,6 +19,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { QUICK_FILTERS, applyFilters } from "@/lib/filters";
+import { quickFilterCounts } from "@/lib/filter-counts";
 import {
   SORT_OPTIONS,
   STAGE_LABELS,
@@ -38,7 +39,9 @@ import { toast } from "sonner";
 
 export function QuickFilters() {
   const filters = useLeadsStore((s) => s.filters);
+  const leads = useLeadsStore((s) => s.leads);
   const toggle = useLeadsStore((s) => s.toggleQuickFilter);
+  const counts = useMemo(() => quickFilterCounts(leads, filters), [leads, filters]);
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtros rápidos">
       {QUICK_FILTERS.map((f) => {
@@ -55,7 +58,7 @@ export function QuickFilters() {
                 : "border-border bg-surface text-muted-foreground hover:border-primary/60 hover:text-foreground",
             )}
           >
-            {f.label}
+            {f.label} <span className="tabular-nums opacity-70">({counts[f.id] ?? 0})</span>
           </button>
         );
       })}
