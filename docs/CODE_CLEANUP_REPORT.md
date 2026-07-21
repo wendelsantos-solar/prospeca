@@ -2,7 +2,9 @@
 
 **Branch:** `chore/codebase-cleanup`
 **Escopo:** monorepo bun (`apps/web` + `packages/{contracts,domain,geo,providers}` + `supabase/`)
-**Abordagem:** conservadora, baseada em evidência. Só remoções de **confiança alta**, cada uma verificada por dois meios independentes (knip + `rg`/grep). Nenhuma mudança funcional.
+**Abordagem:** conservadora, baseada em evidência. Só remoções de **confiança alta**, cada uma verificada por dois meios independentes (knip + `rg`/grep).
+
+> **Atualização (pós-baseline):** o baseline foi **estabilizado** (bug `setRadius` corrigido → `typecheck` verde; `bun run format` → 0 erros de lint). Com a rede de segurança verde, uma 2ª passada removeu 2 re-exports mortos comprovados. Os 43 "unused exports" restantes foram **preservados** (API shadcn por convenção + prováveis features planejadas do refactor) — detalhes em `CODE_CLEANUP_MANUAL_REVIEW.md` §9. A correção do `setRadius` é a única mudança funcional (era um bug real).
 
 ---
 

@@ -70,12 +70,41 @@ Itens que **parecem** removíveis mas foram **preservados** por dúvida razoáve
 
 ---
 
-## 8. Baseline (typecheck/lint vermelhos)
+## 8. Baseline — RESOLVIDO ✅
 
-**Suspeita:** não é item a remover, mas condição que limita limpezas seguras futuras.
-**Risco:** sem baseline verde, o typecheck não serve de rede de segurança para remoções.
-**Como validar:** rodar `bun run typecheck` e `bun run lint`.
-**Recomendação:** corrigir o bug `setRadius` e rodar `bun run format` para zerar os erros de prettier **antes** de uma segunda rodada de limpeza mais agressiva (ex.: exports mortos internos, análise por símbolo com `ts-prune`).
+Estava vermelho; agora está **verde**:
+
+- Bug `setRadius` **corrigido** (converte km → índice do slider, padrão existente). `typecheck` passa (5/5).
+- `bun run format` aplicado → **0 erros** de prettier (restam 9 warnings `react-refresh/only-export-components`, benignos).
+- `build` passa.
+
+---
+
+## 9. Unused exports (2ª passada, baseline verde) — 43 itens, NÃO removidos
+
+Após o baseline ficar verde, o knip apontou 43 exports sem consumidores. Removi só os **re-exports mortos comprovados** (CITY_SUGGESTIONS no SearchForm, applyPresenceFilter no AppSidebar). O resto foi **preservado**, em dois grupos:
+
+### 9a. Sub-exports de componentes shadcn/ui (manter por convenção)
+
+`buttonVariants`, `badgeVariants`, `CardFooter`, `CommandDialog`, `CommandShortcut`, `CommandSeparator`, `DialogPortal`, `DialogOverlay`, `DropdownMenu{CheckboxItem,RadioItem,Shortcut,Group,Portal,Sub,SubContent,SubTrigger,RadioGroup}`, `PopoverAnchor`, `Select{Group,Label,Separator,ScrollUpButton,ScrollDownButton}`, `Sheet{Portal,Overlay,Close}`, `Table{Footer,Caption}`.
+
+**Risco:** baixo tecnicamente, mas são a **API pública** dos componentes shadcn (copiados por convenção com o conjunto completo). Remover parcialmente quebra o padrão e o valor é mínimo.
+**Recomendação:** manter. Se quiser enxugar, faça por componente, deliberadamente.
+
+### 9b. App-level — provavelmente features planejadas (mid-refactor)
+
+| Símbolo | Arquivo | Suspeita |
+|---|---|---|
+| `signOut`, `getSessionOrNull` | `hooks/useAuth.ts` | 0 usos — mas `signOut` = **logout ainda não conectado** (provável feature faltando, não código morto) |
+| `useUpdateLeadMutation` | `hooks/useLeadsQuery.ts` | 0 usos — provável edição de lead planejada |
+| `LeadCardSkeleton`, `MetricCardSkeleton`, `DashboardSkeleton`, `DetailsSkeleton` | `components/shared/Skeletons.tsx` | 0 usos — loading states planejados |
+| `featureFlags` | `lib/env.ts` | 0 usos — infra de flags (scaffolding) |
+| `MESSAGE_CHAR_LIMIT` | `components/app/message-template/constants.tsx` | exportado, usado só internamente |
+| `applyPresenceFilter` (função em `stores/index.ts`) | `stores/index.ts:457` | 0 callers após remover o re-export; pode ser util planejada |
+
+**Risco de remoção:** médio — em mid-refactor, "export sem consumidor" costuma ser **integração ainda não fiada**, não lixo. Apagar `signOut` removeria a capacidade de logout que deveria existir.
+**Como validar:** confirmar com o autor do refactor quais features serão conectadas.
+**Recomendação:** **manter todos**; reavaliar quando o refactor concluir. Se confirmado que não serão usados, remoção é trivial e segura (baseline verde agora serve de rede).
 
 ---
 
