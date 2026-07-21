@@ -35,7 +35,7 @@ frio.
 ### Entrada de retornante (com localização salva)
 
 - Pula o card. Mapa já centraliza na última localização (`previewLocation`) com pin
-  + círculo. Sem busca automática.
+  - círculo. Sem busca automática.
 
 ### Entrada alternativa (a qualquer momento)
 
@@ -44,25 +44,26 @@ frio.
 
 ## Componentes
 
-| Unidade | Responsabilidade | Depende de |
-|---|---|---|
-| `useGeolocation` (hook) | Envolve `navigator.geolocation.getCurrentPosition`; expõe estado `idle/prompting/granted/denied/unsupported/error` + `{lat,lng}` | Web API |
-| `reverseGeocode(lat,lng)` (lib) | Coords → label "Bairro, Cidade" via Edge Function | `geocode-location` |
-| Edge Function `geocode-location` (estender) | Aceitar `{lat,lng}` e retornar endereço via reverse geocode (Google server key) | `_shared/google.ts` |
-| `_shared/google.ts` `reverseGeocode()` | Chamada ao Geocoding API com `latlng=` | server key |
-| Location memory (store slice persistido) | Guardar/ler `{label,lat,lng}` da última localização | localStorage |
-| `previewLocation` (leads store) | Centro pendente `{lat,lng,radiusKm,label}` antes de buscar | — |
-| `LocationPrompt` (card sobre o mapa) | Pré-prompt de 1ª entrada | `useGeolocation` |
-| `MapView` (ajuste) | Renderizar pin + círculo do `previewLocation` quando não há busca ainda | Leaflet |
-| `app.mapa` (ajuste de roteamento de estado) | Mostrar MapView em "preview" quando há `previewLocation` e ainda não buscou | store |
-| `SearchForm` (wire) | Botão GPS secundário; ao obter local, setar label+coords+previewLocation, centralizar, sem buscar | hook, store |
+| Unidade                                     | Responsabilidade                                                                                                                 | Depende de          |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `useGeolocation` (hook)                     | Envolve `navigator.geolocation.getCurrentPosition`; expõe estado `idle/prompting/granted/denied/unsupported/error` + `{lat,lng}` | Web API             |
+| `reverseGeocode(lat,lng)` (lib)             | Coords → label "Bairro, Cidade" via Edge Function                                                                                | `geocode-location`  |
+| Edge Function `geocode-location` (estender) | Aceitar `{lat,lng}` e retornar endereço via reverse geocode (Google server key)                                                  | `_shared/google.ts` |
+| `_shared/google.ts` `reverseGeocode()`      | Chamada ao Geocoding API com `latlng=`                                                                                           | server key          |
+| Location memory (store slice persistido)    | Guardar/ler `{label,lat,lng}` da última localização                                                                              | localStorage        |
+| `previewLocation` (leads store)             | Centro pendente `{lat,lng,radiusKm,label}` antes de buscar                                                                       | —                   |
+| `LocationPrompt` (card sobre o mapa)        | Pré-prompt de 1ª entrada                                                                                                         | `useGeolocation`    |
+| `MapView` (ajuste)                          | Renderizar pin + círculo do `previewLocation` quando não há busca ainda                                                          | Leaflet             |
+| `app.mapa` (ajuste de roteamento de estado) | Mostrar MapView em "preview" quando há `previewLocation` e ainda não buscou                                                      | store               |
+| `SearchForm` (wire)                         | Botão GPS secundário; ao obter local, setar label+coords+previewLocation, centralizar, sem buscar                                | hook, store         |
 
 ## Reverse geocoding — decisão
 
 **Edge Function + Google** (não Nominatim). Motivos: precisão de bairro no Brasil,
 robustez de produção (sem limite de 1 req/s / política de uso), reuso do server key
-+ Geocoding já configurados. A latência é escondida pelo padrão pin-instantâneo /
-label-assíncrono.
+
+- Geocoding já configurados. A latência é escondida pelo padrão pin-instantâneo /
+  label-assíncrono.
 
 A `geocode-location` passa a aceitar dois modos:
 

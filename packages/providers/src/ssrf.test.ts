@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { assertSafeUrl, isBlockedHost, isPrivateIpv4, isPrivateIpv6, SsrfBlockedError } from "./ssrf";
+import {
+  assertSafeUrl,
+  isBlockedHost,
+  isPrivateIpv4,
+  isPrivateIpv6,
+  SsrfBlockedError,
+} from "./ssrf";
 
 describe("isPrivateIpv4", () => {
   test.each([

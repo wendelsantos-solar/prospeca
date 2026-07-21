@@ -14,11 +14,11 @@ e configurar os secrets no projeto Supabase deste app.
 
 ## O que já existe no repositório
 
-| Item | Local |
-|---|---|
-| Migrations (6) | `supabase/migrations/` — `000001_core` → `000006_rpcs` |
-| Edge Functions (11) | `supabase/functions/` |
-| Seed de dev | `supabase/seed/dev_seed.sql` |
+| Item                | Local                                                  |
+| ------------------- | ------------------------------------------------------ |
+| Migrations (6)      | `supabase/migrations/` — `000001_core` → `000006_rpcs` |
+| Edge Functions (11) | `supabase/functions/`                                  |
+| Seed de dev         | `supabase/seed/dev_seed.sql`                           |
 
 Ordem das migrations (respeitar — há dependência entre elas):
 
@@ -50,7 +50,7 @@ npx supabase login
 ### 3. Linkar ao projeto remoto
 
 Pede a **Database password** — pega em
-Dashboard → Settings → Database → *Database password*.
+Dashboard → Settings → Database → _Database password_.
 
 ```bash
 npx supabase link --project-ref zxneketqrapvbxyqewar
@@ -129,9 +129,9 @@ Depois, no app com `VITE_DATA_MODE=real`, abra o **Painel** — se
 
 ## Problemas comuns
 
-| Sintoma | Causa provável |
-|---|---|
-| `db push` falha em `000001_core` | Extensão faltando (ex.: PostGIS). Ative em Database → Extensions. |
-| Telas do CRM dão erro de query | Migrations não aplicadas ou fora de ordem. |
-| Functions retornam 401/500 | Secrets não setados (passo 6) ou função não deployada. |
+| Sintoma                            | Causa provável                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `db push` falha em `000001_core`   | Extensão faltando (ex.: PostGIS). Ative em Database → Extensions.      |
+| Telas do CRM dão erro de query     | Migrations não aplicadas ou fora de ordem.                             |
+| Functions retornam 401/500         | Secrets não setados (passo 6) ou função não deployada.                 |
 | App abre na tela de "config error" | `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` ausentes no `.env.local`. |

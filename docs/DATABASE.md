@@ -12,14 +12,14 @@ supabase db push
 
 ## Migrations
 
-| Arquivo | Conteúdo |
-|---|---|
-| `..._core.sql` | extensões (pgcrypto, postgis), organizations, organization_members, profiles, trigger de signup, `is_organization_member` |
-| `..._search_places.sql` | searches, places (dados do provedor), search_results |
-| `..._crm.sql` | leads, lead_notes, lead_activities, lead_stage_history, message_templates + índices |
-| `..._ops.sql` | audit_logs, usage_events, idempotency_keys, suppression_list, exports, geocode_cache |
-| `..._rls.sql` | RLS + policies de todas as tabelas |
-| `..._rpcs.sql` | `search_leads_within_radius`, `leads_within_bounds`, `move_lead_stage`, `get_dashboard_overview`, `get_quota_status` |
+| Arquivo                 | Conteúdo                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `..._core.sql`          | extensões (pgcrypto, postgis), organizations, organization_members, profiles, trigger de signup, `is_organization_member` |
+| `..._search_places.sql` | searches, places (dados do provedor), search_results                                                                      |
+| `..._crm.sql`           | leads, lead_notes, lead_activities, lead_stage_history, message_templates + índices                                       |
+| `..._ops.sql`           | audit_logs, usage_events, idempotency_keys, suppression_list, exports, geocode_cache                                      |
+| `..._rls.sql`           | RLS + policies de todas as tabelas                                                                                        |
+| `..._rpcs.sql`          | `search_leads_within_radius`, `leads_within_bounds`, `move_lead_stage`, `get_dashboard_overview`, `get_quota_status`      |
 
 ## Decisões
 

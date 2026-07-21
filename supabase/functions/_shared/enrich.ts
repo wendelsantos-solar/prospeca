@@ -20,10 +20,18 @@ const PROVIDER = "website_scraper";
 function extract(html: string, pageUrl: string): EnrichedField[] {
   const out: EnrichedField[] = [];
   const push = (field: EnrichmentField, value: string, confidence: number) =>
-    out.push({ field, value, confidence, verification: "unverified", sourceUrl: pageUrl, provider: PROVIDER });
+    out.push({
+      field,
+      value,
+      confidence,
+      verification: "unverified",
+      sourceUrl: pageUrl,
+      provider: PROVIDER,
+    });
 
   const email = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0];
-  if (email && !/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(email)) push("email", email.toLowerCase(), 0.6);
+  if (email && !/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(email))
+    push("email", email.toLowerCase(), 0.6);
 
   const insta = html.match(/instagram\.com\/([A-Za-z0-9_.]+)/)?.[1];
   if (insta && !["p", "reel", "explore"].includes(insta)) push("instagram", `@${insta}`, 0.7);

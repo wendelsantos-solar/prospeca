@@ -132,8 +132,14 @@ export function AdvancedFilters() {
   const [open, setOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
 
-  const categories = useMemo(() => [...new Set(leads.map((l) => l.category).filter(Boolean))].sort(), [leads]);
-  const cities = useMemo(() => [...new Set(leads.map((l) => l.city).filter(Boolean))].sort(), [leads]);
+  const categories = useMemo(
+    () => [...new Set(leads.map((l) => l.category).filter(Boolean))].sort(),
+    [leads],
+  );
+  const cities = useMemo(
+    () => [...new Set(leads.map((l) => l.city).filter(Boolean))].sort(),
+    [leads],
+  );
   const neighborhoods = useMemo(
     () =>
       [

@@ -52,6 +52,7 @@ export function assertSafeUrl(rawUrl: string): URL {
   if (url.protocol !== "http:" && url.protocol !== "https:")
     throw new SsrfBlockedError(`scheme ${url.protocol}`);
   if (url.username || url.password) throw new SsrfBlockedError("embedded credentials");
-  if (isBlockedHost(url.hostname)) throw new SsrfBlockedError(`private/internal host ${url.hostname}`);
+  if (isBlockedHost(url.hostname))
+    throw new SsrfBlockedError(`private/internal host ${url.hostname}`);
   return url;
 }

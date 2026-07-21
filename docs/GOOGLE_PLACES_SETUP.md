@@ -12,6 +12,7 @@
 ## 2. Chaves (duas, com restrições distintas)
 
 ### Chave de servidor (`GOOGLE_MAPS_SERVER_KEY`)
+
 - Restrição de API: apenas Places API (New) + Geocoding API.
 - Sem restrição de referrer (usada por Edge Functions).
 - Configurar como secret do Supabase:
@@ -21,6 +22,7 @@ supabase secrets set GOOGLE_MAPS_SERVER_KEY=<chave>
 ```
 
 ### Chave de navegador (`VITE_GOOGLE_MAPS_BROWSER_KEY`)
+
 - Restrição de API: apenas Maps JavaScript API.
 - Restrição de aplicação: HTTP referrers com os domínios do app
   (ex.: `https://app.seudominio.com/*`, `http://localhost:*` em dev).

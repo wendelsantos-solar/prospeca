@@ -5,22 +5,25 @@ Atualizado em 2026-07-19.
 ## Fase 1 — Auditoria (concluída)
 
 ### Stack encontrada
+
 - TanStack Start (React 19) + TanStack Router/Query, Tailwind 4, shadcn/ui,
   Zustand (5 stores com persistência em localStorage), Zod, RHF, Leaflet +
   markercluster, Recharts, bun.
 
 ### Mocks encontrados
-| Item | Local | Status |
-|---|---|---|
-| 50+ leads determinísticos | `src/mocks/leads.ts` | mantido p/ modo demo |
+
+| Item                                     | Local                   | Status                                      |
+| ---------------------------------------- | ----------------------- | ------------------------------------------- |
+| 50+ leads determinísticos                | `src/mocks/leads.ts`    | mantido p/ modo demo                        |
 | Busca simulada (haversine + Math.random) | `src/services/index.ts` | substituível por `SupabaseSearchRepository` |
-| Erros simulados (8%) | `src/services/index.ts` | apenas demo |
-| Progresso de busca com timer (7 passos) | `SearchForm.tsx` | pendente de troca por status real |
-| Histórico em localStorage | stores Zustand | rota real `/app/historico` criada |
-| Dashboard calculado no cliente | `Dashboard.tsx` | RPC `get_dashboard_overview` disponível |
-| Mapa Leaflet/OSM | `MapView.tsx` | `GoogleMapProvider` criado; troca pendente |
+| Erros simulados (8%)                     | `src/services/index.ts` | apenas demo                                 |
+| Progresso de busca com timer (7 passos)  | `SearchForm.tsx`        | pendente de troca por status real           |
+| Histórico em localStorage                | stores Zustand          | rota real `/app/historico` criada           |
+| Dashboard calculado no cliente           | `Dashboard.tsx`         | RPC `get_dashboard_overview` disponível     |
+| Mapa Leaflet/OSM                         | `MapView.tsx`           | `GoogleMapProvider` criado; troca pendente  |
 
 ### Funcionalidades apenas visuais (antes desta fase)
+
 - Autenticação inexistente; qualquer visitante acessava `/app`.
 - Sem backend: nenhum dado persistia fora do localStorage.
 

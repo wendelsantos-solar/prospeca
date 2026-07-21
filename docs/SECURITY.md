@@ -18,19 +18,20 @@
 
 ## Proteções implementadas
 
-| Vetor | Mitigação |
-|---|---|
-| Vazamento de chave | chaves server-side apenas em Edge Functions |
-| Acesso cross-tenant | RLS + verificação de membership em toda função |
-| Replay/duplo clique | `idempotency_keys` (unique org+key+operation) |
-| Abuso de API | rate limit por org/operação + quotas mensais |
-| CSV formula injection | `sanitizeCell` prefixa `'` em `=+-@` |
-| Loops de paginação | `ABSOLUTE_MAX_PAGES = 3` por execução |
-| Stack trace exposto | erros padronizados `ApiError` com `requestId` |
+| Vetor                 | Mitigação                                      |
+| --------------------- | ---------------------------------------------- |
+| Vazamento de chave    | chaves server-side apenas em Edge Functions    |
+| Acesso cross-tenant   | RLS + verificação de membership em toda função |
+| Replay/duplo clique   | `idempotency_keys` (unique org+key+operation)  |
+| Abuso de API          | rate limit por org/operação + quotas mensais   |
+| CSV formula injection | `sanitizeCell` prefixa `'` em `=+-@`           |
+| Loops de paginação    | `ABSOLUTE_MAX_PAGES = 3` por execução          |
+| Stack trace exposto   | erros padronizados `ApiError` com `requestId`  |
 
 ## SSRF (enriquecimento de website — Fase 7)
 
 Quando o `WebsiteEnrichmentProvider` for ativado, obrigatório:
+
 - Apenas `http`/`https`; resolução DNS antes do fetch.
 - Bloquear `127.0.0.1`, `0.0.0.0`, `169.254.169.254`, RFC1918, IPv6 local.
 - Limite de redirects (rechecando IP a cada salto), timeout, tamanho máximo,

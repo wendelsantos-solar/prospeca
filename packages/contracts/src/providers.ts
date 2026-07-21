@@ -39,13 +39,7 @@ export interface PlacesProvider {
   }): Promise<BusinessCandidate[]>;
 }
 
-export type EnrichmentField =
-  | "website"
-  | "phone"
-  | "whatsapp"
-  | "email"
-  | "instagram"
-  | "address";
+export type EnrichmentField = "website" | "phone" | "whatsapp" | "email" | "instagram" | "address";
 
 export type VerificationStatus = "unverified" | "verified" | "not_found";
 

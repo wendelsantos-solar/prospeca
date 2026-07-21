@@ -41,15 +41,15 @@ O objetivo real do brief — **desacoplar o sistema de fornecedores (Google), se
 
 ## Responsabilidades
 
-| Unidade | Responsabilidade |
-|---|---|
-| `apps/web` | UI, mapa (Leaflet), listagens, filtros, Kanban, progresso. **Só fala com API/tabelas via repositórios e `functions.invoke`.** |
-| `apps/functions/create-search` | validação, auth, quota, enfileira busca (status `queued`), retorna `searchId`+status. Não espera terminar. |
-| `apps/functions/execute-search` | **worker**: geocode → discover (provider) → normalize → dedup → persist → progresso. Service-role. |
-| `apps/functions/*enrich*` | enriquecimento assíncrono, separado da descoberta. |
-| `packages/contracts` | fronteira de tipos entre camadas; provider interfaces. |
-| `packages/domain` | regras de negócio testáveis e puras. |
-| `packages/providers` | isola Overpass/Nominatim/Google atrás de contratos. |
+| Unidade                         | Responsabilidade                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                      | UI, mapa (Leaflet), listagens, filtros, Kanban, progresso. **Só fala com API/tabelas via repositórios e `functions.invoke`.** |
+| `apps/functions/create-search`  | validação, auth, quota, enfileira busca (status `queued`), retorna `searchId`+status. Não espera terminar.                    |
+| `apps/functions/execute-search` | **worker**: geocode → discover (provider) → normalize → dedup → persist → progresso. Service-role.                            |
+| `apps/functions/*enrich*`       | enriquecimento assíncrono, separado da descoberta.                                                                            |
+| `packages/contracts`            | fronteira de tipos entre camadas; provider interfaces.                                                                        |
+| `packages/domain`               | regras de negócio testáveis e puras.                                                                                          |
+| `packages/providers`            | isola Overpass/Nominatim/Google atrás de contratos.                                                                           |
 
 ## Regras de dependência (aplicadas)
 

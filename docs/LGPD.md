@@ -15,13 +15,13 @@ físicas (MEI, autônomos) — tratados como dados pessoais.
 
 ## Direitos do titular — implementação
 
-| Direito | Mecanismo |
-|---|---|
-| Exclusão | Edge Function `delete-account-data` (cascata org completa) |
-| Correção | edição de lead na interface |
+| Direito              | Mecanismo                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Exclusão             | Edge Function `delete-account-data` (cascata org completa)                            |
+| Correção             | edição de lead na interface                                                           |
 | Supressão de contato | `suppression_list` (telefone/e-mail/domínio/estabelecimento, valores em hash SHA-256) |
-| Origem do dado | `leads.source`, `source_search_id`, `provider_fetched_at` |
-| Auditoria | `audit_logs` com ação, ator e timestamp |
+| Origem do dado       | `leads.source`, `source_search_id`, `provider_fetched_at`                             |
+| Auditoria            | `audit_logs` com ação, ator e timestamp                                               |
 
 ## Regras operacionais
 

@@ -10,12 +10,12 @@
 
 O repositório está **no meio de um refactor** (branch de origem `refactor/monorepo-lead-platform`, com `backup/pre-monorepo-lead-platform`). Antes de qualquer remoção, o baseline foi medido:
 
-| Verificação | Estado no baseline | Observação |
-|---|---|---|
-| `bun run build` | ✅ **passa** | esbuild/vite não checa tipos |
-| `bun run typecheck` | ❌ **falha** | 1 erro pré-existente (ver abaixo) |
-| `bun run lint` | ❌ **falha** | 11 erros prettier (formatação) + 7 warnings `react-refresh` |
-| `bun run test` | — | projeto não tem test runner configurado |
+| Verificação         | Estado no baseline | Observação                                                  |
+| ------------------- | ------------------ | ----------------------------------------------------------- |
+| `bun run build`     | ✅ **passa**       | esbuild/vite não checa tipos                                |
+| `bun run typecheck` | ❌ **falha**       | 1 erro pré-existente (ver abaixo)                           |
+| `bun run lint`      | ❌ **falha**       | 11 erros prettier (formatação) + 7 warnings `react-refresh` |
+| `bun run test`      | —                  | projeto não tem test runner configurado                     |
 
 **Erro pré-existente (NÃO causado pela limpeza):**
 `apps/web/src/components/app/SearchForm.tsx:157` — `Cannot find name 'setRadius'`. É um **bug real** (referência a símbolo inexistente) que quebraria em runtime se o caminho executar. Deixado intacto — corrigir é mudança funcional, fora do escopo desta limpeza.
@@ -26,15 +26,15 @@ Como o baseline já estava vermelho no typecheck, o critério de segurança usad
 
 ## Resumo
 
-| Métrica | Valor |
-|---|---|
-| Arquivos removidos | **31** |
-| Linhas removidas | **3.527** |
-| Dependências removidas | **20** |
-| Documentos removidos/consolidados | **0** (todos em revisão manual) |
-| Assets removidos | **0** (1 órfão em revisão manual) |
-| Componentes UI removidos | 27 (shadcn não utilizados) |
-| Redução aproximada | ~3,5k linhas de TS/TSX + 20 pacotes npm |
+| Métrica                           | Valor                                   |
+| --------------------------------- | --------------------------------------- |
+| Arquivos removidos                | **31**                                  |
+| Linhas removidas                  | **3.527**                               |
+| Dependências removidas            | **20**                                  |
+| Documentos removidos/consolidados | **0** (todos em revisão manual)         |
+| Assets removidos                  | **0** (1 órfão em revisão manual)       |
+| Componentes UI removidos          | 27 (shadcn não utilizados)              |
+| Redução aproximada                | ~3,5k linhas de TS/TSX + 20 pacotes npm |
 
 ---
 
@@ -42,13 +42,13 @@ Como o baseline já estava vermelho no typecheck, o critério de segurança usad
 
 Todos com **0 importadores** confirmados (knip + `rg`), formando um subgrafo morto fechado.
 
-| Arquivo | Motivo | Evidência de não uso | Risco |
-|---|---|---|---|
-| `apps/web/src/components/ui/{accordion,alert-dialog,alert,aspect-ratio,avatar,breadcrumb,calendar,carousel,chart,collapsible,context-menu,drawer,form,hover-card,input-otp,menubar,navigation-menu,pagination,radio-group,resizable,scroll-area,separator,sidebar,sonner,switch,toggle-group,toggle}.tsx` (27) | Componentes shadcn/ui nunca importados | knip "unused files" + `rg` por `ui/<nome>` → 0 importadores em arquivos ativos | Baixo (folhas, nada os importa) |
-| `apps/web/src/hooks/use-mobile.tsx` | Só era importado por `ui/sidebar.tsx` (também removido) | `rg` → 1 importador (sidebar, morto) | Baixo |
-| `apps/web/src/lib/map/GoogleMapProvider.ts` | Abstração de mapa abandonada; `MapView` usa Leaflet direto | `rg @/lib/map` → 0 fora do próprio dir; `MapView.tsx` não referencia | Baixo |
-| `apps/web/src/lib/map/types.ts` | Tipos só do provider removido | `rg lib/map/types` → 0 importadores | Baixo |
-| `apps/web/src/lib/phone.ts` | Helper sem consumidores | `rg lib/phone` → 0 importadores | Baixo |
+| Arquivo                                                                                                                                                                                                                                                                                                        | Motivo                                                     | Evidência de não uso                                                           | Risco                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------- |
+| `apps/web/src/components/ui/{accordion,alert-dialog,alert,aspect-ratio,avatar,breadcrumb,calendar,carousel,chart,collapsible,context-menu,drawer,form,hover-card,input-otp,menubar,navigation-menu,pagination,radio-group,resizable,scroll-area,separator,sidebar,sonner,switch,toggle-group,toggle}.tsx` (27) | Componentes shadcn/ui nunca importados                     | knip "unused files" + `rg` por `ui/<nome>` → 0 importadores em arquivos ativos | Baixo (folhas, nada os importa) |
+| `apps/web/src/hooks/use-mobile.tsx`                                                                                                                                                                                                                                                                            | Só era importado por `ui/sidebar.tsx` (também removido)    | `rg` → 1 importador (sidebar, morto)                                           | Baixo                           |
+| `apps/web/src/lib/map/GoogleMapProvider.ts`                                                                                                                                                                                                                                                                    | Abstração de mapa abandonada; `MapView` usa Leaflet direto | `rg @/lib/map` → 0 fora do próprio dir; `MapView.tsx` não referencia           | Baixo                           |
+| `apps/web/src/lib/map/types.ts`                                                                                                                                                                                                                                                                                | Tipos só do provider removido                              | `rg lib/map/types` → 0 importadores                                            | Baixo                           |
+| `apps/web/src/lib/phone.ts`                                                                                                                                                                                                                                                                                    | Helper sem consumidores                                    | `rg lib/phone` → 0 importadores                                                | Baixo                           |
 
 **`ui/sonner.tsx`** merece nota: o app renderiza `<Toaster>` importado **direto do pacote `sonner`** em `routes/__root.tsx`, não do wrapper local — por isso o wrapper estava morto.
 
@@ -58,28 +58,28 @@ Todos com **0 importadores** confirmados (knip + `rg`), formando um subgrafo mor
 
 Todas atreladas exclusivamente aos componentes UI removidos, com **0 imports residuais** no código mantido (`rg` por pacote).
 
-| Dependência | Componente que a usava (removido) | Validação |
-|---|---|---|
-| `@radix-ui/react-accordion` | accordion | 0 imports residuais |
-| `@radix-ui/react-alert-dialog` | alert-dialog | 0 |
-| `@radix-ui/react-aspect-ratio` | aspect-ratio | 0 |
-| `@radix-ui/react-avatar` | avatar | 0 |
-| `@radix-ui/react-collapsible` | collapsible | 0 |
-| `@radix-ui/react-context-menu` | context-menu | 0 |
-| `@radix-ui/react-hover-card` | hover-card | 0 |
-| `@radix-ui/react-menubar` | menubar | 0 |
-| `@radix-ui/react-navigation-menu` | navigation-menu | 0 |
-| `@radix-ui/react-radio-group` | radio-group | 0 |
-| `@radix-ui/react-scroll-area` | scroll-area | 0 |
-| `@radix-ui/react-separator` | separator | 0 |
-| `@radix-ui/react-switch` | switch | 0 |
-| `@radix-ui/react-toggle` | toggle | 0 |
-| `@radix-ui/react-toggle-group` | toggle-group | 0 |
-| `embla-carousel-react` | carousel | 0 |
-| `input-otp` | input-otp | 0 |
-| `react-day-picker` | calendar | 0 |
-| `react-resizable-panels` | resizable | 0 |
-| `vaul` | drawer | 0 |
+| Dependência                       | Componente que a usava (removido) | Validação           |
+| --------------------------------- | --------------------------------- | ------------------- |
+| `@radix-ui/react-accordion`       | accordion                         | 0 imports residuais |
+| `@radix-ui/react-alert-dialog`    | alert-dialog                      | 0                   |
+| `@radix-ui/react-aspect-ratio`    | aspect-ratio                      | 0                   |
+| `@radix-ui/react-avatar`          | avatar                            | 0                   |
+| `@radix-ui/react-collapsible`     | collapsible                       | 0                   |
+| `@radix-ui/react-context-menu`    | context-menu                      | 0                   |
+| `@radix-ui/react-hover-card`      | hover-card                        | 0                   |
+| `@radix-ui/react-menubar`         | menubar                           | 0                   |
+| `@radix-ui/react-navigation-menu` | navigation-menu                   | 0                   |
+| `@radix-ui/react-radio-group`     | radio-group                       | 0                   |
+| `@radix-ui/react-scroll-area`     | scroll-area                       | 0                   |
+| `@radix-ui/react-separator`       | separator                         | 0                   |
+| `@radix-ui/react-switch`          | switch                            | 0                   |
+| `@radix-ui/react-toggle`          | toggle                            | 0                   |
+| `@radix-ui/react-toggle-group`    | toggle-group                      | 0                   |
+| `embla-carousel-react`            | carousel                          | 0                   |
+| `input-otp`                       | input-otp                         | 0                   |
+| `react-day-picker`                | calendar                          | 0                   |
+| `react-resizable-panels`          | resizable                         | 0                   |
+| `vaul`                            | drawer                            | 0                   |
 
 Após remoção: `bun install` (lockfile atualizado) + `bun run build` ✅.
 
@@ -89,12 +89,12 @@ Após remoção: `bun install` (lockfile atualizado) + `bun run build` ✅.
 
 O knip apontou estes como "não usados", mas são **usados de formas que a análise estática não vê**. Removê-los quebraria o projeto — **mantidos**.
 
-| Item | Por que o knip errou | Evidência de uso real |
-|---|---|---|
-| **Todas as 24 `supabase/functions/**`** | Entrypoints Deno invocados por **string** em runtime, não importados estaticamente | `rg "invokeFunction\|functions.invoke"` → chamadas em `lib/supabase.ts`, `lib/reverse-geocode.ts`, `routes/app.configuracoes.tsx` |
-| `@tanstack/router-plugin` | Usado **transitivamente** pelo plugin do TanStack Start (`vite.config.ts` → `@tanstack/react-start/plugin/vite`) | Start puxa o router-plugin internamente |
-| `nitro` (devDep) | Engine de servidor do TanStack Start; versão **beta pinada** de propósito | Build de produção depende do runtime nitro |
-| `@leads/geo` (dep de `packages/providers`) | Dep de workspace ainda não conectada (mid-refactor) | Ver revisão manual |
+| Item                                       | Por que o knip errou                                                                                             | Evidência de uso real                                                                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Todas as 24 `supabase/functions/**`\*\*  | Entrypoints Deno invocados por **string** em runtime, não importados estaticamente                               | `rg "invokeFunction\|functions.invoke"` → chamadas em `lib/supabase.ts`, `lib/reverse-geocode.ts`, `routes/app.configuracoes.tsx` |
+| `@tanstack/router-plugin`                  | Usado **transitivamente** pelo plugin do TanStack Start (`vite.config.ts` → `@tanstack/react-start/plugin/vite`) | Start puxa o router-plugin internamente                                                                                           |
+| `nitro` (devDep)                           | Engine de servidor do TanStack Start; versão **beta pinada** de propósito                                        | Build de produção depende do runtime nitro                                                                                        |
+| `@leads/geo` (dep de `packages/providers`) | Dep de workspace ainda não conectada (mid-refactor)                                                              | Ver revisão manual                                                                                                                |
 
 ---
 

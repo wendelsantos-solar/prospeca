@@ -135,7 +135,10 @@ export function BulkMessageDialog({
     return signature ? `${base}\n\n${signature}` : base;
   };
 
-  const currentMsg = useMemo(() => (current ? getMsg(current.id) : ""), [current, template, messages]); // eslint-disable-line
+  const currentMsg = useMemo(
+    () => (current ? getMsg(current.id) : ""),
+    [current, template, messages],
+  ); // eslint-disable-line
 
   if (!current) return null;
 

@@ -31,10 +31,9 @@ Deno.serve(async (req) => {
 
     if ("latitude" in parsed.data) {
       const geo = useOsm
-        ? await (await import("../_shared/osm.ts")).osmReverseGeocode(
-            parsed.data.latitude,
-            parsed.data.longitude,
-          )
+        ? await (
+            await import("../_shared/osm.ts")
+          ).osmReverseGeocode(parsed.data.latitude, parsed.data.longitude)
         : await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
       if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
       await recordUsage(ctx.adminClient, {

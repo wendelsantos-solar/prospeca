@@ -19,13 +19,13 @@
 
 Toda chamada externa grava `usage_events`:
 
-| event_type | quando |
-|---|---|
-| `search_request` | criação de busca |
-| `place_search_request` | cada página de Text/Nearby Search |
-| `place_details_request` | cada Place Details |
-| `geocode_request` | cada geocodificação não cacheada |
-| `export_record` | linhas exportadas |
+| event_type              | quando                            |
+| ----------------------- | --------------------------------- |
+| `search_request`        | criação de busca                  |
+| `place_search_request`  | cada página de Text/Nearby Search |
+| `place_details_request` | cada Place Details                |
+| `geocode_request`       | cada geocodificação não cacheada  |
+| `export_record`         | linhas exportadas                 |
 
 ## Estimativa pré-busca
 

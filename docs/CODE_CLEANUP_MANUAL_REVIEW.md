@@ -81,7 +81,7 @@ Itens que **parecem** removíveis mas foram **preservados** por dúvida razoáve
 
 ## Categorias explicitamente NÃO tocadas (por segurança)
 
-- **`supabase/functions/**`** — todas as Edge Functions (invocadas por string em runtime). Knip as marca como "unused files" — **falso-positivo perigoso**; deletar destruiria o backend.
+- **`supabase/functions/**`** — todas as Edge Functions (invocadas por string em runtime). Knip as marca como "unused files" — **falso-positivo perigoso\*\*; deletar destruiria o backend.
 - **`supabase/migrations/**`, `supabase/seed/**`** — nunca remover migrations/seeds por análise estática.
 - **Arquivos de convenção/config** — `routeTree.gen.ts` (gerado), `vite.config.ts`, `eslint.config.js`, `tsconfig*`, `supabase/config.toml`, `server.ts`, `start.ts`.
 - **`packages/*`** — código dos pacotes de domínio; parte pode não estar conectada ainda (mid-refactor), então "sem consumidor" ≠ morto.

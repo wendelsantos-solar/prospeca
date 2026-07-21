@@ -60,7 +60,13 @@ describe("dedupeCandidates", () => {
   const dupes: DedupRecord[] = [
     base,
     { ...base, id: "2", name: "Clinica Sao Jose", externalId: "node/2", source: "overpass" },
-    { id: "3", name: "Farmácia Bem Estar", phone: "5133215555", externalId: "node/3", source: "overpass" },
+    {
+      id: "3",
+      name: "Farmácia Bem Estar",
+      phone: "5133215555",
+      externalId: "node/3",
+      source: "overpass",
+    },
   ];
 
   test("merges the two São José, keeps the farmácia apart", () => {

@@ -25,30 +25,30 @@ interface OverpassElement {
 // Category keyword -> OSM tag selectors. Extend freely; unknown categories fall
 // back to a case-insensitive name match, so discovery still works.
 const CATEGORY_SELECTORS: Record<string, string[]> = {
-  barbe: ['shop=hairdresser'], // barbearia / barbeiro
-  cabele: ['shop=hairdresser'], // cabeleireiro
-  clinica: ['amenity=clinic', 'amenity=doctors', 'healthcare=clinic'],
-  medic: ['amenity=doctors', 'amenity=clinic', 'healthcare~"."'],
-  dentist: ['amenity=dentist', 'healthcare=dentist'],
-  restaurant: ['amenity=restaurant'],
-  lanchonete: ['amenity=fast_food'],
-  padaria: ['shop=bakery'],
-  bar: ['amenity=bar', 'amenity=pub'],
-  farmacia: ['amenity=pharmacy'],
-  pharmac: ['amenity=pharmacy'],
-  academia: ['leisure=fitness_centre', 'leisure=sports_centre'],
-  gym: ['leisure=fitness_centre'],
-  hotel: ['tourism=hotel'],
+  barbe: ["shop=hairdresser"], // barbearia / barbeiro
+  cabele: ["shop=hairdresser"], // cabeleireiro
+  clinica: ["amenity=clinic", "amenity=doctors", "healthcare=clinic"],
+  medic: ["amenity=doctors", "amenity=clinic", 'healthcare~"."'],
+  dentist: ["amenity=dentist", "healthcare=dentist"],
+  restaurant: ["amenity=restaurant"],
+  lanchonete: ["amenity=fast_food"],
+  padaria: ["shop=bakery"],
+  bar: ["amenity=bar", "amenity=pub"],
+  farmacia: ["amenity=pharmacy"],
+  pharmac: ["amenity=pharmacy"],
+  academia: ["leisure=fitness_centre", "leisure=sports_centre"],
+  gym: ["leisure=fitness_centre"],
+  hotel: ["tourism=hotel"],
   loja: ['shop~"."'],
-  salao: ['shop=hairdresser', 'shop=beauty'],
-  beleza: ['shop=beauty', 'shop=hairdresser'],
-  estetica: ['shop=beauty'],
-  pet: ['shop=pet', 'amenity=veterinary'],
-  veterin: ['amenity=veterinary'],
-  oficina: ['shop=car_repair'],
-  escola: ['amenity=school'],
-  advocacia: ['office=lawyer'],
-  contabil: ['office=accountant'],
+  salao: ["shop=hairdresser", "shop=beauty"],
+  beleza: ["shop=beauty", "shop=hairdresser"],
+  estetica: ["shop=beauty"],
+  pet: ["shop=pet", "amenity=veterinary"],
+  veterin: ["amenity=veterinary"],
+  oficina: ["shop=car_repair"],
+  escola: ["amenity=school"],
+  advocacia: ["office=lawyer"],
+  contabil: ["office=accountant"],
 };
 
 function selectorsFor(query: string): string[] {

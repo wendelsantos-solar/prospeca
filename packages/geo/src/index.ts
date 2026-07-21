@@ -50,8 +50,7 @@ export function isValidLatLng(p: LatLng): boolean {
 export function boundingBox(center: LatLng, radiusMeters: number): BoundingBox {
   const latDelta = (radiusMeters / EARTH_RADIUS_M) * (180 / Math.PI);
   const cosLat = Math.cos((center.latitude * Math.PI) / 180);
-  const lngDelta =
-    cosLat <= 0 ? 180 : (radiusMeters / (EARTH_RADIUS_M * cosLat)) * (180 / Math.PI);
+  const lngDelta = cosLat <= 0 ? 180 : (radiusMeters / (EARTH_RADIUS_M * cosLat)) * (180 / Math.PI);
   return {
     south: Math.max(-90, center.latitude - latDelta),
     north: Math.min(90, center.latitude + latDelta),

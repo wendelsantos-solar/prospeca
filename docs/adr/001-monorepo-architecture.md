@@ -10,6 +10,7 @@
 O brief pede transformar o projeto num monorepo com `apps/web`, `apps/api` (Fastify), `apps/worker` (BullMQ+Redis), Drizzle e providers OSM (Overpass/Nominatim) no lugar de Google Maps.
 
 A auditoria (Fase 0) revelou a stack real:
+
 - Frontend **TanStack Start** (React 19 + Vite + Nitro), package manager **Bun**.
 - Backend **Supabase Edge Functions (Deno)** — já com split assíncrono (`create-search` enfileira, `execute-search` = worker), progresso por polling, quota, idempotência, cancelamento.
 - **Postgres + PostGIS** (Supabase), 17 tabelas, RLS por organização, RPCs.

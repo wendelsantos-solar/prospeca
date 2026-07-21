@@ -26,10 +26,12 @@
 - [ ] **Step 1: Criar branch a partir da main**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 git checkout -b feat/geolocation-onboarding
 ```
+
 Expected: `Switched to a new branch 'feat/geolocation-onboarding'`
 
 ---
@@ -37,10 +39,12 @@ Expected: `Switched to a new branch 'feat/geolocation-onboarding'`
 ### Task 1: Reverse geocode na Edge Function
 
 **Files:**
+
 - Modify: `supabase/functions/_shared/google.ts` (adicionar `reverseGeocode` + helper de label)
 - Modify: `supabase/functions/geocode-location/index.ts` (aceitar modo reverse)
 
 **Interfaces:**
+
 - Produces: `reverseGeocode(lat: number, lng: number): Promise<{ label: string; latitude: number; longitude: number } | null>` em `_shared/google.ts`
 - Produces: `geocode-location` passa a aceitar `{ latitude: number, longitude: number }` além de `{ query: string }`, retornando `{ label, latitude, longitude }`.
 
@@ -94,6 +98,7 @@ export async function reverseGeocode(
 - [ ] **Step 2: Validar buildReverseLabel isoladamente (função pura)**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 node -e '
@@ -112,6 +117,7 @@ const comps=[
 console.log(buildReverseLabel(comps,"fallback"));
 '
 ```
+
 Expected: `Moinhos de Vento, Porto Alegre`
 
 - [ ] **Step 3: Aceitar modo reverse em geocode-location/index.ts**
@@ -133,18 +139,18 @@ const InputSchema = z.union([
 Logo após `await assertRateLimit(...)`, adicionar o ramo reverse (antes da lógica de cache/forward existente):
 
 ```ts
-    if ("latitude" in parsed.data) {
-      const geo = await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
-      if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
-      await recordUsage(ctx.adminClient, {
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        eventType: "geocode_request",
-        provider: "google_geocoding",
-      });
-      logEvent({ requestId, operation: "geocode-location", status: "ok" });
-      return json({ ...geo, cached: false });
-    }
+if ("latitude" in parsed.data) {
+  const geo = await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
+  if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
+  await recordUsage(ctx.adminClient, {
+    organizationId: ctx.organizationId,
+    userId: ctx.userId,
+    eventType: "geocode_request",
+    provider: "google_geocoding",
+  });
+  logEvent({ requestId, operation: "geocode-location", status: "ok" });
+  return json({ ...geo, cached: false });
+}
 ```
 
 O restante (bloco forward com `parsed.data.query`) permanece; trocar as referências de `parsed.data.query` que ficaram no forward para continuar válidas (o union garante `query` só nesse ramo — usar `parsed.data.query` dentro dele).
@@ -152,30 +158,36 @@ O restante (bloco forward com `parsed.data.query`) permanece; trocar as referên
 - [ ] **Step 4: Type-check das funções (Deno via tsc do projeto não cobre; conferir sintaxe com deno check se disponível, senão pular)**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 deno --version >/dev/null 2>&1 && deno check supabase/functions/geocode-location/index.ts 2>&1 | tail -5 || echo "(deno indisponível — validação via deploy no passo seguinte)"
 ```
+
 Expected: sem erros, ou a mensagem de deno indisponível.
 
 - [ ] **Step 5: Deploy da função**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 npx supabase functions deploy geocode-location 2>&1 | tail -5
 ```
+
 Expected: `Deployed Functions.`
 
 - [ ] **Step 6: Smoke test do reverse via Google (valida a lógica com a server key real)**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 KEY=$(grep '^GOOGLE_MAPS_SERVER_KEY=' .env.local | cut -d= -f2)
 curl -s "https://maps.googleapis.com/maps/api/geocode/json?latlng=-30.0234,-51.2010&region=br&language=pt-BR&key=$KEY" \
   | python3 -c "import sys,json;d=json.load(sys.stdin);print('status',d['status']);print('addr',d['results'][0]['formatted_address'] if d['results'] else 'sem resultado')"
 ```
+
 Expected: `status OK` e um endereço em Porto Alegre.
 
 - [ ] **Step 7: Commit**
@@ -190,9 +202,11 @@ git commit -m "feat: reverse geocode mode in geocode-location function"
 ### Task 2: Lib cliente de reverse geocode
 
 **Files:**
+
 - Create: `src/lib/reverse-geocode.ts`
 
 **Interfaces:**
+
 - Consumes: `invokeFunction` de `@/lib/supabase`, `isRealMode` de `@/lib/env`
 - Produces: `reverseGeocodeCoords(lat: number, lng: number): Promise<string | null>` — retorna o label ou `null` (demo/erro).
 
@@ -237,9 +251,11 @@ git commit -m "feat: client reverse-geocode helper"
 ### Task 3: Hook useGeolocation
 
 **Files:**
+
 - Create: `src/hooks/useGeolocation.ts`
 
 **Interfaces:**
+
 - Produces: `useGeolocation(): { status: GeoStatus; request: () => void; supported: boolean }` onde `GeoStatus = "idle" | "prompting" | "granted" | "denied" | "error"`, e um callback de sucesso via parâmetro.
 - Produces exact signature:
   `useGeolocation(onSuccess: (coords: { lat: number; lng: number }) => void): { status: GeoStatus; request: () => void; supported: boolean }`
@@ -295,9 +311,11 @@ git commit -m "feat: useGeolocation hook"
 ### Task 4: Store de memória da última localização
 
 **Files:**
+
 - Modify: `src/stores/index.ts` (novo store persistido `useLocationStore`)
 
 **Interfaces:**
+
 - Produces: `useLocationStore` com `{ lastLocation: { label: string; lat: number; lng: number } | null; setLastLocation: (l: { label: string; lat: number; lng: number }) => void }`
 
 - [ ] **Step 1: Adicionar o store ao final de src/stores/index.ts**
@@ -341,9 +359,11 @@ git commit -m "feat: persisted last-location store"
 ### Task 5: previewLocation transiente no leads store
 
 **Files:**
+
 - Modify: `src/stores/index.ts` (interface `LeadsState`, estado inicial, action; NÃO adicionar ao `partialize`)
 
 **Interfaces:**
+
 - Produces: no `useLeadsStore`: `previewLocation: { lat: number; lng: number; radiusKm: number; label: string } | null` e `setPreviewLocation: (p: LeadsState["previewLocation"]) => void`.
 
 - [ ] **Step 1: Declarar no tipo LeadsState**
@@ -393,9 +413,11 @@ git commit -m "feat: transient previewLocation in leads store"
 ### Task 6: MapView desenha pin + círculo do previewLocation
 
 **Files:**
+
 - Modify: `src/components/app/MapView.tsx`
 
 **Interfaces:**
+
 - Consumes: `useLeadsStore(s => s.previewLocation)`
 - Produces: quando não há `currentSearch` mas há `previewLocation`, o mapa centraliza nele e desenha o marcador central + círculo do raio (reaproveitando `centerRef`/`circleRef`).
 
@@ -404,39 +426,39 @@ git commit -m "feat: transient previewLocation in leads store"
 Em `src/components/app/MapView.tsx`, após `const currentSearch = useLeadsStore((s) => s.currentSearch);` adicionar:
 
 ```ts
-  const previewLocation = useLeadsStore((s) => s.previewLocation);
+const previewLocation = useLeadsStore((s) => s.previewLocation);
 ```
 
 Adicionar um `useEffect` novo (após o effect que trata `currentSearch, showCircle`):
 
 ```ts
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || currentSearch || !previewLocation) return;
-    const { lat, lng, radiusKm } = previewLocation;
-    map.setView([lat, lng], 13);
-    if (circleRef.current) {
-      map.removeLayer(circleRef.current);
-      circleRef.current = null;
-    }
-    if (showCircle) {
-      circleRef.current = L.circle([lat, lng], {
-        radius: radiusKm * 1000,
-        color: "oklch(0.58 0.14 155)",
-        fillColor: "oklch(0.58 0.14 155)",
-        fillOpacity: 0.06,
-        weight: 1.5,
-      }).addTo(map);
-    }
-    if (centerRef.current) map.removeLayer(centerRef.current);
-    centerRef.current = L.marker([lat, lng], {
-      icon: L.divIcon({
-        html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
-        className: "",
-        iconSize: [12, 12],
-      }),
+useEffect(() => {
+  const map = mapRef.current;
+  if (!map || currentSearch || !previewLocation) return;
+  const { lat, lng, radiusKm } = previewLocation;
+  map.setView([lat, lng], 13);
+  if (circleRef.current) {
+    map.removeLayer(circleRef.current);
+    circleRef.current = null;
+  }
+  if (showCircle) {
+    circleRef.current = L.circle([lat, lng], {
+      radius: radiusKm * 1000,
+      color: "oklch(0.58 0.14 155)",
+      fillColor: "oklch(0.58 0.14 155)",
+      fillOpacity: 0.06,
+      weight: 1.5,
     }).addTo(map);
-  }, [previewLocation, currentSearch, showCircle]);
+  }
+  if (centerRef.current) map.removeLayer(centerRef.current);
+  centerRef.current = L.marker([lat, lng], {
+    icon: L.divIcon({
+      html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
+      className: "",
+      iconSize: [12, 12],
+    }),
+  }).addTo(map);
+}, [previewLocation, currentSearch, showCircle]);
 ```
 
 - [ ] **Step 2: Type-check**
@@ -456,9 +478,11 @@ git commit -m "feat: MapView renders preview pin and radius circle"
 ### Task 7: Estado "mapa preview" na rota app.mapa
 
 **Files:**
+
 - Modify: `src/routes/app.mapa.tsx`
 
 **Interfaces:**
+
 - Consumes: `useLeadsStore(s => s.previewLocation)`
 - Produces: quando `!loaded` e existe `previewLocation`, renderiza `<MapView leads={[]} />` (preview) em vez do `HomeState`.
 
@@ -467,7 +491,7 @@ git commit -m "feat: MapView renders preview pin and radius circle"
 Em `src/routes/app.mapa.tsx`, dentro de `MapaPage`, ler o preview:
 
 ```ts
-  const previewLocation = useLeadsStore((s) => s.previewLocation);
+const previewLocation = useLeadsStore((s) => s.previewLocation);
 ```
 
 Alterar o ramo do HomeState (`if (!loaded && allLeads.length === 0) { return <HomeState />; }`) para:
@@ -502,9 +526,11 @@ git commit -m "feat: map preview state before first search"
 ### Task 8: LocationPrompt (card sobre o mapa)
 
 **Files:**
+
 - Create: `src/components/app/LocationPrompt.tsx`
 
 **Interfaces:**
+
 - Consumes: `useGeolocation`, `useLeadsStore.setPreviewLocation`, `useLocationStore.setLastLocation`, `reverseGeocodeCoords`, `useSettingsStore.defaultRadius`
 - Produces: `<LocationPrompt onDismiss={() => void} onPickCity={() => void} />` — card overlay com "Usar minha localização" e "Escolher cidade".
 
@@ -602,9 +628,11 @@ git commit -m "feat: LocationPrompt card component"
 ### Task 9: Mostrar o card na 1ª entrada (HomeState) e integrar retornante
 
 **Files:**
+
 - Modify: `src/routes/app.mapa.tsx`
 
 **Interfaces:**
+
 - Consumes: `useLocationStore.lastLocation`, `useLeadsStore.setPreviewLocation`, `LocationPrompt`, `useSettingsStore.defaultRadius`
 
 - [ ] **Step 1: Ao montar, hidratar previewLocation da memória; senão marcar para mostrar o card**
@@ -612,23 +640,23 @@ git commit -m "feat: LocationPrompt card component"
 Em `src/routes/app.mapa.tsx`, dentro de `MapaPage`, adicionar:
 
 ```ts
-  const lastLocation = useLocationStore((s) => s.lastLocation);
-  const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
-  const defaultRadius = useSettingsStore((s) => s.defaultRadius);
-  const [promptDismissed, setPromptDismissed] = useState(false);
+const lastLocation = useLocationStore((s) => s.lastLocation);
+const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
+const defaultRadius = useSettingsStore((s) => s.defaultRadius);
+const [promptDismissed, setPromptDismissed] = useState(false);
 
-  useEffect(() => {
-    const s = useLeadsStore.getState();
-    if (s.loaded || s.previewLocation) return;
-    if (lastLocation) {
-      setPreviewLocation({
-        lat: lastLocation.lat,
-        lng: lastLocation.lng,
-        radiusKm: defaultRadius,
-        label: lastLocation.label,
-      });
-    }
-  }, [lastLocation, setPreviewLocation, defaultRadius]);
+useEffect(() => {
+  const s = useLeadsStore.getState();
+  if (s.loaded || s.previewLocation) return;
+  if (lastLocation) {
+    setPreviewLocation({
+      lat: lastLocation.lat,
+      lng: lastLocation.lng,
+      radiusKm: defaultRadius,
+      label: lastLocation.label,
+    });
+  }
+}, [lastLocation, setPreviewLocation, defaultRadius]);
 ```
 
 (adicionar os imports: `useEffect, useState` de react, `useLocationStore, useSettingsStore` de `@/stores`, `LocationPrompt` de `@/components/app/LocationPrompt`.)
@@ -679,9 +707,11 @@ git commit -m "feat: show location prompt on first entry, hydrate from memory"
 ### Task 10: Wire no SearchForm (botão GPS + remover auto-search + sincronizar label)
 
 **Files:**
+
 - Modify: `src/components/app/SearchForm.tsx`
 
 **Interfaces:**
+
 - Consumes: `useGeolocation`, `reverseGeocodeCoords`, `useLeadsStore.setPreviewLocation`, `useLocationStore`, evento `geo-located`
 
 - [ ] **Step 1: Remover o auto-search de mount e escutar geo-located**
@@ -689,12 +719,12 @@ git commit -m "feat: show location prompt on first entry, hydrate from memory"
 Em `src/components/app/SearchForm.tsx`, no `useEffect` de mount, **remover** a linha `if (!s.loaded) runSearch();`. Adicionar um listener que sincroniza os campos quando o card/GPS resolve:
 
 ```ts
-    const onGeoLocated = (e: Event) => {
-      const d = (e as CustomEvent<{ label: string; lat: number; lng: number }>).detail;
-      setLocation(d.label);
-      setLocCoords({ lat: d.lat, lng: d.lng });
-    };
-    window.addEventListener("geo-located", onGeoLocated);
+const onGeoLocated = (e: Event) => {
+  const d = (e as CustomEvent<{ label: string; lat: number; lng: number }>).detail;
+  setLocation(d.label);
+  setLocCoords({ lat: d.lat, lng: d.lng });
+};
+window.addEventListener("geo-located", onGeoLocated);
 ```
 
 e no cleanup: `window.removeEventListener("geo-located", onGeoLocated);`
@@ -704,11 +734,11 @@ e no cleanup: `window.removeEventListener("geo-located", onGeoLocated);`
 Ainda no `useEffect` de mount, no início:
 
 ```ts
-    const last = useLocationStore.getState().lastLocation;
-    if (last) {
-      setLocation(last.label);
-      setLocCoords({ lat: last.lat, lng: last.lng });
-    }
+const last = useLocationStore.getState().lastLocation;
+if (last) {
+  setLocation(last.label);
+  setLocCoords({ lat: last.lat, lng: last.lng });
+}
 ```
 
 (import `useLocationStore` de `@/stores`.)
@@ -718,13 +748,13 @@ Ainda no `useEffect` de mount, no início:
 Logo abaixo do `<Popover>` de Localização (dentro do mesmo `div.space-y-1.5`), adicionar:
 
 ```tsx
-          <GpsButton
-            radiusKm={radius}
-            onLocated={(label, lat, lng) => {
-              setLocation(label);
-              setLocCoords({ lat, lng });
-            }}
-          />
+<GpsButton
+  radiusKm={radius}
+  onLocated={(label, lat, lng) => {
+    setLocation(label);
+    setLocCoords({ lat, lng });
+  }}
+/>
 ```
 
 E criar o subcomponente no mesmo arquivo (acima de `export function SearchForm`):
@@ -773,11 +803,13 @@ function GpsButton({
 - [ ] **Step 4: Type-check + lint**
 
 Run:
+
 ```bash
 cd /home/wendelsantos/works/leads
 npx tsc --noEmit 2>&1 | tail -5
 npx eslint src/components/app/SearchForm.tsx src/components/app/LocationPrompt.tsx src/hooks/useGeolocation.ts src/lib/reverse-geocode.ts 2>&1 | tail -15
 ```
+
 Expected: sem erros.
 
 - [ ] **Step 5: Commit**
@@ -800,6 +832,7 @@ Usar `preview_start {name: "dev"}` e navegar para `http://localhost:8081/app/map
 - [ ] **Step 2: Mockar geolocation e validar o card + pin**
 
 No DevTools/JS: sobrescrever `navigator.geolocation.getCurrentPosition` para retornar coords de Porto Alegre (`-30.0234, -51.2010`), clicar "Usar minha localização", confirmar:
+
 - card some
 - pin + círculo aparecem no mapa (checar `previewLocation` no store e marcador Leaflet)
 - label do campo Localização vira "Localizando..." e depois "Bairro, Cidade"
@@ -829,6 +862,7 @@ git commit -m "chore: verify geolocation onboarding flow"
 ## Self-Review (resultado)
 
 **Cobertura do spec:**
+
 - Pré-prompt card sobre o mapa → Task 8, 9 ✓
 - Memória + retornante → Task 4, 9, 10 ✓
 - GPS centraliza + marca, sem buscar → Task 6, 7, 10 (auto-search removido) ✓

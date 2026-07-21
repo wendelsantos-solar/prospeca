@@ -52,9 +52,10 @@ export const searchService = {
     const withinRadius = withDistance.filter((l) => l.distanceKm <= input.radiusKm);
 
     // Se o raio capturou poucos leads, expande para os mais próximos (sem limite artificial)
-    const base = withinRadius.length >= 10
-      ? withinRadius
-      : withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
+    const base =
+      withinRadius.length >= 10
+        ? withinRadius
+        : withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
 
     // Aplica filtros de presença digital e nicho (match parcial, determinístico)
     const nicheLower = input.niche.toLowerCase();
