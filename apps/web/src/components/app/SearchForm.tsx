@@ -200,7 +200,7 @@ export function SearchForm() {
               <Search className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
             <Command>
               <CommandInput
                 placeholder="Buscar ou digitar categoria..."
@@ -247,7 +247,7 @@ export function SearchForm() {
               </span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
             <Command>
               <CommandInput
                 placeholder="Cidade, bairro ou endereço..."
