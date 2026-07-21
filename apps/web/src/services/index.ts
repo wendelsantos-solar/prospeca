@@ -1,6 +1,7 @@
 import type { Lead, LeadStage, Search, PresenceFilter } from "@/types";
 import { MOCK_LEADS } from "@/mocks/leads";
 import { CITY_SUGGESTIONS } from "@/lib/constants";
+import { distanceKm } from "@/lib/geo";
 
 const delay = (ms = 300 + Math.random() * 400) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -24,17 +25,6 @@ export interface SearchInput {
   presence: PresenceFilter;
 }
 
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const toRad = (v: number) => (v * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export const searchService = {
   async run(input: SearchInput): Promise<{ leads: Lead[]; search: Search }> {
     await delay(400);
@@ -44,7 +34,10 @@ export const searchService = {
     const withDistance = MOCK_LEADS.map((l) => ({
       ...l,
       distanceKm: Number(
-        haversine(input.latitude, input.longitude, l.latitude, l.longitude).toFixed(1),
+        distanceKm(
+          { lat: input.latitude, lng: input.longitude },
+          { lat: l.latitude, lng: l.longitude },
+        ).toFixed(1),
       ),
     }));
 
