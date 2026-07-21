@@ -195,10 +195,19 @@ Deno.serve(async (req) => {
 
     await admin.from("searches").update({ status: "importing" }).eq("id", searchId);
 
+    // Passo 1: preparar linhas em memória (sem ida ao banco). Antes fazíamos 2
+    // round-trips por lugar (até ~120 sequenciais); agora batchamos em 2 chamadas.
+    const now = new Date().toISOString();
+    const refreshAfter = new Date(Date.now() + 30 * 86400_000).toISOString();
+    const placeRows: Record<string, unknown>[] = [];
+    const meta: { providerPlaceId: string; distance: number | null; inside: boolean; position: number }[] =
+      [];
+    const seen = new Set<string>(); // dedupe por provider_place_id (páginas do Google podem repetir) — evita erro de ON CONFLICT no upsert em lote
     let position = 0;
     let insideCount = 0;
     for (const place of collected) {
       position++;
+      if (!place.id || seen.has(place.id)) continue;
       const lat = place.location?.latitude ?? null;
       const lng = place.location?.longitude ?? null;
       const distance =
@@ -208,52 +217,65 @@ Deno.serve(async (req) => {
       // aqui descartamos os cantos que ficam fora do raio real. Lugares sem
       // coordenada (distance null) passam — não dá para afirmar que estão fora.
       if (distance != null && !inside) continue;
-      if (inside) insideCount++;
 
       const websiteReal = hasRealWebsite(place.websiteUri);
       if (search.presence_filter === "without_website" && websiteReal) continue;
       if (search.presence_filter === "with_website" && !websiteReal) continue;
 
+      seen.add(place.id);
+      if (inside) insideCount++;
+      placeRows.push({
+        organization_id: search.organization_id,
+        provider: providerName,
+        provider_place_id: place.id,
+        name: place.displayName?.text ?? "Sem nome",
+        primary_type: place.primaryType ?? null,
+        types: place.types ?? [],
+        formatted_address: place.formattedAddress ?? null,
+        location: lat != null && lng != null ? `POINT(${lng} ${lat})` : null,
+        national_phone_number: place.nationalPhoneNumber ?? null,
+        international_phone_number: place.internationalPhoneNumber ?? null,
+        website_uri: place.websiteUri ?? null,
+        google_maps_uri: place.googleMapsUri ?? null,
+        business_status: place.businessStatus ?? null,
+        rating: place.rating ?? null,
+        user_rating_count: place.userRatingCount ?? null,
+        provider_fetched_at: now,
+        provider_refresh_after: refreshAfter,
+      });
+      meta.push({ providerPlaceId: place.id!, distance, inside, position });
+    }
+
+    // Passo 2: upsert em lote de places → mapear provider_place_id → id.
+    const idByProviderPlaceId = new Map<string, string>();
+    if (placeRows.length > 0) {
       const { data: upserted, error: upsertError } = await admin
         .from("places")
-        .upsert(
-          {
-            organization_id: search.organization_id,
-            provider: providerName,
-            provider_place_id: place.id,
-            name: place.displayName?.text ?? "Sem nome",
-            primary_type: place.primaryType ?? null,
-            types: place.types ?? [],
-            formatted_address: place.formattedAddress ?? null,
-            location: lat != null && lng != null ? `POINT(${lng} ${lat})` : null,
-            national_phone_number: place.nationalPhoneNumber ?? null,
-            international_phone_number: place.internationalPhoneNumber ?? null,
-            website_uri: place.websiteUri ?? null,
-            google_maps_uri: place.googleMapsUri ?? null,
-            business_status: place.businessStatus ?? null,
-            rating: place.rating ?? null,
-            user_rating_count: place.userRatingCount ?? null,
-            provider_fetched_at: new Date().toISOString(),
-            provider_refresh_after: new Date(Date.now() + 30 * 86400_000).toISOString(),
-          },
-          { onConflict: "organization_id,provider,provider_place_id" },
-        )
-        .select("id")
-        .single();
-      if (upsertError || !upserted) continue;
+        .upsert(placeRows, { onConflict: "organization_id,provider,provider_place_id" })
+        .select("id, provider_place_id");
+      if (!upsertError && upserted) {
+        for (const row of upserted) {
+          idByProviderPlaceId.set(row.provider_place_id as string, row.id as string);
+        }
+      }
+    }
 
-      await admin.from("search_results").upsert(
-        {
-          search_id: searchId,
-          place_id: upserted.id,
-          distance_meters: distance,
-          position,
-          provider_rank: position,
-          matched_query: search.query,
-          is_inside_radius: inside,
-        },
-        { onConflict: "search_id,place_id" },
-      );
+    // Passo 3: upsert em lote de search_results.
+    const resultRows = meta
+      .filter((m) => idByProviderPlaceId.has(m.providerPlaceId))
+      .map((m) => ({
+        search_id: searchId,
+        place_id: idByProviderPlaceId.get(m.providerPlaceId),
+        distance_meters: m.distance,
+        position: m.position,
+        provider_rank: m.position,
+        matched_query: search.query,
+        is_inside_radius: m.inside,
+      }));
+    if (resultRows.length > 0) {
+      await admin
+        .from("search_results")
+        .upsert(resultRows, { onConflict: "search_id,place_id" });
     }
 
     await admin
