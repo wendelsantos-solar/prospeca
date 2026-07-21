@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, Loader2, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSearchDraftStore } from "@/stores";
+import { distanceKm } from "@/lib/geo";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
@@ -88,6 +89,15 @@ export function SearchForm() {
   const sliderIndex = Math.max(
     0,
     RADIUS_OPTIONS.indexOf(radius as (typeof RADIUS_OPTIONS)[number]),
+  );
+
+  const leads = useLeadsStore((s) => s.leads);
+  const leadsInRadius = useMemo(
+    () =>
+      leads.filter(
+        (l) => distanceKm(draft.coords, { lat: l.latitude, lng: l.longitude }) <= draft.radiusKm,
+      ).length,
+    [leads, draft.coords.lat, draft.coords.lng, draft.radiusKm],
   );
 
   const [nicheOpen, setNicheOpen] = useState(false);
@@ -290,6 +300,11 @@ export function SearchForm() {
             <span key={r}>{r}</span>
           ))}
         </div>
+        {leads.length > 0 && (
+          <p className="text-[11px] text-muted-foreground tabular-nums">
+            ~{leadsInRadius} de {leads.length} empresas neste raio
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
