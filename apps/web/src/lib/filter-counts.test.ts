@@ -4,9 +4,23 @@ import type { Lead } from "@/types";
 
 const lead = (over: Partial<Lead>): Lead =>
   ({
-    id: "x", companyName: "", category: "", address: "", city: "", state: "",
-    latitude: 0, longitude: 0, distanceKm: 0, hasWebsite: false, score: 50,
-    temperature: "cold", stage: "new", discoveredAt: "", notes: [], activities: [], timeline: [],
+    id: "x",
+    companyName: "",
+    category: "",
+    address: "",
+    city: "",
+    state: "",
+    latitude: 0,
+    longitude: 0,
+    distanceKm: 0,
+    hasWebsite: false,
+    score: 50,
+    temperature: "cold",
+    stage: "new",
+    discoveredAt: "",
+    notes: [],
+    activities: [],
+    timeline: [],
     ...over,
   }) as Lead;
 
