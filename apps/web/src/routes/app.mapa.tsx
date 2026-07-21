@@ -104,6 +104,7 @@ function MapaPage() {
   const setSearchError = useLeadsStore((s) => s.setSearchError);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
+  const clearFilters = useLeadsStore((s) => s.clearFilters);
   const lastLocation = useLocationStore((s) => s.lastLocation);
   const defaultRadius = useSettingsStore((s) => s.defaultRadius);
   const [promptDismissed, setPromptDismissed] = useState(false);
@@ -173,12 +174,24 @@ function MapaPage() {
   }
 
   if (filtered.length === 0) {
+    const filtersExcludeAll = allLeads.length > 0;
     return (
       <div className="grid h-full place-items-center">
         <EmptyState
           icon={MapIcon}
-          title="Nenhum lead no mapa"
-          description="Ajuste os filtros ou faça uma nova busca."
+          title={filtersExcludeAll ? "Nenhum lead com esses filtros" : "Nenhum lead no mapa"}
+          description={
+            filtersExcludeAll
+              ? "Nenhum dos leads carregados passa nos filtros atuais."
+              : "Ajuste os filtros ou faça uma nova busca."
+          }
+          action={
+            filtersExcludeAll ? (
+              <Button variant="outline" size="sm" onClick={() => clearFilters()}>
+                Afrouxar os filtros
+              </Button>
+            ) : undefined
+          }
         />
       </div>
     );
