@@ -84,6 +84,22 @@ async function placesRequest(path: string, body: unknown, fieldMask: string) {
   return res.json();
 }
 
+/**
+ * Bounding box (retângulo) que circunscreve um círculo (centro + raio em metros).
+ * Usado como `locationRestriction` do searchText — o Google só busca/preenche
+ * dentro da caixa. O recorte fino para o círculo exato é feito por haversine no
+ * chamador (execute-search).
+ */
+export function bboxFromCircle(lat: number, lng: number, radiusMeters: number) {
+  const r = Math.min(radiusMeters, 50000);
+  const dLat = r / 111_320; // metros por grau de latitude
+  const dLng = r / (111_320 * Math.cos((lat * Math.PI) / 180));
+  return {
+    low: { latitude: lat - dLat, longitude: lng - dLng },
+    high: { latitude: lat + dLat, longitude: lng + dLng },
+  };
+}
+
 export async function textSearch(input: {
   textQuery: string;
   latitude: number;
@@ -95,11 +111,10 @@ export async function textSearch(input: {
   const body: Record<string, unknown> = {
     textQuery: input.textQuery,
     pageSize: Math.min(input.pageSize ?? 20, 20),
-    locationBias: {
-      circle: {
-        center: { latitude: input.latitude, longitude: input.longitude },
-        radius: Math.min(input.radiusMeters, 50000),
-      },
+    // locationRestriction (retângulo) faz o raio ser autoridade real: o Google
+    // restringe E preenche dentro da caixa, em vez do bias frouxo do circle.
+    locationRestriction: {
+      rectangle: bboxFromCircle(input.latitude, input.longitude, input.radiusMeters),
     },
     languageCode: "pt-BR",
     regionCode: "BR",

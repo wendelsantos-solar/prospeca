@@ -204,6 +204,10 @@ Deno.serve(async (req) => {
       const distance =
         lat != null && lng != null ? haversineMeters(centerLat, centerLng, lat, lng) : null;
       const inside = distance != null ? distance <= search.radius_meters : false;
+      // Recorte fino ao círculo: o searchText restringe ao retângulo (bbox);
+      // aqui descartamos os cantos que ficam fora do raio real. Lugares sem
+      // coordenada (distance null) passam — não dá para afirmar que estão fora.
+      if (distance != null && !inside) continue;
       if (inside) insideCount++;
 
       const websiteReal = hasRealWebsite(place.websiteUri);
