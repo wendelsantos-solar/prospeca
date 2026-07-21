@@ -3,7 +3,7 @@ import { Search, Loader2, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { NICHES, RADIUS_OPTIONS, CITY_SUGGESTIONS } from "@/lib/constants";
+import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
@@ -371,5 +371,3 @@ export function SearchForm() {
     </div>
   );
 }
-
-export { CITY_SUGGESTIONS };

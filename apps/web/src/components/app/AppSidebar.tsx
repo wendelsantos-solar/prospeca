@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useUIStore, useLeadsStore, applyPresenceFilter } from "@/stores";
+import { useUIStore, useLeadsStore } from "@/stores";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
@@ -342,5 +342,3 @@ function MiniStat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-
-export { applyPresenceFilter };
