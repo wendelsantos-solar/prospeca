@@ -48,6 +48,30 @@ export default defineConfig({
   css: {
     transformer: "lightningcss",
   },
+  // Pré-empacota as deps pesadas/sempre-usadas uma vez → cold-start do dev muito
+  // mais rápido e sem re-otimização repetida ("Re-optimizing dependencies...").
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "@tanstack/react-router",
+      "@tanstack/react-query",
+      "@supabase/supabase-js",
+      "lucide-react",
+      "zod",
+      "zustand",
+      "clsx",
+      "tailwind-merge",
+      "class-variance-authority",
+      "sonner",
+      "cmdk",
+      "date-fns",
+      "react-hook-form",
+      "@hookform/resolvers",
+      "react-virtuoso",
+    ],
+  },
   server: {
     host: "::",
     port: 8080,
