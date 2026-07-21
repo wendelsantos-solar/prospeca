@@ -198,6 +198,7 @@ export const useLeadsStore = create<LeadsState>()(
           focusedId: null,
           kanbanOrder: {},
         }));
+        useSearchDraftStore.getState().resetDraftTo(search);
       },
       setPreviewLocation: (previewLocation) => set({ previewLocation }),
       reset: () =>

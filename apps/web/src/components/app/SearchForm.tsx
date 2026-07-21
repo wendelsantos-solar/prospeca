@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
-import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
+import { useLeadsStore, useLocationStore, useSearchDraftStore } from "@/stores";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
@@ -78,25 +78,18 @@ export function SearchForm() {
   const setLeads = useLeadsStore((s) => s.setLeads);
   const setSearching = useLeadsStore((s) => s.setSearching);
   const setSearchError = useLeadsStore((s) => s.setSearchError);
-  const defaultPresence = useSettingsStore((s) => s.defaultPresence);
-  const defaultRadius = useSettingsStore((s) => s.defaultRadius);
-
-  const [niche, setNiche] = useState("Clínica médica");
-  const [location, setLocation] = useState("Porto Alegre, Rio Grande do Sul");
-  const [locCoords, setLocCoords] = useState({ lat: -30.0346, lng: -51.2177 });
-  const radiusFromDefault = RADIUS_OPTIONS.indexOf(
-    defaultRadius as (typeof RADIUS_OPTIONS)[number],
+  const draft = useSearchDraftStore((s) => s.draft);
+  const setDraft = useSearchDraftStore((s) => s.setDraft);
+  const niche = draft.niche;
+  const location = draft.location;
+  const locCoords = draft.coords;
+  const presence = draft.presence;
+  const radius = draft.radiusKm;
+  const sliderIndex = Math.max(
+    0,
+    RADIUS_OPTIONS.indexOf(radius as (typeof RADIUS_OPTIONS)[number]),
   );
-  const [sliderIndex, setSliderIndex] = useState(radiusFromDefault === -1 ? 2 : radiusFromDefault);
-  const radius = RADIUS_OPTIONS[sliderIndex]!;
 
-  // Sincroniza com hidratação assíncrona do Zustand (localStorage)
-  useEffect(() => {
-    const idx = RADIUS_OPTIONS.indexOf(defaultRadius as (typeof RADIUS_OPTIONS)[number]);
-    if (idx !== -1) setSliderIndex(idx);
-  }, [defaultRadius]);
-
-  const [presence, setPresence] = useState<PresenceFilter>(defaultPresence);
   const [nicheOpen, setNicheOpen] = useState(false);
   const [locOpen, setLocOpen] = useState(false);
   const nicheButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -139,34 +132,30 @@ export function SearchForm() {
   useEffect(() => {
     // Retornante: hidrata os campos com a última localização escolhida.
     const last = useLocationStore.getState().lastLocation;
-    if (last) {
-      setLocation(last.label);
-      setLocCoords({ lat: last.lat, lng: last.lng });
-    }
+    if (last) setDraft({ location: last.label, coords: { lat: last.lat, lng: last.lng } });
 
     const onFocusNiche = () => nicheButtonRef.current?.focus();
     const onGeoLocated = (e: Event) => {
       const d = (e as CustomEvent<{ label: string; lat: number; lng: number }>).detail;
-      setLocation(d.label);
-      setLocCoords({ lat: d.lat, lng: d.lng });
+      setDraft({ location: d.label, coords: { lat: d.lat, lng: d.lng } });
     };
     const onSuggest = (e: Event) => {
       const d = (e as CustomEvent<SuggestSearchDetail>).detail;
-      setNiche(d.niche);
-      setLocation(d.location);
-      setLocCoords({ lat: d.lat, lng: d.lng });
-      setPresence(d.presence);
-      if (d.radiusKm) {
-        const idx = RADIUS_OPTIONS.indexOf(d.radiusKm as (typeof RADIUS_OPTIONS)[number]);
-        if (idx !== -1) setSliderIndex(idx);
-      }
+      const radiusKm = d.radiusKm ?? draft.radiusKm;
+      setDraft({
+        niche: d.niche,
+        location: d.location,
+        coords: { lat: d.lat, lng: d.lng },
+        presence: d.presence,
+        radiusKm,
+      });
       runSearch({
         niche: d.niche,
         location: d.location,
         latitude: d.lat,
         longitude: d.lng,
         presence: d.presence,
-        radiusKm: d.radiusKm ?? radius,
+        radiusKm,
       });
     };
     const onRetry = () => runSearch();
@@ -205,7 +194,7 @@ export function SearchForm() {
               <CommandInput
                 placeholder="Buscar ou digitar categoria..."
                 value={niche}
-                onValueChange={setNiche}
+                onValueChange={(v) => setDraft({ niche: v })}
               />
               <CommandList>
                 <CommandEmpty>
@@ -222,7 +211,7 @@ export function SearchForm() {
                       key={n}
                       value={n}
                       onSelect={(v) => {
-                        setNiche(v);
+                        setDraft({ niche: v });
                         setNicheOpen(false);
                       }}
                     >
@@ -252,7 +241,7 @@ export function SearchForm() {
               <CommandInput
                 placeholder="Cidade, bairro ou endereço..."
                 value={location}
-                onValueChange={setLocation}
+                onValueChange={(v) => setDraft({ location: v })}
               />
               <CommandList>
                 <CommandEmpty>Nenhuma sugestão</CommandEmpty>
@@ -262,8 +251,7 @@ export function SearchForm() {
                       key={c.label}
                       value={c.label}
                       onSelect={() => {
-                        setLocation(c.label);
-                        setLocCoords({ lat: c.lat, lng: c.lng });
+                        setDraft({ location: c.label, coords: { lat: c.lat, lng: c.lng } });
                         setLocOpen(false);
                       }}
                     >
@@ -279,8 +267,7 @@ export function SearchForm() {
         <GpsButton
           radiusKm={radius}
           onLocated={(label, lat, lng) => {
-            setLocation(label);
-            setLocCoords({ lat, lng });
+            setDraft({ location: label, coords: { lat, lng } });
           }}
         />
       </div>
@@ -292,7 +279,7 @@ export function SearchForm() {
         </div>
         <Slider
           value={[sliderIndex]}
-          onValueChange={(v) => setSliderIndex(v[0]!)}
+          onValueChange={(v) => setDraft({ radiusKm: RADIUS_OPTIONS[v[0]!]! })}
           min={0}
           max={RADIUS_OPTIONS.length - 1}
           step={1}
@@ -321,7 +308,7 @@ export function SearchForm() {
           ).map((o) => (
             <button
               key={o.v}
-              onClick={() => setPresence(o.v)}
+              onClick={() => setDraft({ presence: o.v })}
               aria-pressed={presence === o.v}
               className={cn(
                 "text-xs font-medium rounded-md px-2 py-1.5 transition-colors",
