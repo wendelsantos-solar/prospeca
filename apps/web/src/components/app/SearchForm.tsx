@@ -98,6 +98,7 @@ export function SearchForm() {
       leads.filter(
         (l) => distanceKm(draft.coords, { lat: l.latitude, lng: l.longitude }) <= draft.radiusKm,
       ).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on coords primitives (lat/lng) to avoid object-ref churn
     [leads, draft.coords.lat, draft.coords.lng, draft.radiusKm],
   );
 

@@ -137,8 +137,9 @@ export function BulkMessageDialog({
 
   const currentMsg = useMemo(
     () => (current ? getMsg(current.id) : ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getMsg is defined inline; memo keyed on its real inputs
     [current, template, messages],
-  ); // eslint-disable-line
+  );
 
   if (!current) return null;
 

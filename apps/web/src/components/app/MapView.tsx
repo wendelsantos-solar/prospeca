@@ -270,6 +270,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
       markersRef.current.set(l.id, m);
     });
     setVisibleCount(leads.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- coords tracked via lat/lng primitives to avoid object-ref churn
   }, [
     leads,
     focusedId,

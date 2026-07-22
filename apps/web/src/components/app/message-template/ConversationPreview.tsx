@@ -1,5 +1,5 @@
 import { Search, MoreVertical, CheckCheck, Smile, Paperclip, Mic } from "lucide-react";
-import { renderFormattedMessage } from "./constants";
+import { renderFormattedMessage } from "./render-message";
 
 interface ConversationPreviewProps {
   contactName: string;
