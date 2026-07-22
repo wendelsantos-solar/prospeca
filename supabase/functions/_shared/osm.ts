@@ -140,6 +140,33 @@ interface OverpassEl {
   tags?: Record<string, string>;
 }
 
+/** Maps one Overpass element to a Google-Place-shaped object. null if unusable. */
+export function mapElementToPlace(el: OverpassEl): GooglePlace | null {
+  const t = el.tags ?? {};
+  const name = t.name?.trim();
+  const lat = el.lat ?? el.center?.lat;
+  const lon = el.lon ?? el.center?.lon;
+  if (!name || lat == null || lon == null) return null;
+  const category =
+    t.amenity || t.shop || t.healthcare || t.office || t.leisure || t.tourism || null;
+  const address = [
+    [t["addr:street"], t["addr:housenumber"]].filter(Boolean).join(", "),
+    t["addr:city"] || t["addr:suburb"] || "",
+  ]
+    .filter(Boolean)
+    .join(" - ");
+  return {
+    id: `${el.type}/${el.id}`,
+    displayName: { text: name },
+    formattedAddress: address || undefined,
+    location: { latitude: lat, longitude: lon },
+    primaryType: category ?? undefined,
+    types: category ? [category] : [],
+    websiteUri: t.website || t["contact:website"] || undefined,
+    nationalPhoneNumber: t.phone || t["contact:phone"] || undefined,
+  };
+}
+
 /** Returns Google-Place-shaped objects so execute-search's loop is unchanged. */
 export async function osmSearchBusinesses(input: {
   query: string;
@@ -170,35 +197,49 @@ export async function osmSearchBusinesses(input: {
   const seen = new Set<string>();
   const places: GooglePlace[] = [];
   for (const el of data.elements ?? []) {
-    const t = el.tags ?? {};
-    const name = t.name?.trim();
-    const lat = el.lat ?? el.center?.lat;
-    const lon = el.lon ?? el.center?.lon;
-    if (!name || lat == null || lon == null) continue;
-    const id = `${el.type}/${el.id}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-
-    const category =
-      t.amenity || t.shop || t.healthcare || t.office || t.leisure || t.tourism || null;
-    const address = [
-      [t["addr:street"], t["addr:housenumber"]].filter(Boolean).join(", "),
-      t["addr:city"] || t["addr:suburb"] || "",
-    ]
-      .filter(Boolean)
-      .join(" - ");
-
-    places.push({
-      id,
-      displayName: { text: name },
-      formattedAddress: address || undefined,
-      location: { latitude: lat, longitude: lon },
-      primaryType: category ?? undefined,
-      types: category ? [category] : [],
-      websiteUri: t.website || t["contact:website"] || undefined,
-      nationalPhoneNumber: t.phone || t["contact:phone"] || undefined,
-    });
+    const place = mapElementToPlace(el);
+    if (!place) continue;
+    if (seen.has(place.id)) continue;
+    seen.add(place.id);
+    places.push(place);
     if (input.maxResults && places.length >= input.maxResults) break;
   }
   return { places };
+}
+
+/** "node/42" -> element-by-id Overpass query. null if not an OSM id. */
+export function buildOverpassElementQuery(providerPlaceId: string, timeoutSec = 25): string | null {
+  const m = /^(node|way|relation)\/(\d+)$/.exec(providerPlaceId.trim());
+  if (!m) return null;
+  const [, type, id] = m;
+  return `[out:json][timeout:${timeoutSec}];\n${type}(${id});\nout center tags;`;
+}
+
+/**
+ * Place details via Overpass (element by id). Returns a Google-Place-shaped
+ * object so refresh-place-details' update block is unchanged. Fields OSM lacks
+ * (rating, userRatingCount, regularOpeningHours, businessStatus,
+ * addressComponents) are left undefined -> persisted as null. Never invented.
+ */
+export async function osmPlaceDetails(providerPlaceId: string): Promise<GooglePlace | null> {
+  const ql = buildOverpassElementQuery(providerPlaceId);
+  if (!ql) return null;
+  const base = env("OVERPASS_BASE_URL", "https://overpass-api.de/api/interpreter");
+  const ua = env("OVERPASS_USER_AGENT", "leads-platform/1.0");
+  const timeout = Number(env("OVERPASS_TIMEOUT_MS", "30000"));
+  const data = await fetchJson<{ elements?: OverpassEl[] }>(
+    base,
+    {
+      method: "POST",
+      body: `data=${encodeURIComponent(ql)}`,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": ua,
+        Accept: "application/json",
+      },
+    },
+    timeout,
+  );
+  const el = data.elements?.[0];
+  return el ? mapElementToPlace(el) : null;
 }
