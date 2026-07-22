@@ -28,6 +28,20 @@ The app fails fast with a clear message when required config is missing
 (`realConfigMissing()` in `apps/web/src/lib/env.ts`). Google keys are OPTIONAL —
 leave them empty to run fully on OSM (Nominatim + Overpass + Leaflet tiles).
 
+### Rodar sem Google (OSM-only)
+
+Liga todos os subsistemas no OpenStreetMap — geocoding (Nominatim), descoberta
+e detalhes de places (Overpass), tiles (Leaflet):
+
+```bash
+supabase secrets set USE_OSM_GEOCODER=true USE_OSM_PLACES=true USE_OSM_MAP_PROVIDER=true
+```
+
+No frontend (`.env.local`): `VITE_USE_OSM=true` e deixe `VITE_GOOGLE_MAPS_BROWSER_KEY=`
+vazio. `GOOGLE_MAPS_SERVER_KEY` pode ficar ausente — `serverKey()` lança
+`PROVIDER_UNAVAILABLE` se qualquer caminho Google for chamado por engano, então
+uso acidental do Google falha alto em vez de silencioso.
+
 ## Run
 
 ```bash

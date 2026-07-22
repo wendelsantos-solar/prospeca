@@ -44,7 +44,7 @@
 
 ## Fase 5 — Integrar OSM + flags + migrations
 
-- `execute-search`/`geocode-location` selecionam provider por flag `USE_OSM_*` (default Google preservado até validação).
+- `execute-search`/`geocode-location`/`refresh-place-details` selecionam provider por flag `USE_OSM_*` (default Google preservado até validação). `refresh-place-details` usa `osmPlaceDetails` (Overpass por elemento) quando `USE_OSM_PLACES=true` — fecha a última dependência Google; campos ausentes no OSM (rating/horário/status) ficam `null`, nunca inventados.
 - Migrations **aditivas**: `lead_sources` (provider, external_id, source_url, raw_payload, collected_at), `lead_enrichments`, `lead_scores`. `lead_stage_history` já cobre status history.
 - **Nunca** dropar tabela/coluna. Sem remoção imediata.
 - Commit: `feat(providers): wire OSM discovery+geocode behind flags` + `feat(database): add lead_sources/enrichments`.

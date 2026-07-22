@@ -1,5 +1,10 @@
 # Configuração Google Places / Maps
 
+> **Google é opcional.** Com as flags `USE_OSM_GEOCODER`/`USE_OSM_PLACES`/`USE_OSM_MAP_PROVIDER=true`
+> a plataforma roda 100% no OpenStreetMap (geocoding, descoberta, detalhes e tiles).
+> Ver `docs/local-development.md` → "Rodar sem Google (OSM-only)". Este guia serve
+> só se você optar por usar o Google como provider.
+
 ## 1. Projeto Google Cloud
 
 1. Crie um projeto em console.cloud.google.com.
