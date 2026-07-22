@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
 import { formatBRL, formatDate, formatDateTime, formatDistance, digitsOnly } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
+import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore } from "@/lib/score";
 import {
@@ -269,9 +270,11 @@ export function LeadDetailsDrawer() {
                 <InfoRow icon={Globe} label="Website">
                   {lead.website ?? "—"}
                 </InfoRow>
-                <InfoRow icon={Star} label="Nota / Avaliações">
-                  {lead.rating?.toFixed(1) ?? "—"} ({lead.reviewCount ?? 0})
-                </InfoRow>
+                {!env.useOsm && (
+                  <InfoRow icon={Star} label="Nota / Avaliações">
+                    {lead.rating?.toFixed(1) ?? "—"} ({lead.reviewCount ?? 0})
+                  </InfoRow>
+                )}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <MiniStat label="Distância" value={formatDistance(lead.distanceKm)} />
                   <MiniStat label="Estágio" value={STAGE_LABELS[lead.stage]} />
