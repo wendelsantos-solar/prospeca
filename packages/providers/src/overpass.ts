@@ -78,6 +78,14 @@ export function buildOverpassQuery(input: {
   return `[out:json][timeout:${input.timeoutSec ?? 25}];\n(\n  ${parts}\n);\nout center tags;`;
 }
 
+/** "node/42" -> element-by-id Overpass query. null if not an OSM id. */
+export function buildOverpassElementQuery(providerPlaceId: string, timeoutSec = 25): string | null {
+  const m = /^(node|way|relation)\/(\d+)$/.exec(providerPlaceId.trim());
+  if (!m) return null;
+  const [, type, id] = m;
+  return `[out:json][timeout:${timeoutSec}];\n${type}(${id});\nout center tags;`;
+}
+
 function pickAddress(t: Record<string, string>): string | null {
   const street = [t["addr:street"], t["addr:housenumber"]].filter(Boolean).join(", ");
   const city = t["addr:city"] || t["addr:suburb"] || "";
@@ -148,5 +156,26 @@ export class OverpassPlacesProvider implements PlacesProvider {
       if (this.config.maxResults && out.length >= this.config.maxResults) break;
     }
     return out;
+  }
+
+  async getPlaceDetails(externalId: string): Promise<BusinessCandidate | null> {
+    const ql = buildOverpassElementQuery(externalId);
+    if (!ql) return null;
+    const data = await requestJson<{ elements?: OverpassElement[] }>(
+      {
+        url: this.config.baseUrl,
+        method: "POST",
+        body: `data=${encodeURIComponent(ql)}`,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      {
+        fetchImpl: this.config.fetchImpl,
+        timeoutMs: this.config.timeoutMs ?? 30000,
+        maxRetries: this.config.maxRetries ?? 2,
+        userAgent: this.config.userAgent,
+      },
+    );
+    const el = data.elements?.[0];
+    return el ? mapElement(el) : null;
   }
 }

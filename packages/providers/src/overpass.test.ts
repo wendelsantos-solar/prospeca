@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { buildOverpassQuery, mapElement, OverpassPlacesProvider } from "./overpass";
+import {
+  buildOverpassElementQuery,
+  buildOverpassQuery,
+  mapElement,
+  OverpassPlacesProvider,
+} from "./overpass";
 
 describe("buildOverpassQuery", () => {
   test("maps known category to OSM selectors + around", () => {
@@ -85,5 +90,70 @@ describe("OverpassPlacesProvider", () => {
       radiusMeters: 5000,
     });
     expect(out.map((c) => c.externalId)).toEqual(["node/1", "node/2"]);
+  });
+});
+
+describe("buildOverpassElementQuery", () => {
+  test("builds an element-by-id query for a node", () => {
+    expect(buildOverpassElementQuery("node/42")).toContain("node(42);");
+  });
+  test("builds for way and relation", () => {
+    expect(buildOverpassElementQuery("way/7")).toContain("way(7);");
+    expect(buildOverpassElementQuery("relation/9")).toContain("relation(9);");
+  });
+  test("returns null for a non-OSM id (e.g. a Google place id)", () => {
+    expect(buildOverpassElementQuery("ChIJN1t_tDeuEmsRUsoyG83frY4")).toBeNull();
+    expect(buildOverpassElementQuery("node/")).toBeNull();
+    expect(buildOverpassElementQuery("42")).toBeNull();
+  });
+});
+
+describe("OverpassPlacesProvider.getPlaceDetails", () => {
+  const makeProvider = (fakeFetch: unknown) =>
+    new OverpassPlacesProvider({
+      baseUrl: "https://overpass.example/api/interpreter",
+      userAgent: "leads-test/1.0",
+      fetchImpl: fakeFetch as unknown as typeof fetch,
+    });
+
+  test("fetches one element by id and maps it", async () => {
+    const fakeFetch = async () =>
+      new Response(
+        JSON.stringify({
+          elements: [
+            {
+              type: "node",
+              id: 42,
+              lat: -30.03,
+              lon: -51.21,
+              tags: { name: "Clínica São José", amenity: "clinic", phone: "+55 51 3321-4567" },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    const c = (await makeProvider(fakeFetch).getPlaceDetails("node/42"))!;
+    expect(c.externalId).toBe("node/42");
+    expect(c.phone).toBe("+55 51 3321-4567");
+    expect(c.category).toBe("clinic");
+  });
+
+  test("returns null when Overpass finds no element", async () => {
+    const fakeFetch = async () =>
+      new Response(JSON.stringify({ elements: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    expect(await makeProvider(fakeFetch).getPlaceDetails("node/999")).toBeNull();
+  });
+
+  test("returns null for a non-OSM id without hitting the network", async () => {
+    let called = false;
+    const fakeFetch = async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    };
+    expect(await makeProvider(fakeFetch).getPlaceDetails("ChIJxyz")).toBeNull();
+    expect(called).toBe(false);
   });
 });
