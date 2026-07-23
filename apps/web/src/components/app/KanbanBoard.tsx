@@ -54,6 +54,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { categoryLabel } from "@/lib/category";
 import { useUIStore } from "@/stores";
 
 const stageColor: Record<LeadStage, string> = {
@@ -133,7 +134,7 @@ const KanbanCard = memo(function KanbanCard({
               {lead.companyName}
             </p>
             <p className="text-[10px] text-muted-foreground truncate">
-              {lead.category} • {lead.neighborhood ?? lead.city}
+              {categoryLabel(lead.category)} • {lead.neighborhood ?? lead.city}
             </p>
           </div>
         </div>
@@ -588,7 +589,7 @@ export function KanbanTopBar({
           </SelectItem>
           {categories.map((c) => (
             <SelectItem key={c} value={c} className="text-xs">
-              {c}
+              {categoryLabel(c)}
             </SelectItem>
           ))}
         </SelectContent>

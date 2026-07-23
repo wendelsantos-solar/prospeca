@@ -11,6 +11,7 @@ import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
+import { categoryLabel } from "@/lib/category";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
 
@@ -47,7 +48,7 @@ function popupHtml(r: DiscoveryResult) {
   return `
     <div style="min-width:220px;font-family:inherit;">
       <div style="font-weight:600;font-size:13px;">${r.name}</div>
-      <div style="color:#666;font-size:11px;margin-bottom:6px;">${r.category ?? ""}</div>
+      <div style="color:#666;font-size:11px;margin-bottom:6px;">${categoryLabel(r.category)}</div>
       <div style="font-size:11px;margin-bottom:2px;">
         <b>${TEMPERATURE_LABELS[r.temperature]}</b> • Score <b>${r.score}</b> • Nota <b>${r.rating?.toFixed(1) ?? "—"}</b> (${r.reviewCount ?? 0})
       </div>

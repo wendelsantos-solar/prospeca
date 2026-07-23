@@ -25,6 +25,7 @@ import { useState, useMemo } from "react";
 import { MessageCircle, Copy, X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { digitsOnly } from "@/lib/format";
+import { categoryLabel } from "@/lib/category";
 
 export function BulkBar({
   visibleIds,
@@ -177,7 +178,7 @@ export function BulkMessageDialog({
     if (!t) return "";
     const base = fill(template, {
       empresa: t.name,
-      categoria: t.category.toLowerCase(),
+      categoria: categoryLabel(t.category).toLowerCase(),
       cidade: t.city,
       bairro: t.neighborhood,
       meu_nome: senderName || userName,

@@ -1,6 +1,7 @@
 import type { Lead } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
 import { formatBRL, formatDate } from "./format";
+import { categoryLabel } from "./category";
 
 const DISCOVERY_HEADERS = [
   "Empresa",
@@ -20,7 +21,7 @@ const DISCOVERY_HEADERS = [
 export function exportDiscoveryCSV(results: DiscoveryResult[]) {
   const row = (r: DiscoveryResult) => [
     r.name,
-    r.category ?? "",
+    categoryLabel(r.category),
     r.phone ?? "",
     r.website ?? "",
     r.hasWebsite ? "Sim" : "Não",
@@ -70,7 +71,7 @@ const HEADERS = [
 function toRow(l: Lead) {
   return [
     l.companyName,
-    l.category,
+    categoryLabel(l.category),
     l.description ?? "",
     l.address,
     l.neighborhood ?? "",

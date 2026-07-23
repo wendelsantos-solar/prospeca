@@ -6,6 +6,7 @@ import { MessageCircle, Globe, GlobeLock, Star, MapPin, PlusCircle, Check } from
 import { useLeadsStore } from "@/stores";
 import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
 import { formatDistance } from "@/lib/format";
+import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -61,7 +62,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
               <GlobeLock className="h-3 w-3 shrink-0 text-hot" aria-label="Sem site" />
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">{result.category ?? ""}</p>
+          <p className="text-[11px] text-muted-foreground">{categoryLabel(result.category)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <span className={cn("text-xs font-bold tabular-nums", tempClass[result.temperature])}>

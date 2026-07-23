@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLeadsStore, useSettingsStore } from "@/stores";
+import { categoryLabel } from "@/lib/category";
 
 type Lead = ReturnType<typeof useLeadsStore.getState>["leads"][number];
 
@@ -10,7 +11,7 @@ function resolveFromLead(name: string, lead: Lead | null): string | null {
     case "empresa":
       return lead?.companyName ?? null;
     case "categoria":
-      return lead?.category ?? null;
+      return lead?.category ? categoryLabel(lead.category) : null;
     case "cidade":
       return lead?.city ?? null;
     case "bairro":

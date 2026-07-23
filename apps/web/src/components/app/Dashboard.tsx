@@ -36,6 +36,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { ArrowUpDown, ChevronDown, ChevronRight, BarChart3, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { categoryLabel } from "@/lib/category";
 
 const CHART_COLORS = [
   "oklch(0.58 0.14 155)",
@@ -293,10 +294,13 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
   const nicheConvSeries = useMemo(
     () =>
       Object.entries(byNiche)
-        .map(([name, v]) => ({
-          name: name.length > 14 ? name.slice(0, 13) + "…" : name,
-          conv: v.total ? Number(((v.won / v.total) * 100).toFixed(1)) : 0,
-        }))
+        .map(([rawName, v]) => {
+          const name = categoryLabel(rawName);
+          return {
+            name: name.length > 14 ? name.slice(0, 13) + "…" : name,
+            conv: v.total ? Number(((v.won / v.total) * 100).toFixed(1)) : 0,
+          };
+        })
         .sort((x, y) => y.conv - x.conv)
         .slice(0, 8),
     [byNiche],
@@ -759,7 +763,7 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                     const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
                     return (
                       <TableRow key={niche}>
-                        <TableCell className="font-medium">{niche}</TableCell>
+                        <TableCell className="font-medium">{categoryLabel(niche)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <span className="tabular-nums">{v.total}</span>

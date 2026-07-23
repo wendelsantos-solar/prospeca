@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
 import { formatBRL, formatDate, formatDateTime, formatDistance, digitsOnly } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
+import { categoryLabel } from "@/lib/category";
 import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore } from "@/lib/score";
@@ -150,7 +151,8 @@ export function LeadDetailsDrawer() {
                   <div className="min-w-0">
                     <SheetTitle className="text-lg">{lead.companyName}</SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground">
-                      {lead.category} • {lead.neighborhood ?? ""} • {lead.city}, {lead.state}
+                      {categoryLabel(lead.category)} • {lead.neighborhood ?? ""} • {lead.city},{" "}
+                      {lead.state}
                     </SheetDescription>
                   </div>
                   <div className="flex items-center gap-2">

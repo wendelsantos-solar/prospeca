@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
 import { formatDistance, formatBRL, formatRelative, formatDate, digitsOnly } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
+import { categoryLabel } from "@/lib/category";
 import {
   MessageCircle,
   Phone,
@@ -127,7 +128,7 @@ export const LeadCard = memo(function LeadCard({
                   <GlobeLock className="h-3 w-3 text-hot shrink-0" aria-label="Sem site" />
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground">{lead.category}</p>
+              <p className="text-[11px] text-muted-foreground">{categoryLabel(lead.category)}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <TemperatureBadge temperature={lead.temperature} size="xs" />

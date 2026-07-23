@@ -29,6 +29,7 @@ import {
 } from "@/lib/constants";
 import { SlidersHorizontal, X, Save, Trash2, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { categoryLabel } from "@/lib/category";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -375,7 +376,7 @@ export function AdvancedFilters() {
                       : "bg-surface text-muted-foreground",
                   )}
                 >
-                  {c}
+                  {categoryLabel(c)}
                 </button>
               ))}
             </div>
