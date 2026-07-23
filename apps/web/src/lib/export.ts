@@ -2,6 +2,7 @@ import type { Lead } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
 import { formatBRL, formatDate } from "./format";
 import { categoryLabel } from "./category";
+import { whatsappDisplay } from "./whatsapp";
 
 const DISCOVERY_HEADERS = [
   "Empresa",
@@ -26,7 +27,7 @@ export function exportDiscoveryCSV(results: DiscoveryResult[]) {
     r.name,
     categoryLabel(r.category),
     r.phone ?? "",
-    r.whatsapp ?? "",
+    whatsappDisplay(r.whatsapp, r.phone)?.value ?? "",
     r.email ?? "",
     r.instagram ?? "",
     r.website ?? "",

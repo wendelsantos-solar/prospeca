@@ -22,6 +22,7 @@ import { formatBRL, formatDate, formatDateTime, formatDistance, digitsOnly } fro
 import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
+import { whatsappDisplay } from "@/lib/whatsapp";
 import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore, scoreInputFromLead } from "@/lib/score";
@@ -310,7 +311,18 @@ export function LeadDetailsDrawer() {
                   {lead.phone ?? "—"}
                 </InfoRow>
                 <InfoRow icon={MessageCircle} label="WhatsApp">
-                  {lead.whatsapp ?? "—"}
+                  {(() => {
+                    const wa = whatsappDisplay(lead.whatsapp, lead.phone);
+                    if (!wa) return "—";
+                    return (
+                      <>
+                        {wa.value}
+                        {wa.probable && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">(provável)</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </InfoRow>
                 <InfoRow icon={Mail} label="E-mail">
                   {lead.email ?? "—"}
