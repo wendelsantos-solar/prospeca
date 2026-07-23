@@ -102,12 +102,14 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       noSite,
       phones,
       inFunnel,
-      total:
-        radiusKm < (currentSearch?.radiusKm ?? radiusKm)
-          ? resultsInRadius.length
-          : Math.max(resultsInRadius.length, currentSearch?.totalFound ?? 0),
+      // Denominador = o que existe de fato na lista/mapa (dentro do raio real),
+      // não o found_count bruto do provider (inclui cantos da bbox fora do
+      // círculo, que foram descartados no execute-search e não são navegáveis).
+      // Mapa, lista e este contador têm que concordar. found_count segue no
+      // Histórico, onde é métrica de auditoria da busca.
+      total: resultsInRadius.length,
     };
-  }, [resultsInRadius, currentSearch, radiusKm]);
+  }, [resultsInRadius]);
 
   const tabs = [
     { to: "/app/mapa", icon: MapIcon, label: "Mapa", count: resultsInRadius.length },
