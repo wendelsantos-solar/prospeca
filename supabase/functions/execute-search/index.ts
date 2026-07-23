@@ -6,6 +6,7 @@ import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "../_shared/cache.ts";
+import { shouldForceRefresh } from "../_shared/refresh.ts";
 import { hasRealWebsite } from "../_shared/normalize.ts";
 import { readPoint } from "../_shared/geo.ts";
 import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
@@ -78,6 +79,29 @@ Deno.serve(async (req) => {
       .update({ status: "searching", started_at: new Date().toISOString() })
       .eq("id", searchId);
 
+    // Cache de nível-busca (Fase 3): se há uma busca gêmea recente da org, reusa
+    // os search_results dela — zero Google, zero re-import, quase instantâneo.
+    // forceRefresh ignora (usuário quer dado fresco).
+    if (!forceRefresh) {
+      const { data: reused } = await admin.rpc("reuse_recent_search_results", {
+        p_search_id: searchId,
+      });
+      if (typeof reused === "number" && reused > 0) {
+        logEvent({
+          requestId,
+          searchId,
+          organizationId: search.organization_id,
+          provider: "google_places",
+          operation: "execute-search",
+          durationMs: Date.now() - startedAt,
+          status: "completed",
+          requestCount: 0,
+          resultCount: reused,
+        });
+        return json({ searchId, status: "completed", found: reused, reused: true });
+      }
+    }
+
     // PostgREST returns geography(point) as hex EWKB, not GeoJSON — decode it.
     const center = readPoint(search.center);
     if (!center) throw new AppError("INVALID_LOCATION", "Centro da busca inválido.");
@@ -103,18 +127,17 @@ Deno.serve(async (req) => {
     // Force refresh bypasses cache reads and re-pays Google, but a per-search
     // cooldown (keyed by cache_key) blocks accidental cost loops (D7): if this
     // key was force-fetched within the window, fall back to normal cached serve.
-    const FORCE_COOLDOWN_MS = 10 * 60_000;
-    let doForce = forceRefresh;
-    if (doForce) {
+    let doForce = false;
+    if (forceRefresh) {
       const { data: existing } = await admin
         .from("provider_search_cache")
         .select("last_forced_at")
         .eq("cache_key", cacheKey)
         .maybeSingle();
-      const lastForced = existing?.last_forced_at
+      const lastForcedMs = existing?.last_forced_at
         ? new Date(existing.last_forced_at as string).getTime()
-        : 0;
-      if (Date.now() - lastForced < FORCE_COOLDOWN_MS) doForce = false;
+        : null;
+      doForce = shouldForceRefresh(true, lastForcedMs, Date.now());
     }
 
     let servedFromCache = false;
@@ -171,57 +194,79 @@ Deno.serve(async (req) => {
         .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
     } else {
-      // Miss (or forced): pay Google, then overwrite the cache under the exact
-      // key with the coverage columns + a renewed 30d TTL. On a forced fetch,
-      // stamp last_forced_at and log the paid refresh for per-org usage tracking.
-      let pageToken: string | undefined;
-      for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
-        const res = await textSearch({
-          textQuery,
-          latitude: centerLat,
-          longitude: centerLng,
-          radiusMeters: search.radius_meters,
-          pageToken,
+      // Guarda-corpo de budget (Fase 1): se a org definiu um teto mensal e o
+      // gasto estimado do mês já estourou, NÃO paga o Google — a busca completa
+      // com o que o cache deu (aqui, nada) e é marcada budget_capped p/ a UI
+      // avisar. Opt-in: budget nulo = ilimitado, guarda-corpo inerte.
+      let budgetCapped = false;
+      const { data: org } = await admin
+        .from("organizations")
+        .select("monthly_api_budget_usd")
+        .eq("id", search.organization_id)
+        .maybeSingle();
+      const budget = org?.monthly_api_budget_usd;
+      if (budget != null) {
+        const { data: mtd } = await admin.rpc("org_mtd_api_cost_usd", {
+          p_organization_id: search.organization_id,
         });
-        requestCount++;
-        await recordUsage(admin, {
-          organizationId: search.organization_id,
-          eventType: "place_search_request",
-          provider: "google_places",
-          quantity: 1,
-          metadata: { searchId, page, forced: doForce },
-        });
-        collected = collected.concat(res.places);
-        await admin
-          .from("searches")
-          .update({ provider_request_count: requestCount, found_count: collected.length })
-          .eq("id", searchId);
-        if (!res.nextPageToken || collected.length >= maxResults) break;
-        pageToken = res.nextPageToken;
+        if (typeof mtd === "number" && mtd >= Number(budget)) budgetCapped = true;
       }
 
-      const cacheRow: Record<string, unknown> = {
-        cache_key: cacheKey,
-        organization_id: search.organization_id,
-        provider: "google_places",
-        payload: collected,
-        result_count: collected.length,
-        category: categorySlug,
-        center: `POINT(${centerLng} ${centerLat})`,
-        radius_meters: search.radius_meters,
-        expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
-      };
-      if (doForce) {
-        cacheRow.last_forced_at = new Date().toISOString();
-        await recordUsage(admin, {
-          organizationId: search.organization_id,
-          eventType: "place_search_refresh",
+      if (budgetCapped) {
+        await admin.from("searches").update({ budget_capped: true }).eq("id", searchId);
+      } else {
+        // Miss (or forced): pay Google, then overwrite the cache under the exact
+        // key with the coverage columns + a renewed 30d TTL. On a forced fetch,
+        // stamp last_forced_at and log the paid refresh for per-org usage tracking.
+        let pageToken: string | undefined;
+        for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
+          const res = await textSearch({
+            textQuery,
+            latitude: centerLat,
+            longitude: centerLng,
+            radiusMeters: search.radius_meters,
+            pageToken,
+          });
+          requestCount++;
+          await recordUsage(admin, {
+            organizationId: search.organization_id,
+            eventType: "place_search_request",
+            provider: "google_places",
+            quantity: 1,
+            metadata: { searchId, page, forced: doForce },
+          });
+          collected = collected.concat(res.places);
+          await admin
+            .from("searches")
+            .update({ provider_request_count: requestCount, found_count: collected.length })
+            .eq("id", searchId);
+          if (!res.nextPageToken || collected.length >= maxResults) break;
+          pageToken = res.nextPageToken;
+        }
+
+        const cacheRow: Record<string, unknown> = {
+          cache_key: cacheKey,
+          organization_id: search.organization_id,
           provider: "google_places",
-          quantity: 1,
-          metadata: { searchId },
-        });
+          payload: collected,
+          result_count: collected.length,
+          category: categorySlug,
+          center: `POINT(${centerLng} ${centerLat})`,
+          radius_meters: search.radius_meters,
+          expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
+        };
+        if (doForce) {
+          cacheRow.last_forced_at = new Date().toISOString();
+          await recordUsage(admin, {
+            organizationId: search.organization_id,
+            eventType: "place_search_refresh",
+            provider: "google_places",
+            quantity: 1,
+            metadata: { searchId },
+          });
+        }
+        await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
       }
-      await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
     }
 
     collected = collected.slice(0, maxResults);
@@ -334,9 +379,7 @@ Deno.serve(async (req) => {
         score_breakdown: m.breakdown,
       }));
     if (resultRows.length > 0) {
-      await admin
-        .from("search_results")
-        .upsert(resultRows, { onConflict: "search_id,place_id" });
+      await admin.from("search_results").upsert(resultRows, { onConflict: "search_id,place_id" });
     }
 
     await admin

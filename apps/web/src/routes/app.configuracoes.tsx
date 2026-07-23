@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { integrationStatuses, isRealMode } from "@/lib/env";
 import { invokeFunction, supabaseAvailable, getSupabase } from "@/lib/supabase";
+import { UsageCostCard } from "@/components/app/UsageCostCard";
 
 export const Route = createFileRoute("/app/configuracoes")({
   component: SettingsPage,
@@ -105,6 +106,8 @@ function SettingsPage() {
             ))}
           </CardContent>
         </Card>
+
+        <UsageCostCard />
 
         <Card>
           <CardHeader>
