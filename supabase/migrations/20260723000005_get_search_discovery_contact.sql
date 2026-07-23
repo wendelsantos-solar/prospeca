@@ -1,5 +1,7 @@
 -- Surface enrichment contact fields (email/instagram/whatsapp) in discovery, so
 -- the map/list/preview/CSV can show them once enrich-discovery fills them.
+-- Return type changes (new columns) → must drop before recreate.
+drop function if exists public.get_search_discovery(uuid);
 create or replace function public.get_search_discovery(p_search_id uuid)
 returns table (
   place_id uuid,
