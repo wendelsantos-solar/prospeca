@@ -11,13 +11,15 @@ describe("score", () => {
       whatsappStatus: "possible",
       hasEmail: false,
       hasInstagram: false,
+      hasCategory: false,
       rating: null,
       reviewCount: null,
       distanceMeters: 5000,
       businessStatus: "OPERATIONAL",
     });
-    expect(s.total).toBe(25 + 15 + 10 + 5 + 5);
-    expect(s.ruleVersion).toBe("v1.0.0");
+    // v2.0.0: no_website 35 + valid_phone 20 + whatsapp 15 + nearby_5 10 = 80
+    expect(s.total).toBe(35 + 20 + 15 + 10);
+    expect(s.ruleVersion).toBe("v2.0.0");
   });
   test("clamped to 0..100 and temperature bands", () => {
     expect(temperatureFromScore(80)).toBe("hot");

@@ -6,6 +6,7 @@ test("sem site + telefone móvel → hasValidPhone e whatsapp possible", () => {
     {
       websiteUri: undefined,
       nationalPhoneNumber: "(21) 99999-8888",
+      primaryType: "restaurant",
       rating: 4.5,
       userRatingCount: 120,
       businessStatus: "OPERATIONAL",
@@ -17,6 +18,7 @@ test("sem site + telefone móvel → hasValidPhone e whatsapp possible", () => {
   expect(input.whatsappStatus).toBe("possible");
   expect(input.hasEmail).toBe(false);
   expect(input.hasInstagram).toBe(false);
+  expect(input.hasCategory).toBe(true);
   expect(input.rating).toBe(4.5);
   expect(input.reviewCount).toBe(120);
   expect(input.distanceMeters).toBe(3000);
@@ -28,4 +30,5 @@ test("telefone fixo → whatsapp unknown", () => {
     null,
   );
   expect(input.whatsappStatus).toBe("unknown");
+  expect(input.hasCategory).toBe(false);
 });

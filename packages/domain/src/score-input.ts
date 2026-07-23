@@ -5,6 +5,8 @@ export interface PlaceLike {
   websiteUri?: string | null;
   nationalPhoneNumber?: string | null;
   internationalPhoneNumber?: string | null;
+  primaryType?: string | null;
+  types?: string[] | null;
   rating?: number | null;
   userRatingCount?: number | null;
   businessStatus?: string | null;
@@ -24,6 +26,7 @@ export function scoreInputFromPlace(place: PlaceLike, distanceMeters: number | n
     whatsappStatus: phone?.type === "mobile" ? "possible" : "unknown",
     hasEmail: false,
     hasInstagram: false,
+    hasCategory: place.primaryType != null || (place.types?.length ?? 0) > 0,
     rating: place.rating ?? null,
     reviewCount: place.userRatingCount ?? null,
     distanceMeters,
