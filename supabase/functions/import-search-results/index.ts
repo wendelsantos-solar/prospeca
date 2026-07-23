@@ -20,6 +20,8 @@ const InputSchema = z.object({
   // Empty array + importAll=true imports every allowed result.
   placeIds: z.array(z.string().uuid()).max(200).default([]),
   importAll: z.boolean().default(false),
+  // Estágio-alvo ao materializar o lead. Duplicado nunca rebaixa (só promove).
+  stage: z.enum(["new", "qualified", "contacted"]).default("new"),
 });
 
 Deno.serve(async (req) => {
@@ -87,6 +89,8 @@ Deno.serve(async (req) => {
 
         let imported = 0;
         let duplicates = 0;
+        // Leads recém-criados que têm site → o cliente dispara enrich sob demanda.
+        const enrichable: { leadId: string; website: string }[] = [];
 
         for (const row of results ?? []) {
           const place = row.places as unknown as Record<string, unknown> | null;
@@ -128,7 +132,25 @@ Deno.serve(async (req) => {
 
           if (existing) {
             duplicates++;
-            // Record extra origin only; never touch commercial fields.
+            // Promove o estágio se o alvo for mais avançado — nunca rebaixa.
+            const rank: Record<string, number> = {
+              new: 0,
+              qualified: 1,
+              contacted: 2,
+              won: 3,
+              discarded: -1,
+            };
+            const { data: cur } = await ctx.adminClient
+              .from("leads")
+              .select("stage")
+              .eq("id", existing.id)
+              .maybeSingle();
+            if (cur && (rank[input.stage] ?? 0) > (rank[cur.stage as string] ?? 0)) {
+              await ctx.adminClient
+                .from("leads")
+                .update({ stage: input.stage, last_interaction_at: new Date().toISOString() })
+                .eq("id", existing.id);
+            }
             await ctx.adminClient
               .from("search_results")
               .update({ imported_lead_id: existing.id })
@@ -176,7 +198,7 @@ Deno.serve(async (req) => {
               score_breakdown: breakdown,
               score_rule_version: SCORE_RULE_VERSION,
               temperature: temperatureFromScore(breakdown.total),
-              stage: "new",
+              stage: input.stage,
               source: "search",
               source_search_id: input.searchId,
               name_normalized: normalizeCompanyName(place.name as string),
@@ -186,6 +208,9 @@ Deno.serve(async (req) => {
           if (error || !lead) continue;
 
           imported++;
+          if (websiteReal && place.website_uri) {
+            enrichable.push({ leadId: lead.id as string, website: place.website_uri as string });
+          }
           await ctx.adminClient
             .from("search_results")
             .update({ imported_lead_id: lead.id })
@@ -212,7 +237,7 @@ Deno.serve(async (req) => {
           .update({ imported_count: totalImported ?? imported })
           .eq("id", input.searchId);
 
-        return { imported, duplicates };
+        return { imported, duplicates, enrichableLeadIds: enrichable.map((e) => e.leadId) };
       },
     );
 

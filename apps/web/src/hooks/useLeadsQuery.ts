@@ -59,9 +59,15 @@ export function useAddToFunnelMutation() {
       placeId: string;
       stage: "new" | "contacted";
     }) => getSearchRepository().addToFunnel(searchId, placeId, stage),
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
+      // Enriquecimento pesado (scrape de site) sob demanda, só para os leads
+      // recém-criados que têm site. Fire-and-forget; refresca ao terminar.
+      const repo = getSearchRepository();
+      Promise.allSettled(data.enrichableLeadIds.map((id) => repo.enrichLead(id))).then(() => {
+        queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      });
     },
   });
 }

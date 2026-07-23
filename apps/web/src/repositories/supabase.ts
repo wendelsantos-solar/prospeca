@@ -450,8 +450,21 @@ export class SupabaseSearchRepository implements SearchRepository {
     }));
   }
 
-  async addToFunnel(searchId: string, placeId: string, stage: "new" | "contacted"): Promise<void> {
-    await invokeFunction("import-search-results", { searchId, placeIds: [placeId], stage });
+  async addToFunnel(
+    searchId: string,
+    placeId: string,
+    stage: "new" | "contacted",
+  ): Promise<{ enrichableLeadIds: string[] }> {
+    const res = await invokeFunction<{ enrichableLeadIds?: string[] }>("import-search-results", {
+      searchId,
+      placeIds: [placeId],
+      stage,
+    });
+    return { enrichableLeadIds: res.enrichableLeadIds ?? [] };
+  }
+
+  async enrichLead(leadId: string): Promise<void> {
+    await invokeFunction("enrich-lead", { leadId });
   }
 }
 

@@ -130,7 +130,12 @@ export interface SearchRepository {
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }>;
   getDiscovery(searchId: string): Promise<DiscoveryResult[]>;
-  addToFunnel(searchId: string, placeId: string, stage: "new" | "contacted"): Promise<void>;
+  addToFunnel(
+    searchId: string,
+    placeId: string,
+    stage: "new" | "contacted",
+  ): Promise<{ enrichableLeadIds: string[] }>;
+  enrichLead(leadId: string): Promise<void>;
 }
 
 export interface DashboardRepository {

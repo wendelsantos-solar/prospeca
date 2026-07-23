@@ -1,5 +1,17 @@
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
+import { useLeadsList, useDiscoveryResults, useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
+
+interface BulkTarget {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  neighborhood: string;
+  phone: string | null;
+  whatsapp: string | null;
+  kind: "discovery" | "lead";
+  inFunnel: boolean;
+}
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -105,30 +117,69 @@ export function BulkMessageDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const selected = useLeadsStore((s) => s.selectedIds);
-  const { data } = useLeadsList({ quick: [] });
-  const allLeads = useMemo(() => data?.items ?? [], [data]);
-  const leads = useMemo(
-    () => allLeads.filter((l) => selected.includes(l.id)),
-    [allLeads, selected],
-  );
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const { data: leadPage } = useLeadsList({ quick: [] });
+  const { data: discovery } = useDiscoveryResults(currentSearch?.id);
+  const addToFunnel = useAddToFunnelMutation();
+
+  // Selection can hold discovery place ids (prospecting from the sidebar/map) or
+  // lead ids (kanban). Resolve each against both so the dialog works for either.
+  const targets = useMemo<BulkTarget[]>(() => {
+    const byPlace = new Map((discovery ?? []).map((r) => [r.placeId, r]));
+    const byLead = new Map((leadPage?.items ?? []).map((l) => [l.id, l]));
+    return selected
+      .map((id): BulkTarget | null => {
+        const r = byPlace.get(id);
+        if (r) {
+          return {
+            id: r.placeId,
+            name: r.name,
+            category: r.category ?? "",
+            city: "",
+            neighborhood: "",
+            phone: r.phone,
+            whatsapp: null,
+            kind: "discovery",
+            inFunnel: r.importedLeadId != null,
+          };
+        }
+        const l = byLead.get(id);
+        if (l) {
+          return {
+            id: l.id,
+            name: l.companyName,
+            category: l.category,
+            city: l.city,
+            neighborhood: l.neighborhood ?? "",
+            phone: l.phone ?? null,
+            whatsapp: l.whatsapp ?? null,
+            kind: "lead",
+            inFunnel: true,
+          };
+        }
+        return null;
+      })
+      .filter((t): t is BulkTarget => t !== null);
+  }, [selected, discovery, leadPage]);
+
   const template = useMessageStore((s) => s.template);
   const senderName = useSettingsStore((s) => s.senderName);
   const userName = useSettingsStore((s) => s.userName);
   const signature = useSettingsStore((s) => s.signature);
   const [idx, setIdx] = useState(0);
-  const current = leads[idx];
+  const current = targets[idx];
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<Record<string, boolean>>({});
 
-  const getMsg = (leadId: string) => {
-    if (messages[leadId] != null) return messages[leadId];
-    const l = leads.find((x) => x.id === leadId);
-    if (!l) return "";
+  const getMsg = (id: string) => {
+    if (messages[id] != null) return messages[id];
+    const t = targets.find((x) => x.id === id);
+    if (!t) return "";
     const base = fill(template, {
-      empresa: l.companyName,
-      categoria: l.category.toLowerCase(),
-      cidade: l.city,
-      bairro: l.neighborhood ?? "",
+      empresa: t.name,
+      categoria: t.category.toLowerCase(),
+      cidade: t.city,
+      bairro: t.neighborhood,
       meu_nome: senderName || userName,
       responsavel: "",
     });
@@ -144,8 +195,12 @@ export function BulkMessageDialog({
   if (!current) return null;
 
   const openWA = () => {
-    const num = digitsOnly(current.whatsapp ?? current.phone);
-    if (!num) return toast.error("Sem WhatsApp/telefone");
+    const num = digitsOnly(current.whatsapp ?? current.phone ?? "");
+    if (!num) return toast.error("Sem telefone");
+    // Contatar uma empresa descoberta materializa o lead como 'contacted'.
+    if (current.kind === "discovery" && !current.inFunnel && currentSearch) {
+      addToFunnel.mutate({ searchId: currentSearch.id, placeId: current.id, stage: "contacted" });
+    }
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(currentMsg)}`, "_blank");
   };
 
@@ -153,18 +208,18 @@ export function BulkMessageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Preparar mensagens ({leads.length})</DialogTitle>
+          <DialogTitle>Preparar mensagens ({targets.length})</DialogTitle>
           <DialogDescription>Revise e personalize cada mensagem antes de enviar.</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-[220px_1fr] gap-4 min-h-[420px]">
           <div className="border-r pr-3 space-y-1 max-h-[420px] overflow-y-auto">
-            {leads.map((l, i) => (
+            {targets.map((l, i) => (
               <button
                 key={l.id}
                 onClick={() => setIdx(i)}
                 className={`w-full text-left rounded-md border p-2 text-xs transition-colors ${i === idx ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent"}`}
               >
-                <p className="font-semibold truncate">{l.companyName}</p>
+                <p className="font-semibold truncate">{l.name}</p>
                 <p className="text-[10px] text-muted-foreground truncate">
                   {l.phone ?? "sem telefone"}
                 </p>
@@ -180,7 +235,7 @@ export function BulkMessageDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold">{current.companyName}</p>
+                <p className="font-semibold">{current.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {current.whatsapp ?? current.phone ?? "sem contato"}
                 </p>
@@ -199,8 +254,8 @@ export function BulkMessageDialog({
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
-                  onClick={() => setIdx((i) => Math.min(leads.length - 1, i + 1))}
-                  disabled={idx === leads.length - 1}
+                  onClick={() => setIdx((i) => Math.min(targets.length - 1, i + 1))}
+                  disabled={idx === targets.length - 1}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>

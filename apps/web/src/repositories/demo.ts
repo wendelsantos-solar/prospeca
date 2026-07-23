@@ -184,7 +184,11 @@ export class DemoSearchRepository implements SearchRepository {
     return [];
   }
 
-  async addToFunnel(): Promise<void> {
+  async addToFunnel(): Promise<{ enrichableLeadIds: string[] }> {
+    return { enrichableLeadIds: [] };
+  }
+
+  async enrichLead(): Promise<void> {
     // no-op no modo demo.
   }
 }

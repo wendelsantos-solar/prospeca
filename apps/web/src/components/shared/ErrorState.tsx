@@ -44,7 +44,12 @@ export function ErrorState({
           </Button>
         )}
         {onRetry && (
-          <Button size="sm" variant={onSecondary ? "outline" : "default"} onClick={onRetry} className="gap-1.5">
+          <Button
+            size="sm"
+            variant={onSecondary ? "outline" : "default"}
+            onClick={onRetry}
+            className="gap-1.5"
+          >
             <RotateCcw className="h-3.5 w-3.5" />
             Tentar novamente
           </Button>
