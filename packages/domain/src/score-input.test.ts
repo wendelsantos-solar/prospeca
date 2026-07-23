@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { scoreInputFromPlace } from "./score-input";
+import { calculateScore } from "./score";
 
 test("sem site + telefone móvel → hasValidPhone e whatsapp possible", () => {
   const input = scoreInputFromPlace(
@@ -54,4 +55,19 @@ test("empty-string enrichment fields count as absent", () => {
   const input = scoreInputFromPlace({ email: "", instagram: "" }, null);
   expect(input.hasEmail).toBe(false);
   expect(input.hasInstagram).toBe(false);
+});
+
+test("re-score after enrichment adds exactly email(10)+instagram(5) = +15", () => {
+  const bare = {
+    websiteUri: "https://ex.com",
+    nationalPhoneNumber: "(21) 99999-8888",
+    primaryType: "restaurant",
+  };
+  const before = calculateScore(scoreInputFromPlace(bare, 2000));
+  const after = calculateScore(
+    scoreInputFromPlace({ ...bare, email: "c@ex.com", instagram: "@ex" }, 2000),
+  );
+  // with-site: valid_phone 20 + whatsapp 15 + nearby_5 10 + category 5 = 50
+  expect(before.total).toBe(50);
+  expect(after.total).toBe(65);
 });
