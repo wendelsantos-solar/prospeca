@@ -7,6 +7,8 @@ import { recordUsage } from "../_shared/quota.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { hasRealWebsite } from "../_shared/normalize.ts";
 import { readPoint } from "../_shared/geo.ts";
+import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
+import { scoreInputFromPlace } from "../_shared/score-input.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
 
@@ -100,15 +102,29 @@ Deno.serve(async (req) => {
           .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
           .eq("cache_key", cacheKey);
       } else {
-        const { osmSearchBusinesses } = await import("../_shared/osm.ts");
+        const { osmSearchBusinesses, OsmTimeoutError } = await import("../_shared/osm.ts");
         const { dedupeRecords } = await import("../_shared/dedup.ts");
-        const res = await osmSearchBusinesses({
-          query: textQuery,
-          latitude: centerLat,
-          longitude: centerLng,
-          radiusMeters: search.radius_meters,
-          maxResults,
-        });
+        let res: Awaited<ReturnType<typeof osmSearchBusinesses>>;
+        try {
+          res = await osmSearchBusinesses({
+            query: textQuery,
+            latitude: centerLat,
+            longitude: centerLng,
+            radiusMeters: search.radius_meters,
+            maxResults,
+          });
+        } catch (err) {
+          if (err instanceof OsmTimeoutError) {
+            throw new AppError(
+              "PROVIDER_UNAVAILABLE",
+              "A área selecionada é grande demais e o provedor de busca demorou para responder. Tente reduzir o raio.",
+            );
+          }
+          throw new AppError(
+            "PROVIDER_UNAVAILABLE",
+            "O provedor de busca (OpenStreetMap) está indisponível no momento. Tente novamente em instantes.",
+          );
+        }
         // Overpass returns node + way for the same business; collapse duplicates
         // by the multi-signal matcher before persisting.
         const keep = new Set(
@@ -200,8 +216,15 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const refreshAfter = new Date(Date.now() + 30 * 86400_000).toISOString();
     const placeRows: Record<string, unknown>[] = [];
-    const meta: { providerPlaceId: string; distance: number | null; inside: boolean; position: number }[] =
-      [];
+    const meta: {
+      providerPlaceId: string;
+      distance: number | null;
+      inside: boolean;
+      position: number;
+      score: number;
+      temperature: "hot" | "warm" | "cold";
+      breakdown: unknown;
+    }[] = [];
     const seen = new Set<string>(); // dedupe por provider_place_id (páginas do Google podem repetir) — evita erro de ON CONFLICT no upsert em lote
     let position = 0;
     let insideCount = 0;
@@ -243,7 +266,16 @@ Deno.serve(async (req) => {
         provider_fetched_at: now,
         provider_refresh_after: refreshAfter,
       });
-      meta.push({ providerPlaceId: place.id!, distance, inside, position });
+      const breakdown = calculateScore(scoreInputFromPlace(place, distance));
+      meta.push({
+        providerPlaceId: place.id!,
+        distance,
+        inside,
+        position,
+        score: breakdown.total,
+        temperature: temperatureFromScore(breakdown.total),
+        breakdown,
+      });
     }
 
     // Passo 2: upsert em lote de places → mapear provider_place_id → id.
@@ -271,6 +303,9 @@ Deno.serve(async (req) => {
         provider_rank: m.position,
         matched_query: search.query,
         is_inside_radius: m.inside,
+        score: m.score,
+        temperature: m.temperature,
+        score_breakdown: m.breakdown,
       }));
     if (resultRows.length > 0) {
       await admin
@@ -287,27 +322,8 @@ Deno.serve(async (req) => {
       })
       .eq("id", searchId);
 
-    // Auto-materialize leads from this search (default on; set
-    // AUTO_IMPORT_LEADS=false to keep import as a manual user action).
-    if (Deno.env.get("AUTO_IMPORT_LEADS") !== "false") {
-      try {
-        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/import-search-results`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            searchId,
-            importAll: true,
-            organizationId: search.organization_id,
-            userId: search.created_by,
-          }),
-        });
-      } catch (_e) {
-        // Non-fatal: leads can still be imported manually from the UI.
-      }
-    }
+    // Descoberta NÃO materializa leads. O funil é povoado por ação explícita
+    // do usuário (+Funil / WhatsApp / disparo em massa), via import-search-results.
 
     logEvent({
       requestId,
@@ -324,6 +340,8 @@ Deno.serve(async (req) => {
     return json({ searchId, status: "completed", found: collected.length });
   } catch (err) {
     const code = err instanceof AppError ? err.code : "INTERNAL_ERROR";
+    const errorMessage =
+      err instanceof AppError ? err.message : "Erro interno. Tente novamente em instantes.";
     if (searchId) {
       // Partial results survive: mark partial when anything was linked.
       const { count } = await admin
@@ -334,7 +352,7 @@ Deno.serve(async (req) => {
         .from("searches")
         .update({
           status: (count ?? 0) > 0 ? "partial" : "failed",
-          error_message: code,
+          error_message: errorMessage,
           completed_at: new Date().toISOString(),
         })
         .eq("id", searchId);

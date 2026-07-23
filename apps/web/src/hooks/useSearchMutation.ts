@@ -122,17 +122,17 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
         return;
       }
 
-      // Import all results
       setProgress({
         step: 0,
         stepLabel: "Finalizando...",
         percent: 95,
         partialCount: status.foundCount,
       });
-      const importResult = await repo.importResults(searchId, [], true);
       if (cancelRef.current) return;
 
-      // Build search metadata for the store
+      // Build search metadata for the store. Discovery does NOT materialize
+      // leads; the funnel is populated by explicit user action, so nothing is
+      // auto-added to the pipeline here.
       const searchMeta: Search = {
         id: searchId,
         niche: input.niche,
@@ -144,14 +144,15 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
         createdAt: new Date().toISOString(),
         totalFound: status.foundCount,
         enrichedCount: status.enrichedCount,
-        addedToPipeline: importResult.imported,
+        addedToPipeline: 0,
         contactsFound: status.enrichedCount,
       };
 
       setProgress(null);
 
-      // Invalidate leads query to refresh all screens
+      // Refresh discovery + any CRM views.
       queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["discovery"] });
 
       // For backward compat, also populate store
       // (leads will be fetched fresh by query hooks on next render)
