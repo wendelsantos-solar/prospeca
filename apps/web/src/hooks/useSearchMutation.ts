@@ -7,6 +7,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
+import { getSupabase } from "@/lib/supabase";
 import { searchService, type SearchInput } from "@/services";
 import { isRealMode } from "@/lib/env";
 import type { Lead, Search } from "@/types";
@@ -73,7 +74,10 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
       const { searchId } = await repo.create(createInput);
       if (cancelRef.current) return;
 
-      // Step 2: Poll status
+      // Step 2: aguarda conclusão. Realtime empurra o UPDATE de `searches` na
+      // hora — numa busca com cache hit (execute-search ~300ms) o "completed"
+      // chega quase instantâneo, em vez de esperar o próximo poll. O polling
+      // lento (1200ms) fica só como rede de segurança se o Realtime cair.
       let status: SearchStatusSnapshot;
       const statusLabels: Record<string, string> = {
         queued: "Na fila...",
@@ -86,33 +90,63 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
         failed: "Falha na busca",
         cancelled: "Cancelado",
       };
-
-      do {
-        if (cancelRef.current) {
-          await repo.cancel(searchId);
-          setProgress(null);
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 800));
-        status = await repo.getStatus(searchId);
-
-        const label = statusLabels[status.status] ?? status.status;
+      const isTerminal = (s: string) => ["completed", "partial", "failed", "cancelled"].includes(s);
+      const report = (s: SearchStatusSnapshot) => {
         const percent = Math.min(
           95,
-          status.status === "completed" || status.status === "partial"
+          s.status === "completed" || s.status === "partial"
             ? 100
-            : status.status === "failed"
+            : s.status === "failed"
               ? 0
-              : 30 + (status.importedCount / Math.max(status.foundCount, 1)) * 65,
+              : 30 + (s.importedCount / Math.max(s.foundCount, 1)) * 65,
         );
-
         setProgress({
           step: 0,
-          stepLabel: label,
+          stepLabel: statusLabels[s.status] ?? s.status,
           percent: Math.round(percent),
-          partialCount: status.importedCount || status.foundCount || 0,
+          partialCount: s.importedCount || s.foundCount || 0,
         });
-      } while (!["completed", "partial", "failed", "cancelled"].includes(status.status));
+      };
+
+      // Realtime channel: any UPDATE on this search row wakes the wait early.
+      const supabase = getSupabase();
+      let wake: (() => void) | null = null;
+      const channel = supabase
+        .channel(`search-${searchId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "searches", filter: `id=eq.${searchId}` },
+          () => wake?.(),
+        )
+        .subscribe();
+      const waitTick = () =>
+        new Promise<void>((resolve) => {
+          const t = setTimeout(resolve, 1200);
+          wake = () => {
+            clearTimeout(t);
+            wake = null;
+            resolve();
+          };
+        });
+
+      try {
+        // Immediate check first: a cache hit may already be done before we even
+        // subscribe, so don't pay a full tick waiting for an event that passed.
+        status = await repo.getStatus(searchId);
+        report(status);
+        while (!isTerminal(status.status)) {
+          if (cancelRef.current) {
+            await repo.cancel(searchId);
+            setProgress(null);
+            return;
+          }
+          await waitTick();
+          status = await repo.getStatus(searchId);
+          report(status);
+        }
+      } finally {
+        supabase.removeChannel(channel);
+      }
 
       if (cancelRef.current) return;
 
