@@ -19,7 +19,7 @@ describe("buildOverpassQuery", () => {
     expect(q).toContain("(around:20000,-30.0346,-51.2177)");
     expect(q).toContain("out center tags;");
   });
-  test("known category also searches by name (union tag + name)", () => {
+  test("known category maps to tag selectors only (name union reverted)", () => {
     const q = buildOverpassQuery({
       query: "barbearia",
       latitude: 0,
@@ -27,10 +27,7 @@ describe("buildOverpassQuery", () => {
       radiusMeters: 1000,
     });
     expect(q).toContain("shop=hairdresser");
-    expect(q).toContain('name~"barbearia",i');
-    // name search must be POI-scoped (not an unscoped whole-area scan that times out)
-    expect(q).toContain('nwr[~"^(shop|amenity|craft|office|healthcare|leisure|tourism)$"~"."]');
-    expect(q).not.toContain('node[name~"barbearia",i]');
+    expect(q).not.toContain('name~"barbearia",i');
   });
   test("falls back to name match for unknown category", () => {
     const q = buildOverpassQuery({

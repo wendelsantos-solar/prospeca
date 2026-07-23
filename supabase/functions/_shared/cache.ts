@@ -1,8 +1,8 @@
 // Deno-native cache keys. Mirrors packages/domain/cache.ts (unit-tested).
 // Bump on any change to search/query logic so stale payloads are invalidated.
-// v2: Overpass query unions tag selectors + name match (find businesses named X
-// but tagged otherwise).
-export const CACHE_VERSION = "v2";
+// v3: reverted the tag+name union (Overpass rejected/timed out); back to
+// tag-only matching with a name fallback.
+export const CACHE_VERSION = "v3";
 
 export function roundCoord(value: number, precision = 3): number {
   const f = 10 ** precision;
