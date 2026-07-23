@@ -48,6 +48,9 @@ export interface CreateSearchInput {
   radiusMeters: number;
   presenceFilter: "without_website" | "with_website" | "all";
   maxResults?: number;
+  /** Bypass the cache and re-fetch from Google (paid). Guarded by a per-search
+   * cooldown server-side. Default false. */
+  forceRefresh?: boolean;
 }
 
 export interface SearchStatusSnapshot {

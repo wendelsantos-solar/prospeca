@@ -141,6 +141,7 @@ export function SearchForm() {
       longitude: input?.longitude ?? current.coords.lng,
       radiusKm: input?.radiusKm ?? current.radiusKm,
       presence: input?.presence ?? current.presence,
+      forceRefresh: input?.forceRefresh,
     };
     setSearching(true);
     setSearchError(null);
@@ -193,16 +194,20 @@ export function SearchForm() {
     };
     const onRetry = () => runSearch();
     const onRadarSearch = () => runSearch();
+    // "Atualizar": re-run the current search bypassing the cache (paga Google).
+    const onRefresh = () => runSearch({ forceRefresh: true });
     window.addEventListener("focus-niche", onFocusNiche);
     window.addEventListener("suggest-search", onSuggest);
     window.addEventListener("retry-search", onRetry);
     window.addEventListener("radar-search", onRadarSearch);
+    window.addEventListener("refresh-search", onRefresh);
     window.addEventListener("geo-located", onGeoLocated);
     return () => {
       window.removeEventListener("focus-niche", onFocusNiche);
       window.removeEventListener("suggest-search", onSuggest);
       window.removeEventListener("retry-search", onRetry);
       window.removeEventListener("radar-search", onRadarSearch);
+      window.removeEventListener("refresh-search", onRefresh);
       window.removeEventListener("geo-located", onGeoLocated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

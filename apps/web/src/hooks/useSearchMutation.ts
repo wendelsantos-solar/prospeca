@@ -65,6 +65,7 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
             : input.presence === "with-website"
               ? "with_website"
               : "all",
+        forceRefresh: input.forceRefresh,
       };
 
       // Step 1: Create the search

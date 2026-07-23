@@ -23,6 +23,8 @@ export interface SearchInput {
   longitude: number;
   radiusKm: number;
   presence: PresenceFilter;
+  /** "Atualizar": bypass cache, re-fetch from Google (paid). Real mode only. */
+  forceRefresh?: boolean;
 }
 
 export const searchService = {

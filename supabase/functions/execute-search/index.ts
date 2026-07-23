@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     searchId = body.searchId as string;
+    const forceRefresh = body.forceRefresh === true;
     if (!searchId) throw new AppError("VALIDATION_ERROR", "searchId obrigatório.");
 
     const { data: search } = await admin
@@ -99,50 +100,68 @@ Deno.serve(async (req) => {
       radiusMeters: search.radius_meters,
     });
 
-    // Fast path: exact key match (~110m bucket). Cheap, serves identical repeats.
-    const { data: cachedRow } = await admin
-      .from("provider_search_cache")
-      .select("payload, hit_count")
-      .eq("cache_key", cacheKey)
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
+    // Force refresh bypasses cache reads and re-pays Google, but a per-search
+    // cooldown (keyed by cache_key) blocks accidental cost loops (D7): if this
+    // key was force-fetched within the window, fall back to normal cached serve.
+    const FORCE_COOLDOWN_MS = 10 * 60_000;
+    let doForce = forceRefresh;
+    if (doForce) {
+      const { data: existing } = await admin
+        .from("provider_search_cache")
+        .select("last_forced_at")
+        .eq("cache_key", cacheKey)
+        .maybeSingle();
+      const lastForced = existing?.last_forced_at
+        ? new Date(existing.last_forced_at as string).getTime()
+        : 0;
+      if (Date.now() - lastForced < FORCE_COOLDOWN_MS) doForce = false;
+    }
 
     let servedFromCache = false;
-    if (cachedRow?.payload) {
-      collected = cachedRow.payload as GooglePlace[];
-      requestCount = 0;
-      servedFromCache = true;
-      await admin
+    if (!doForce) {
+      // Fast path: exact key match (~110m bucket). Cheap, serves identical repeats.
+      const { data: cachedRow } = await admin
         .from("provider_search_cache")
-        .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
-        .eq("cache_key", cacheKey);
-    } else {
-      // Coverage path (Nivel 2): a larger cached circle that geometrically
-      // contains this one can serve it — filter its payload by haversine to the
-      // requested circle. Geometrically correct reuse across centers/radii.
-      const { data: coverData } = await admin
-        .rpc("find_covering_cache", {
-          p_category: categorySlug,
-          p_lng: centerLng,
-          p_lat: centerLat,
-          p_radius: search.radius_meters,
-        })
+        .select("payload, hit_count")
+        .eq("cache_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
         .maybeSingle();
-      const cover = coverData as { payload: GooglePlace[]; radius_meters: number } | null;
 
-      if (cover?.payload) {
-        const all = cover.payload as GooglePlace[];
-        collected = all.filter((p) => {
-          const lat = p.location?.latitude ?? null;
-          const lng = p.location?.longitude ?? null;
-          // No coordinate -> cannot prove it's outside; keep (matches the fine
-          // radius cut below, which also lets coord-less places through).
-          if (lat == null || lng == null) return true;
-          return haversineMeters(centerLat, centerLng, lat, lng) <= search.radius_meters;
-        });
+      if (cachedRow?.payload) {
+        collected = cachedRow.payload as GooglePlace[];
         requestCount = 0;
         servedFromCache = true;
-        // No upsert: this circle is already covered by the larger cached entry.
+        await admin
+          .from("provider_search_cache")
+          .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
+          .eq("cache_key", cacheKey);
+      } else {
+        // Coverage path (Nivel 2): a larger cached circle that geometrically
+        // contains this one can serve it — filter its payload by haversine to
+        // the requested circle. Geometrically correct reuse across centers/radii.
+        const { data: coverData } = await admin
+          .rpc("find_covering_cache", {
+            p_category: categorySlug,
+            p_lng: centerLng,
+            p_lat: centerLat,
+            p_radius: search.radius_meters,
+          })
+          .maybeSingle();
+        const cover = coverData as { payload: GooglePlace[]; radius_meters: number } | null;
+
+        if (cover?.payload) {
+          collected = cover.payload.filter((p) => {
+            const lat = p.location?.latitude ?? null;
+            const lng = p.location?.longitude ?? null;
+            // No coordinate -> cannot prove it's outside; keep (matches the fine
+            // radius cut below, which also lets coord-less places through).
+            if (lat == null || lng == null) return true;
+            return haversineMeters(centerLat, centerLng, lat, lng) <= search.radius_meters;
+          });
+          requestCount = 0;
+          servedFromCache = true;
+          // No upsert: this circle is already covered by the larger cached entry.
+        }
       }
     }
 
@@ -152,8 +171,9 @@ Deno.serve(async (req) => {
         .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
     } else {
-      // Real miss: pay Google, then cache under the exact key with the coverage
-      // columns (category + center + radius) so future circles can reuse it.
+      // Miss (or forced): pay Google, then overwrite the cache under the exact
+      // key with the coverage columns + a renewed 30d TTL. On a forced fetch,
+      // stamp last_forced_at and log the paid refresh for per-org usage tracking.
       let pageToken: string | undefined;
       for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
         const res = await textSearch({
@@ -169,7 +189,7 @@ Deno.serve(async (req) => {
           eventType: "place_search_request",
           provider: "google_places",
           quantity: 1,
-          metadata: { searchId, page },
+          metadata: { searchId, page, forced: doForce },
         });
         collected = collected.concat(res.places);
         await admin
@@ -179,19 +199,29 @@ Deno.serve(async (req) => {
         if (!res.nextPageToken || collected.length >= maxResults) break;
         pageToken = res.nextPageToken;
       }
-      await admin.from("provider_search_cache").upsert(
-        {
-          cache_key: cacheKey,
-          organization_id: search.organization_id,
+
+      const cacheRow: Record<string, unknown> = {
+        cache_key: cacheKey,
+        organization_id: search.organization_id,
+        provider: "google_places",
+        payload: collected,
+        result_count: collected.length,
+        category: categorySlug,
+        center: `POINT(${centerLng} ${centerLat})`,
+        radius_meters: search.radius_meters,
+        expires_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
+      };
+      if (doForce) {
+        cacheRow.last_forced_at = new Date().toISOString();
+        await recordUsage(admin, {
+          organizationId: search.organization_id,
+          eventType: "place_search_refresh",
           provider: "google_places",
-          payload: collected,
-          result_count: collected.length,
-          category: categorySlug,
-          center: `POINT(${centerLng} ${centerLat})`,
-          radius_meters: search.radius_meters,
-        },
-        { onConflict: "cache_key" },
-      );
+          quantity: 1,
+          metadata: { searchId },
+        });
+      }
+      await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
     }
 
     collected = collected.slice(0, maxResults);

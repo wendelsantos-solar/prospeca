@@ -20,6 +20,9 @@ const InputSchema = z.object({
   radiusMeters: z.number().int().min(100).max(100000),
   presenceFilter: z.enum(["without_website", "with_website", "all"]),
   maxResults: z.number().int().min(1).max(500).optional(),
+  // Force refresh: bypass the cache and re-fetch from Google (paid). Guarded by
+  // a per-search cooldown in execute-search. Default false.
+  forceRefresh: z.boolean().optional(),
 });
 
 Deno.serve(async (req) => {
@@ -133,9 +136,10 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           },
-          body: JSON.stringify({ searchId: search.id }),
+          body: JSON.stringify({ searchId: search.id, forceRefresh: input.forceRefresh === true }),
         }).catch(() => {
-          // execute-search retries via cron pickup of queued searches.
+          // execute-search retries via cron pickup of queued searches (without
+          // forceRefresh — a cron retry must never re-pay for a stale bypass).
         });
 
         return { searchId: search.id, status: "queued" };

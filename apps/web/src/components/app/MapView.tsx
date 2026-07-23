@@ -12,7 +12,7 @@ import { isContactSuppressed } from "@/lib/suppression";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
-import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
+import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2, RefreshCw } from "lucide-react";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { env } from "@/lib/env";
@@ -412,6 +412,21 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
       )}
 
       <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+        {results.length > 0 && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 shadow-elevated"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("refresh-search"));
+              toast.info("Atualizando resultados direto do Google…");
+            }}
+            aria-label="Atualizar resultados (busca nova no Google)"
+            title="Atualizar (paga Google)"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        )}
         <Button
           size="icon"
           variant="secondary"
