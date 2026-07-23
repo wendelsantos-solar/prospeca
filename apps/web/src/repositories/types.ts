@@ -110,6 +110,10 @@ export interface DiscoveryResult {
   phone: string | null;
   website: string | null;
   hasWebsite: boolean;
+  /** Contact signals filled by discovery enrichment (website scrape). Null until enriched. */
+  email: string | null;
+  instagram: string | null;
+  whatsapp: string | null;
   rating: number | null;
   reviewCount: number | null;
   distanceKm: number;

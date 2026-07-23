@@ -11,6 +11,9 @@ const base: DiscoveryResult = {
   phone: "+55 21 9688 49884",
   website: null,
   hasWebsite: false,
+  email: null,
+  instagram: null,
+  whatsapp: null,
   rating: 4.6,
   reviewCount: 12,
   distanceKm: 5.8,
@@ -49,6 +52,18 @@ test("leaves discovery-absent fields undefined", () => {
   expect(lead.instagram).toBeUndefined();
   expect(lead.neighborhood).toBeUndefined();
   expect(lead.estimatedValue).toBeUndefined();
+});
+
+test("maps enriched contact fields when present", () => {
+  const lead = discoveryToPreviewLead({
+    ...base,
+    email: "c@ex.com",
+    instagram: "@ex",
+    whatsapp: "5521999998888",
+  });
+  expect(lead.email).toBe("c@ex.com");
+  expect(lead.instagram).toBe("@ex");
+  expect(lead.whatsapp).toBe("5521999998888");
 });
 
 test("null category and website degrade to empty/undefined", () => {
