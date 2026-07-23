@@ -11,6 +11,7 @@ import type {
   SavedFilter,
   DashboardPeriod,
 } from "@/types";
+import type { DiscoveryResult } from "@/repositories/types";
 import {
   DEFAULT_MESSAGE_TEMPLATE,
   STORAGE_KEY,
@@ -128,6 +129,9 @@ interface LeadsState {
   bulkMode: boolean;
   focusedId: string | null;
   detailsId: string | null;
+  /** A discovered business being previewed read-only (not yet a lead). Mutually
+   * exclusive with detailsId at the UI level. */
+  preview: DiscoveryResult | null;
   pendingWinId: string | null;
   pendingDiscardId: string | null;
   kanbanOrder: Record<string, number>;
@@ -157,6 +161,7 @@ interface LeadsState {
   selectVisible: (ids: string[], limit?: number) => void;
   setFocused: (id: string | null) => void;
   setDetails: (id: string | null) => void;
+  setPreview: (r: DiscoveryResult | null) => void;
   setPendingWin: (id: string | null) => void;
   setPendingDiscard: (id: string | null) => void;
   reorderInColumn: (stage: LeadStage, orderedIds: string[]) => void;
@@ -186,6 +191,7 @@ export const useLeadsStore = create<LeadsState>()(
       bulkMode: false,
       focusedId: null,
       detailsId: null,
+      preview: null,
       pendingWinId: null,
       pendingDiscardId: null,
       kanbanOrder: {},
@@ -350,6 +356,7 @@ export const useLeadsStore = create<LeadsState>()(
         set({ selectedIds: ids.slice(0, limit) }),
       setFocused: (focusedId) => set({ focusedId }),
       setDetails: (detailsId) => set({ detailsId }),
+      setPreview: (preview) => set({ preview }),
       setPendingWin: (pendingWinId) => set({ pendingWinId }),
       setPendingDiscard: (pendingDiscardId) => set({ pendingDiscardId }),
       reorderInColumn: (_stage, orderedIds) =>

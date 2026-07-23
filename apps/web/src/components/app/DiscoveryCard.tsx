@@ -2,7 +2,16 @@ import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Globe, GlobeLock, Star, MapPin, PlusCircle, Check } from "lucide-react";
+import {
+  MessageCircle,
+  Globe,
+  GlobeLock,
+  Star,
+  MapPin,
+  PlusCircle,
+  Check,
+  Eye,
+} from "lucide-react";
 import { useLeadsStore } from "@/stores";
 import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
 import { formatDistance } from "@/lib/format";
@@ -27,9 +36,17 @@ export const DiscoveryCard = memo(function DiscoveryCard({
 }) {
   const setFocused = useLeadsStore((s) => s.setFocused);
   const focusedId = useLeadsStore((s) => s.focusedId);
+  const setDetails = useLeadsStore((s) => s.setDetails);
+  const setPreview = useLeadsStore((s) => s.setPreview);
   const addToFunnel = useAddToFunnelMutation();
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
+
+  // In funnel → open the full lead drawer; otherwise a read-only discovery preview.
+  const openDetails = () => {
+    if (inFunnel) setDetails(result.importedLeadId);
+    else setPreview(result);
+  };
 
   const openWhats = () => {
     const num = (result.phone ?? "").replace(/\D/g, "");
@@ -103,6 +120,17 @@ export const DiscoveryCard = memo(function DiscoveryCard({
           }}
         >
           <MessageCircle className="h-3 w-3" /> WhatsApp
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1 px-2 text-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDetails();
+          }}
+        >
+          <Eye className="h-3 w-3" /> Detalhes
         </Button>
         {inFunnel ? (
           <span className="inline-flex h-7 items-center gap-1 rounded-md bg-success/15 px-2 text-xs font-medium text-success">

@@ -6,6 +6,7 @@ import {
   useUpdateNoteMutation,
   useToggleNotePinMutation,
   useAddActivityMutation,
+  useAddToFunnelMutation,
 } from "@/hooks/useLeadsQuery";
 import {
   Sheet,
@@ -20,6 +21,7 @@ import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
 import { formatBRL, formatDate, formatDateTime, formatDistance, digitsOnly } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
+import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore } from "@/lib/score";
@@ -37,9 +39,10 @@ import {
   PinOff,
   Trash2,
   Pencil,
+  PlusCircle,
   Search as SearchIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -57,6 +60,11 @@ import type { ActivityType } from "@/types";
 export function LeadDetailsDrawer() {
   const detailsId = useLeadsStore((s) => s.detailsId);
   const setDetails = useLeadsStore((s) => s.setDetails);
+  // Discovery preview: a business not yet in the funnel, shown read-only.
+  const preview = useLeadsStore((s) => s.preview);
+  const setPreview = useLeadsStore((s) => s.setPreview);
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const addToFunnel = useAddToFunnelMutation();
 
   // CRM real — lead data from TanStack Query (Phase 3)
   const { data: queriedLead } = useLeadDetail(detailsId);
@@ -64,7 +72,11 @@ export function LeadDetailsDrawer() {
   const storeLead = useLeadsStore((s) =>
     detailsId ? s.leads.find((l) => l.id === detailsId) : undefined,
   );
-  const lead = queriedLead ?? storeLead;
+  // In readOnly preview mode we render an adapted discovery result — never a
+  // persisted lead. detailsId always wins over preview (they're exclusive).
+  const previewLead = useMemo(() => (preview ? discoveryToPreviewLead(preview) : null), [preview]);
+  const readOnly = !detailsId && !!preview;
+  const lead = detailsId ? (queriedLead ?? storeLead) : previewLead;
   const addNoteMut = useAddNoteMutation();
   const removeNoteMut = useRemoveNoteMutation();
   const updateNoteMut = useUpdateNoteMutation();
@@ -134,7 +146,15 @@ export function LeadDetailsDrawer() {
   };
 
   return (
-    <Sheet open={!!detailsId} onOpenChange={(v) => !v && setDetails(null)}>
+    <Sheet
+      open={!!detailsId || !!preview}
+      onOpenChange={(v) => {
+        if (!v) {
+          setDetails(null);
+          setPreview(null);
+        }
+      }}
+    >
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
         {isLoading ? (
           <>
@@ -188,7 +208,34 @@ export function LeadDetailsDrawer() {
                 </div>
               </SheetHeader>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button size="sm" onClick={openWhats} className="gap-1.5">
+                {readOnly && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (!currentSearch || !preview) return;
+                      addToFunnel.mutate(
+                        { searchId: currentSearch.id, placeId: preview.placeId, stage: "new" },
+                        {
+                          onSuccess: () => {
+                            toast.success("Adicionado ao funil");
+                            setPreview(null);
+                          },
+                        },
+                      );
+                    }}
+                    disabled={addToFunnel.isPending}
+                    className="gap-1.5"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    Funil
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={openWhats}
+                  variant={readOnly ? "outline" : "default"}
+                  className="gap-1.5"
+                >
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
                 </Button>
@@ -255,7 +302,9 @@ export function LeadDetailsDrawer() {
 
               <TabsContent value="info" className="space-y-3 mt-4">
                 <InfoRow icon={MapPin} label="Endereço">
-                  {lead.address}, {lead.neighborhood ?? ""}, {lead.city} - {lead.state}
+                  {readOnly
+                    ? "—"
+                    : `${lead.address}, ${lead.neighborhood ?? ""}, ${lead.city} - ${lead.state}`}
                 </InfoRow>
                 <InfoRow icon={Phone} label="Telefone">
                   {lead.phone ?? "—"}
@@ -279,9 +328,15 @@ export function LeadDetailsDrawer() {
                 )}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <MiniStat label="Distância" value={formatDistance(lead.distanceKm)} />
-                  <MiniStat label="Estágio" value={STAGE_LABELS[lead.stage]} />
+                  <MiniStat
+                    label="Estágio"
+                    value={readOnly ? "— (não no funil)" : STAGE_LABELS[lead.stage]}
+                  />
                   <MiniStat label="Valor estimado" value={formatBRL(lead.estimatedValue)} />
-                  <MiniStat label="Descoberto em" value={formatDate(lead.discoveredAt)} />
+                  <MiniStat
+                    label="Descoberto em"
+                    value={readOnly ? "—" : formatDate(lead.discoveredAt)}
+                  />
                 </div>
                 {lead.openingHours && (
                   <div className="rounded-md border p-3 text-xs text-muted-foreground">
@@ -321,284 +376,308 @@ export function LeadDetailsDrawer() {
               </TabsContent>
 
               <TabsContent value="notes" className="space-y-3 mt-4">
-                <div className="flex gap-2">
-                  <Textarea
-                    rows={2}
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    placeholder="Adicionar uma nota..."
-                  />
-                  <Button
-                    onClick={() => {
-                      if (!noteText.trim()) return;
-                      addNoteMut.mutate({ leadId: lead.id, input: { content: noteText.trim() } });
-                      setNoteText("");
-                      toast.success("Nota adicionada");
-                    }}
-                  >
-                    Salvar
-                  </Button>
-                </div>
-                {lead.notes.length > 1 && (
-                  <div className="relative">
-                    <SearchIcon className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      className="h-8 pl-7 text-xs"
-                      placeholder="Pesquisar notas..."
-                      value={noteSearch}
-                      onChange={(e) => setNoteSearch(e.target.value)}
-                      aria-label="Pesquisar notas"
-                    />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  {lead.notes.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Nenhuma nota ainda.</p>
-                  )}
-                  {[...lead.notes]
-                    .filter(
-                      (n) =>
-                        !noteSearch || n.content.toLowerCase().includes(noteSearch.toLowerCase()),
-                    )
-                    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
-                    .map((n) => (
-                      <div
-                        key={n.id}
-                        className={`rounded-md border bg-surface p-3 ${n.pinned ? "border-primary/50" : ""}`}
+                {readOnly ? (
+                  <FunnelGate feature="notas" />
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Textarea
+                        rows={2}
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Adicionar uma nota..."
+                      />
+                      <Button
+                        onClick={() => {
+                          if (!noteText.trim()) return;
+                          addNoteMut.mutate({
+                            leadId: lead.id,
+                            input: { content: noteText.trim() },
+                          });
+                          setNoteText("");
+                          toast.success("Nota adicionada");
+                        }}
                       >
-                        {editingNoteId === n.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              rows={2}
-                              value={editingText}
-                              onChange={(e) => setEditingText(e.target.value)}
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => {
-                                  if (editingText.trim()) {
-                                    updateNoteMut.mutate({
-                                      leadId: lead.id,
-                                      noteId: n.id,
-                                      content: editingText.trim(),
-                                    });
-                                    toast.success("Nota atualizada");
-                                  }
-                                  setEditingNoteId(null);
-                                }}
-                              >
-                                Salvar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 text-xs"
-                                onClick={() => setEditingNoteId(null)}
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm whitespace-pre-wrap">{n.content}</p>
-                            <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
-                              <span>
-                                {formatDateTime(n.createdAt)}
-                                {n.updatedAt ? " • editada" : ""}
-                                {n.pinned ? " • fixada" : ""}
-                              </span>
-                              <div className="flex gap-1.5">
-                                <button
-                                  aria-label={n.pinned ? "Desafixar nota" : "Fixar nota"}
-                                  className="hover:text-foreground"
-                                  onClick={() =>
-                                    toggleNotePinMut.mutate({ leadId: lead.id, noteId: n.id })
-                                  }
-                                >
-                                  {n.pinned ? (
-                                    <PinOff className="h-3 w-3" />
-                                  ) : (
-                                    <Pin className="h-3 w-3" />
-                                  )}
-                                </button>
-                                <button
-                                  aria-label="Editar nota"
-                                  className="hover:text-foreground"
-                                  onClick={() => {
-                                    setEditingNoteId(n.id);
-                                    setEditingText(n.content);
-                                  }}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </button>
-                                <button
-                                  aria-label="Excluir nota"
-                                  className="hover:text-destructive"
-                                  onClick={() => {
-                                    removeNoteMut.mutate({ leadId: lead.id, noteId: n.id });
-                                    toast.success("Nota excluída");
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        Salvar
+                      </Button>
+                    </div>
+                    {lead.notes.length > 1 && (
+                      <div className="relative">
+                        <SearchIcon className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          className="h-8 pl-7 text-xs"
+                          placeholder="Pesquisar notas..."
+                          value={noteSearch}
+                          onChange={(e) => setNoteSearch(e.target.value)}
+                          aria-label="Pesquisar notas"
+                        />
                       </div>
-                    ))}
-                </div>
+                    )}
+                    <div className="space-y-2">
+                      {lead.notes.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhuma nota ainda.</p>
+                      )}
+                      {[...lead.notes]
+                        .filter(
+                          (n) =>
+                            !noteSearch ||
+                            n.content.toLowerCase().includes(noteSearch.toLowerCase()),
+                        )
+                        .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
+                        .map((n) => (
+                          <div
+                            key={n.id}
+                            className={`rounded-md border bg-surface p-3 ${n.pinned ? "border-primary/50" : ""}`}
+                          >
+                            {editingNoteId === n.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  rows={2}
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => {
+                                      if (editingText.trim()) {
+                                        updateNoteMut.mutate({
+                                          leadId: lead.id,
+                                          noteId: n.id,
+                                          content: editingText.trim(),
+                                        });
+                                        toast.success("Nota atualizada");
+                                      }
+                                      setEditingNoteId(null);
+                                    }}
+                                  >
+                                    Salvar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    onClick={() => setEditingNoteId(null)}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm whitespace-pre-wrap">{n.content}</p>
+                                <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                                  <span>
+                                    {formatDateTime(n.createdAt)}
+                                    {n.updatedAt ? " • editada" : ""}
+                                    {n.pinned ? " • fixada" : ""}
+                                  </span>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      aria-label={n.pinned ? "Desafixar nota" : "Fixar nota"}
+                                      className="hover:text-foreground"
+                                      onClick={() =>
+                                        toggleNotePinMut.mutate({ leadId: lead.id, noteId: n.id })
+                                      }
+                                    >
+                                      {n.pinned ? (
+                                        <PinOff className="h-3 w-3" />
+                                      ) : (
+                                        <Pin className="h-3 w-3" />
+                                      )}
+                                    </button>
+                                    <button
+                                      aria-label="Editar nota"
+                                      className="hover:text-foreground"
+                                      onClick={() => {
+                                        setEditingNoteId(n.id);
+                                        setEditingText(n.content);
+                                      }}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      aria-label="Excluir nota"
+                                      className="hover:text-destructive"
+                                      onClick={() => {
+                                        removeNoteMut.mutate({ leadId: lead.id, noteId: n.id });
+                                        toast.success("Nota excluída");
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="activities" className="space-y-3 mt-4">
-                <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3">
-                  <div>
-                    <Label className="text-xs">Tipo</Label>
-                    <Select
-                      value={act.type}
-                      onValueChange={(v) => setAct({ ...act, type: v as ActivityType })}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          ["call", "Ligação"],
-                          ["message", "Mensagem"],
-                          ["meeting", "Reunião"],
-                          ["followup", "Retorno"],
-                          ["proposal", "Proposta"],
-                          ["visit", "Visita"],
-                          ["other", "Outra"],
-                        ].map(([v, l]) => (
-                          <SelectItem key={v} value={v}>
-                            {l}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Data</Label>
-                    <Input
-                      type="date"
-                      className="h-8"
-                      value={act.date}
-                      onChange={(e) => setAct({ ...act, date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Horário</Label>
-                    <Input
-                      type="time"
-                      className="h-8"
-                      value={act.time}
-                      onChange={(e) => setAct({ ...act, time: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Prioridade</Label>
-                    <Select
-                      value={act.priority}
-                      onValueChange={(v) => setAct({ ...act, priority: v as typeof act.priority })}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Baixa</SelectItem>
-                        <SelectItem value="medium">Média</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs">Título</Label>
-                    <Input
-                      className="h-8"
-                      value={act.title}
-                      onChange={(e) => setAct({ ...act, title: e.target.value })}
-                      placeholder="Ex.: Retorno inicial"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs">Observação</Label>
-                    <Textarea
-                      rows={2}
-                      value={act.note}
-                      onChange={(e) => setAct({ ...act, note: e.target.value })}
-                      placeholder="Detalhes da atividade (opcional)"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (!act.title.trim()) return toast.error("Informe um título");
-                        addActivityMut.mutate({
-                          leadId: lead.id,
-                          input: {
-                            type: act.type,
-                            title: act.title,
-                            date: act.date,
-                            time: act.time || undefined,
-                            note: act.note || undefined,
-                            priority: act.priority,
-                          },
-                        });
-                        setAct({ ...act, title: "", time: "", note: "" });
-                        toast.success("Atividade criada");
-                      }}
-                    >
-                      Criar atividade
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {lead.activities.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Nenhuma atividade agendada.</p>
-                  )}
-                  {lead.activities.map((a) => (
-                    <div key={a.id} className="rounded-md border bg-surface p-3 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium">{a.title}</p>
-                        {a.priority && (
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.priority === "high" ? "bg-hot/15 text-hot" : a.priority === "medium" ? "bg-warm/20 text-warm-foreground" : "bg-muted text-muted-foreground"}`}
-                          >
-                            {a.priority === "high"
-                              ? "Alta"
-                              : a.priority === "medium"
-                                ? "Média"
-                                : "Baixa"}
-                          </span>
-                        )}
+                {readOnly ? (
+                  <FunnelGate feature="atividades" />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3">
+                      <div>
+                        <Label className="text-xs">Tipo</Label>
+                        <Select
+                          value={act.type}
+                          onValueChange={(v) => setAct({ ...act, type: v as ActivityType })}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[
+                              ["call", "Ligação"],
+                              ["message", "Mensagem"],
+                              ["meeting", "Reunião"],
+                              ["followup", "Retorno"],
+                              ["proposal", "Proposta"],
+                              ["visit", "Visita"],
+                              ["other", "Outra"],
+                            ].map(([v, l]) => (
+                              <SelectItem key={v} value={v}>
+                                {l}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {a.type} • {formatDate(a.date)}
-                        {a.time ? ` às ${a.time}` : ""}
-                      </p>
-                      {a.note && <p className="mt-1 text-xs text-muted-foreground">{a.note}</p>}
+                      <div>
+                        <Label className="text-xs">Data</Label>
+                        <Input
+                          type="date"
+                          className="h-8"
+                          value={act.date}
+                          onChange={(e) => setAct({ ...act, date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Horário</Label>
+                        <Input
+                          type="time"
+                          className="h-8"
+                          value={act.time}
+                          onChange={(e) => setAct({ ...act, time: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Prioridade</Label>
+                        <Select
+                          value={act.priority}
+                          onValueChange={(v) =>
+                            setAct({ ...act, priority: v as typeof act.priority })
+                          }
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Baixa</SelectItem>
+                            <SelectItem value="medium">Média</SelectItem>
+                            <SelectItem value="high">Alta</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs">Título</Label>
+                        <Input
+                          className="h-8"
+                          value={act.title}
+                          onChange={(e) => setAct({ ...act, title: e.target.value })}
+                          placeholder="Ex.: Retorno inicial"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs">Observação</Label>
+                        <Textarea
+                          rows={2}
+                          value={act.note}
+                          onChange={(e) => setAct({ ...act, note: e.target.value })}
+                          placeholder="Detalhes da atividade (opcional)"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!act.title.trim()) return toast.error("Informe um título");
+                            addActivityMut.mutate({
+                              leadId: lead.id,
+                              input: {
+                                type: act.type,
+                                title: act.title,
+                                date: act.date,
+                                time: act.time || undefined,
+                                note: act.note || undefined,
+                                priority: act.priority,
+                              },
+                            });
+                            setAct({ ...act, title: "", time: "", note: "" });
+                            toast.success("Atividade criada");
+                          }}
+                        >
+                          Criar atividade
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-2">
+                      {lead.activities.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhuma atividade agendada.</p>
+                      )}
+                      {lead.activities.map((a) => (
+                        <div key={a.id} className="rounded-md border bg-surface p-3 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium">{a.title}</p>
+                            {a.priority && (
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.priority === "high" ? "bg-hot/15 text-hot" : a.priority === "medium" ? "bg-warm/20 text-warm-foreground" : "bg-muted text-muted-foreground"}`}
+                              >
+                                {a.priority === "high"
+                                  ? "Alta"
+                                  : a.priority === "medium"
+                                    ? "Média"
+                                    : "Baixa"}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {a.type} • {formatDate(a.date)}
+                            {a.time ? ` às ${a.time}` : ""}
+                          </p>
+                          {a.note && <p className="mt-1 text-xs text-muted-foreground">{a.note}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="timeline" className="mt-4">
-                <ol className="space-y-3">
-                  {lead.timeline.map((t) => (
-                    <li key={t.id} className="flex gap-3">
-                      <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                      <div>
-                        <p className="text-sm">{t.label}</p>
-                        <p className="text-[11px] text-muted-foreground">{formatDateTime(t.at)}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                {readOnly ? (
+                  <FunnelGate feature="timeline" />
+                ) : (
+                  <ol className="space-y-3">
+                    {lead.timeline.map((t) => (
+                      <li key={t.id} className="flex gap-3">
+                        <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        <div>
+                          <p className="text-sm">{t.label}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDateTime(t.at)}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </TabsContent>
             </Tabs>
           </>
@@ -626,6 +705,17 @@ function InfoRow({
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="text-foreground">{children}</p>
       </div>
+    </div>
+  );
+}
+
+/** Empty state for lead-only tabs when previewing a business not yet in the
+ * funnel. The header's "+ Funil" button converts it. */
+function FunnelGate({ feature }: { feature: string }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
+      <PlusCircle className="h-5 w-5 text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">Adicione ao funil para gerenciar {feature}.</p>
     </div>
   );
 }

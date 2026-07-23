@@ -58,6 +58,9 @@ function popupHtml(r: DiscoveryResult) {
         <button data-action="whatsapp" data-id="${r.placeId}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.62 0.15 155);color:white;font-size:11px;border:none;cursor:pointer;">WhatsApp</button>
         ${funnelBtn}
       </div>
+      <div style="margin-top:4px;">
+        <button data-action="details" data-id="${r.placeId}" style="width:100%;padding:4px 8px;border-radius:6px;background:transparent;color:oklch(0.5 0.02 250);font-size:11px;border:1px solid oklch(0.85 0.02 250);cursor:pointer;">Ver detalhes</button>
+      </div>
     </div>`;
 }
 
@@ -73,6 +76,8 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
   const draft = useSearchDraftStore((s) => s.draft);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setFocused = useLeadsStore((s) => s.setFocused);
+  const setDetails = useLeadsStore((s) => s.setDetails);
+  const setPreview = useLeadsStore((s) => s.setPreview);
   const searching = useLeadsStore((s) => s.searching);
   const addToFunnel = useAddToFunnelMutation();
   // Persisted so a marked circle / dark map survives a page refresh.
@@ -281,6 +286,11 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
               { onSuccess: () => toast.success("Adicionado ao funil") },
             );
           }
+          if (action === "details") {
+            // In funnel → full lead drawer; otherwise read-only discovery preview.
+            if (result.importedLeadId != null) setDetails(result.importedLeadId);
+            else setPreview(result);
+          }
         };
         popupEl.addEventListener("click", handler);
         // Clean up when popup closes
@@ -294,7 +304,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
       markersRef.current.set(r.placeId, m);
     });
     setVisibleCount(results.length);
-  }, [results, focusedId, setFocused, addToFunnel, currentSearch?.id]);
+  }, [results, focusedId, setFocused, setDetails, setPreview, addToFunnel, currentSearch?.id]);
 
   useEffect(() => {
     if (!focusedId) return;
