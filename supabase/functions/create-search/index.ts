@@ -129,18 +129,37 @@ Deno.serve(async (req) => {
           metadata: { query: input.query, radiusMeters: input.radiusMeters },
         });
 
-        // Fire-and-forget async execution via execute-search.
-        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/execute-search`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({ searchId: search.id, forceRefresh: input.forceRefresh === true }),
-        }).catch(() => {
-          // execute-search retries via cron pickup of queued searches (without
-          // forceRefresh — a cron retry must never re-pay for a stale bypass).
+        // Dispatch async execution via execute-search. A bare fire-and-forget
+        // fetch can be dropped when this function returns before the request is
+        // sent — the biggest cause of searches stuck in 'queued'. EdgeRuntime.
+        // waitUntil keeps the runtime alive so the trigger is actually sent, and
+        // a few retries absorb transient network blips. The recover-stuck-searches
+        // sweeper is the backstop for anything that still slips through.
+        const triggerBody = JSON.stringify({
+          searchId: search.id,
+          forceRefresh: input.forceRefresh === true,
         });
+        const dispatch = (async () => {
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/execute-search`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: triggerBody,
+              });
+              return; // reached execute-search; it owns the rest (idempotent on re-entry)
+            } catch {
+              await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+            }
+          }
+        })();
+        const edge = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+          .EdgeRuntime;
+        if (edge?.waitUntil) edge.waitUntil(dispatch);
+        else void dispatch;
 
         return { searchId: search.id, status: "queued" };
       },
