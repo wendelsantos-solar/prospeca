@@ -150,9 +150,10 @@ export function SearchForm() {
   // Auto-busca: dispara sozinha ~700ms depois que nicho/local/raio-pra-cima/
   // presença mudam o suficiente pra exigir busca nova no servidor (`dirty` já
   // exclui mudanças client-only, tipo raio pra baixo — ver classifyDirty).
-  // OSM não tem custo por request, então não precisa mais gate manual: exigir
-  // clique em "Atualizar busca" só causava confusão (resultado da busca antiga
-  // ficava na tela parecendo bater com o nicho novo já digitado).
+  // Busca no servidor passa pelo cache (hit = custo Google zero), então não
+  // precisa de gate manual: exigir clique em "Atualizar busca" só causava
+  // confusão (resultado da busca antiga ficava na tela parecendo bater com o
+  // nicho novo já digitado). Force-refresh (paga Google) é ação explícita.
   useEffect(() => {
     if (!dirty || loading) return;
     const timer = setTimeout(() => runSearch(), 700);

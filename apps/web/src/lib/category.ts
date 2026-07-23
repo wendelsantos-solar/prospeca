@@ -1,8 +1,12 @@
-// Categoria vem crua do OSM (valor de tag: amenity/shop/office/...), em inglês.
-// Este helper traduz para PT-BR na exibição. O valor cru continua no banco e é
-// usado para filtrar/comparar — só o rótulo mostrado ao usuário muda.
+// Categoria vem crua do provedor (Google `primaryType`, ou tag OSM legada em
+// linhas antigas). Este helper traduz para PT-BR na exibição. O valor cru
+// continua no banco e é usado para filtrar/comparar — só o rótulo muda.
+// Chaves OSM (hairdresser, clinic...) MANTIDAS para compat de leitura de linhas
+// legadas `source=overpass` (não migramos); chaves Google (barber_shop,
+// dental_clinic...) adicionadas para o caminho atual.
 
 const CATEGORY_LABELS: Record<string, string> = {
+  // ── OSM (legado — linhas source=overpass) ──
   // office
   accountant: "Contabilidade",
   lawyer: "Advocacia",
@@ -48,9 +52,51 @@ const CATEGORY_LABELS: Record<string, string> = {
   hotel: "Hotel",
   school: "Escola",
   bank: "Banco",
+
+  // ── Google Places `primaryType` (caminho atual) ──
+  // beleza / bem-estar
+  barber_shop: "Barbearia",
+  hair_salon: "Cabeleireiro",
+  hair_care: "Cabeleireiro",
+  beauty_salon: "Salão de beleza",
+  nail_salon: "Manicure",
+  spa: "Spa",
+  gym: "Academia",
+  fitness_center: "Academia",
+  sports_activity_location: "Centro esportivo",
+  // saúde
+  doctor: "Consultório médico",
+  dental_clinic: "Clínica odontológica",
+  physiotherapist: "Fisioterapia",
+  veterinary_care: "Veterinário",
+  drugstore: "Farmácia",
+  medical_lab: "Laboratório",
+  // alimentação
+  coffee_shop: "Cafeteria",
+  meal_takeaway: "Lanchonete",
+  fast_food_restaurant: "Lanchonete",
+  ice_cream_shop: "Sorveteria",
+  // comércio
+  convenience_store: "Mercearia",
+  clothing_store: "Loja de roupas",
+  shoe_store: "Sapataria",
+  jewelry_store: "Joalheria",
+  furniture_store: "Móveis",
+  hardware_store: "Materiais de construção",
+  book_store: "Livraria",
+  car_dealer: "Concessionária",
+  car_wash: "Lava-rápido",
+  pet_store: "Pet shop",
+  cell_phone_store: "Celulares",
+  electronics_store: "Eletrônicos",
+  // serviços / outros
+  accounting: "Contabilidade",
+  real_estate_agency: "Imobiliária",
+  insurance_agency: "Seguros",
+  lodging: "Hotel",
 };
 
-/** Humaniza valor OSM desconhecido: bike_shop -> "Bike Shop". */
+/** Humaniza valor de tipo desconhecido: bike_shop -> "Bike Shop". */
 function humanize(value: string): string {
   return value
     .replace(/[_-]+/g, " ")

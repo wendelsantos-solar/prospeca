@@ -26,7 +26,6 @@ import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { whatsappDisplay } from "@/lib/whatsapp";
-import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore, scoreInputFromLead } from "@/lib/score";
 import {
@@ -370,11 +369,9 @@ export function LeadDetailsDrawer() {
                 <InfoRow icon={Globe} label="Website">
                   {lead.website ?? "—"}
                 </InfoRow>
-                {!env.useOsm && (
-                  <InfoRow icon={Star} label="Nota / Avaliações">
-                    {lead.rating?.toFixed(1) ?? "—"} ({lead.reviewCount ?? 0})
-                  </InfoRow>
-                )}
+                <InfoRow icon={Star} label="Nota / Avaliações">
+                  {lead.rating?.toFixed(1) ?? "—"} ({lead.reviewCount ?? 0})
+                </InfoRow>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <MiniStat label="Distância" value={formatDistance(lead.distanceKm)} />
                   <MiniStat

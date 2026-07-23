@@ -44,14 +44,14 @@ describe("isBlockedHost", () => {
     },
   );
   test("allows public host", () => {
-    expect(isBlockedHost("overpass-api.de")).toBe(false);
+    expect(isBlockedHost("maps.googleapis.com")).toBe(false);
   });
 });
 
 describe("assertSafeUrl", () => {
   test("passes public https", () => {
-    expect(assertSafeUrl("https://nominatim.openstreetmap.org/search").hostname).toBe(
-      "nominatim.openstreetmap.org",
+    expect(assertSafeUrl("https://places.googleapis.com/v1/places:searchText").hostname).toBe(
+      "places.googleapis.com",
     );
   });
   test.each([

@@ -27,18 +27,15 @@ Deno.serve(async (req) => {
       .in("id", parsed.data.placeIds)
       .lt("provider_refresh_after", new Date().toISOString());
 
-    const useOsm = Deno.env.get("USE_OSM_PLACES") === "true";
     let refreshed = 0;
     for (const place of stale ?? []) {
-      const details = useOsm
-        ? await (await import("../_shared/osm.ts")).osmPlaceDetails(place.provider_place_id)
-        : await placeDetails(place.provider_place_id);
-      if (!details) continue; // no OSM element (or non-OSM id) -> skip, don't count
+      const details = await placeDetails(place.provider_place_id);
+      if (!details) continue; // no place found -> skip, don't count
       await recordUsage(ctx.adminClient, {
         organizationId: ctx.organizationId,
         userId: ctx.userId,
         eventType: "place_details_request",
-        provider: useOsm ? "overpass" : "google_places",
+        provider: "google_places",
       });
       await ctx.adminClient
         .from("places")

@@ -19,8 +19,6 @@ interface Env {
   dataMode: DataMode;
   mapTileUrl: string;
   mapAttribution: string;
-  /** OSM/Overpass mode — no rating data, so rating filters are hidden. */
-  useOsm: boolean;
 }
 
 // OSM defaults — no vendor lock-in. Attribution is mandatory per tile TOS and
@@ -40,7 +38,6 @@ function readEnv(): Env {
       (import.meta.env.VITE_MAP_TILE_URL as string | undefined)?.trim() || DEFAULT_TILE_URL,
     mapAttribution:
       (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined)?.trim() || DEFAULT_ATTRIBUTION,
-    useOsm: (import.meta.env.VITE_USE_OSM as string | undefined) === "true",
   };
 }
 

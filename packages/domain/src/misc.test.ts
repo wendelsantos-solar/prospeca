@@ -31,28 +31,28 @@ describe("score", () => {
 describe("cache keys", () => {
   test("nearby coords bucket to the same places key", () => {
     const k1 = placesCacheKey({
-      provider: "overpass",
+      provider: "google_places",
       category: "clinica medica",
       latitude: -30.03461,
       longitude: -51.21772,
       radiusMeters: 20000,
     });
     const k2 = placesCacheKey({
-      provider: "overpass",
+      provider: "google_places",
       category: "clínica médica",
       latitude: -30.03459,
       longitude: -51.21769,
       radiusMeters: 20000,
     });
     expect(k1).toBe(k2);
-    expect(k1.startsWith("v3:places:overpass:clinica_medica:")).toBe(true);
+    expect(k1.startsWith("v3:places:google_places:clinica_medica:")).toBe(true);
   });
   test("roundCoord precision", () => {
     expect(roundCoord(-51.21772, 3)).toBe(-51.218);
   });
   test("geocode key is namespaced + slugged", () => {
-    expect(geocodeCacheKey({ provider: "nominatim", query: "Porto Alegre, RS" })).toBe(
-      "v3:geocode:nominatim:porto_alegre_rs",
+    expect(geocodeCacheKey({ provider: "google_geocoding", query: "Porto Alegre, RS" })).toBe(
+      "v3:geocode:google_geocoding:porto_alegre_rs",
     );
   });
 });

@@ -66,12 +66,7 @@ Deno.serve(async (req) => {
           if (cachedPoint) {
             [longitude, latitude] = cachedPoint;
           } else {
-            // Strangler: OSM (Nominatim) when enabled; Google default. Dynamic
-            // import keeps the OSM module unloaded when the flag is off.
-            const useOsmGeo = Deno.env.get("USE_OSM_GEOCODER") === "true";
-            const geo = useOsmGeo
-              ? await (await import("../_shared/osm.ts")).osmGeocode(input.location.label)
-              : await geocode(input.location.label);
+            const geo = await geocode(input.location.label);
             if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
             latitude = geo.latitude;
             longitude = geo.longitude;
@@ -79,7 +74,7 @@ Deno.serve(async (req) => {
               organizationId: ctx.organizationId,
               userId: ctx.userId,
               eventType: "geocode_request",
-              provider: useOsmGeo ? "nominatim" : "google_geocoding",
+              provider: "google_geocoding",
             });
             await ctx.adminClient.from("geocode_cache").upsert(
               {
@@ -105,11 +100,10 @@ Deno.serve(async (req) => {
             presence_filter: input.presenceFilter,
             status: "queued",
             provider: "google_places",
-            // OSM/Overpass has no per-result cost -> higher ceiling than Google.
-            // Override with SEARCH_MAX_RESULTS.
+            // Google Text Search bills per page (pageSize 20, 3 pages = 60).
+            // Cap at 60; override with SEARCH_MAX_RESULTS.
             max_results: (() => {
-              const osm = Deno.env.get("USE_OSM_PLACES") === "true";
-              const cap = Number(Deno.env.get("SEARCH_MAX_RESULTS") ?? (osm ? 300 : 60));
+              const cap = Number(Deno.env.get("SEARCH_MAX_RESULTS") ?? 60);
               return Math.min(input.maxResults ?? cap, cap);
             })(),
           })

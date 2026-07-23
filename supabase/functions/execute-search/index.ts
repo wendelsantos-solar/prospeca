@@ -5,6 +5,7 @@ import { AppError, handleOptions, json, logEvent, newRequestId } from "../_share
 import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
+import { placesCacheKey } from "../_shared/cache.ts";
 import { hasRealWebsite } from "../_shared/normalize.ts";
 import { readPoint } from "../_shared/geo.ts";
 import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
@@ -86,104 +87,34 @@ Deno.serve(async (req) => {
     let requestCount = 0;
     let collected: GooglePlace[] = [];
 
-    // Strangler: OSM (Overpass) only when explicitly enabled; Google is default.
-    // Dynamic import keeps the OSM module unloaded when the flag is off.
-    const useOsm = Deno.env.get("USE_OSM_PLACES") === "true";
+    // Cache: skip the paid Google call when an equivalent recent search exists
+    // (region+category bucketed at ~110m precision, cross-tenant). Payload holds
+    // only public business data. TTL (30d, ToS limit) enforced via expires_at.
+    const cacheKey = placesCacheKey({
+      provider: "google_places",
+      category: textQuery,
+      latitude: centerLat,
+      longitude: centerLng,
+      radiusMeters: search.radius_meters,
+    });
 
-    if (useOsm) {
-      const { placesCacheKey } = await import("../_shared/cache.ts");
-      const cacheKey = placesCacheKey({
-        provider: "overpass",
-        category: textQuery,
-        latitude: centerLat,
-        longitude: centerLng,
-        radiusMeters: search.radius_meters,
-      });
+    const { data: cachedRow } = await admin
+      .from("provider_search_cache")
+      .select("payload, hit_count")
+      .eq("cache_key", cacheKey)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
 
-      // Cache: skip the external Overpass call when an equivalent recent search
-      // exists (region+category bucketed). TTL enforced via expires_at.
-      const { data: cachedRow } = await admin
+    if (cachedRow?.payload) {
+      collected = cachedRow.payload as GooglePlace[];
+      requestCount = 0;
+      await admin
         .from("provider_search_cache")
-        .select("payload, hit_count")
-        .eq("cache_key", cacheKey)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-
-      if (cachedRow?.payload) {
-        collected = cachedRow.payload as GooglePlace[];
-        requestCount = 0;
-        await admin
-          .from("provider_search_cache")
-          .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
-          .eq("cache_key", cacheKey);
-      } else {
-        const { osmSearchBusinesses, OsmTimeoutError } = await import("../_shared/osm.ts");
-        const { dedupeRecords } = await import("../_shared/dedup.ts");
-        let res: Awaited<ReturnType<typeof osmSearchBusinesses>>;
-        try {
-          res = await osmSearchBusinesses({
-            query: textQuery,
-            latitude: centerLat,
-            longitude: centerLng,
-            radiusMeters: search.radius_meters,
-            maxResults,
-          });
-        } catch (err) {
-          if (err instanceof OsmTimeoutError) {
-            throw new AppError(
-              "PROVIDER_UNAVAILABLE",
-              "A área selecionada é grande demais e o provedor de busca demorou para responder. Tente reduzir o raio.",
-            );
-          }
-          throw new AppError(
-            "PROVIDER_UNAVAILABLE",
-            "O provedor de busca (OpenStreetMap) está indisponível no momento. Tente novamente em instantes.",
-          );
-        }
-        // Overpass returns node + way for the same business; collapse duplicates
-        // by the multi-signal matcher before persisting.
-        const keep = new Set(
-          dedupeRecords(
-            res.places.map((p) => ({
-              id: p.id,
-              name: p.displayName?.text ?? "",
-              phone: p.nationalPhoneNumber ?? p.internationalPhoneNumber ?? null,
-              website: p.websiteUri ?? null,
-              latitude: p.location?.latitude ?? null,
-              longitude: p.location?.longitude ?? null,
-              externalId: p.id,
-              source: "overpass",
-            })),
-          ).map((r) => r.id),
-        );
-        collected = res.places.filter((p) => keep.has(p.id));
-        requestCount = 1;
-        await recordUsage(admin, {
-          organizationId: search.organization_id,
-          eventType: "place_search_request",
-          provider: "overpass",
-          quantity: 1,
-          metadata: { searchId },
-        });
-        await admin.from("provider_search_cache").upsert(
-          {
-            cache_key: cacheKey,
-            organization_id: search.organization_id,
-            provider: "overpass",
-            payload: collected,
-            result_count: collected.length,
-          },
-          { onConflict: "cache_key" },
-        );
-      }
-
+        .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
+        .eq("cache_key", cacheKey);
       await admin
         .from("searches")
-        .update({
-          provider_request_count: requestCount,
-          found_count: collected.length,
-          search_provider: "overpass",
-        })
+        .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
     } else {
       let pageToken: string | undefined;
@@ -211,10 +142,20 @@ Deno.serve(async (req) => {
         if (!res.nextPageToken || collected.length >= maxResults) break;
         pageToken = res.nextPageToken;
       }
+      await admin.from("provider_search_cache").upsert(
+        {
+          cache_key: cacheKey,
+          organization_id: search.organization_id,
+          provider: "google_places",
+          payload: collected,
+          result_count: collected.length,
+        },
+        { onConflict: "cache_key" },
+      );
     }
 
     collected = collected.slice(0, maxResults);
-    const providerName = useOsm ? "overpass" : "google_places";
+    const providerName = "google_places";
 
     // Cancelled mid-flight?
     const { data: fresh } = await admin

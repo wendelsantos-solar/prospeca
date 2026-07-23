@@ -10,7 +10,7 @@ const base: DedupRecord = {
   longitude: -51.2177,
   city: "Porto Alegre",
   state: "RS",
-  source: "overpass",
+  source: "google",
   externalId: "node/1",
 };
 
@@ -59,13 +59,13 @@ describe("matchConfidence", () => {
 describe("dedupeCandidates", () => {
   const dupes: DedupRecord[] = [
     base,
-    { ...base, id: "2", name: "Clinica Sao Jose", externalId: "node/2", source: "overpass" },
+    { ...base, id: "2", name: "Clinica Sao Jose", externalId: "google/2", source: "google" },
     {
       id: "3",
       name: "Farmácia Bem Estar",
       phone: "5133215555",
       externalId: "node/3",
-      source: "overpass",
+      source: "google",
     },
   ];
 

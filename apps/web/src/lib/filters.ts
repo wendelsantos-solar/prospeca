@@ -1,9 +1,9 @@
 import type { Lead, LeadFilters } from "@/types";
 import type { SortValue } from "@/lib/constants";
-import { env } from "@/lib/env";
 import { distanceKm, type LatLng } from "@/lib/geo";
 
-const ALL_QUICK_FILTERS = [
+// Google always carries rating/review data, so the rating chip is always shown.
+export const QUICK_FILTERS = [
   { id: "whatsapp", label: "WhatsApp", predicate: (l: Lead) => !!l.whatsapp },
   { id: "phone", label: "Telefone", predicate: (l: Lead) => !!l.phone },
   { id: "instagram", label: "Instagram", predicate: (l: Lead) => !!l.instagram },
@@ -17,12 +17,6 @@ const ALL_QUICK_FILTERS = [
   { id: "uncontacted", label: "Não contatado", predicate: (l: Lead) => l.stage === "new" },
   { id: "has-value", label: "Com valor", predicate: (l: Lead) => (l.estimatedValue ?? 0) > 0 },
 ];
-
-// OSM/Overpass provides no ratings — hide the rating chip so users don't
-// accidentally filter every result out (as happens with "Nota > 4" on OSM data).
-export const QUICK_FILTERS = env.useOsm
-  ? ALL_QUICK_FILTERS.filter((f) => f.id !== "rating-4")
-  : ALL_QUICK_FILTERS;
 
 /** Hard filter: only items inside the live search radius are ever shown — map,
  * list, and counts must all agree, matching the reference product's behavior
