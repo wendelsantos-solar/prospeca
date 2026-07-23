@@ -82,13 +82,13 @@ Deno.serve(async (req) => {
     if (input.filters.categories?.length) query = query.in("category", input.filters.categories);
     if (input.filters.minScore != null) query = query.gte("score", input.filters.minScore);
 
-    const { data: rows, error } = await query;
+    const { data, error } = await query;
     if (error) throw new AppError("EXPORT_FAILED", "Falha ao consultar leads.");
+    // Dynamic .select(string) breaks supabase-js row typing → cast explicitly.
+    const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
     const header = columns.join(";");
-    const lines = (rows ?? []).map((row: Record<string, unknown>) =>
-      columns.map((c) => sanitizeCell(row[c])).join(";"),
-    );
+    const lines = rows.map((row) => columns.map((c) => sanitizeCell(row[c])).join(";"));
     const csv = "﻿" + [header, ...lines].join("\r\n");
 
     await recordUsage(ctx.adminClient, {

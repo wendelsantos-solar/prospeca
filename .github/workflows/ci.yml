@@ -33,3 +33,18 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+      - name: Build (web)
+        run: bun run build
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Edge functions are Deno, not covered by the bun typecheck above — a
+      # missing field on a calculateScore() call once shipped latent because CI
+      # never ran this. Only index.ts entrypoints (test files use bun:test,
+      # which Deno can't resolve); _shared/*.ts is checked transitively.
+      - name: Typecheck edge functions (deno)
+        run: deno check supabase/functions/*/index.ts
