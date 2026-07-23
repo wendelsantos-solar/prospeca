@@ -126,9 +126,12 @@ function selectorsFor(query: string): string[] {
   for (const [kw, sels] of Object.entries(CATEGORY_SELECTORS)) {
     if (words.some((w) => w === kw || (kw.length >= 4 && w.startsWith(kw)))) matched.push(...sels);
   }
-  if (matched.length) return [...new Set(matched)];
+  // Match by name substring too (escaped) — union with tags so OSM entries named
+  // e.g. "Barbearia X" but tagged differently (or with no shop tag) are still found.
   const safe = query.replace(/["\\]/g, "");
-  return [`name~"${safe}",i`];
+  const nameSel = `name~"${safe}",i`;
+  if (matched.length) return [...new Set([...matched, nameSel])];
+  return [nameSel];
 }
 
 export function buildOverpassQuery(input: {
