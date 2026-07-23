@@ -12,9 +12,24 @@ import { scoreInputFromPlace } from "../_shared/score-input.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
 
-function isInternalCall(req: Request): boolean {
+// Constant-time compare via fixed-length SHA-256 digests — avoids leaking the
+// service-role key length/prefix through response timing (CWE-208).
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const va = new Uint8Array(ha);
+  const vb = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
+
+async function isInternalCall(req: Request): Promise<boolean> {
   const auth = req.headers.get("Authorization") ?? "";
-  return auth === `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  return timingSafeEqual(auth, `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
 }
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -34,7 +49,7 @@ Deno.serve(async (req) => {
   const requestId = newRequestId();
   const startedAt = Date.now();
 
-  if (!isInternalCall(req)) {
+  if (!(await isInternalCall(req))) {
     return new AppError("FORBIDDEN", "Função interna.").toResponse(requestId);
   }
 
