@@ -453,6 +453,13 @@ export class SupabaseSearchRepository implements SearchRepository {
     }));
   }
 
+  async enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }> {
+    return invokeFunction<{ enriched: number }>("enrich-discovery", {
+      searchId,
+      ...(placeId ? { placeId } : {}),
+    });
+  }
+
   async addToFunnel(
     searchId: string,
     placeId: string,

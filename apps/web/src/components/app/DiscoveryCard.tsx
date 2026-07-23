@@ -13,7 +13,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useLeadsStore } from "@/stores";
-import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
+import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
@@ -39,13 +39,22 @@ export const DiscoveryCard = memo(function DiscoveryCard({
   const setDetails = useLeadsStore((s) => s.setDetails);
   const setPreview = useLeadsStore((s) => s.setPreview);
   const addToFunnel = useAddToFunnelMutation();
+  const enrichDiscovery = useEnrichDiscoveryMutation();
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
+  const missingContact = !result.email && !result.instagram && !result.whatsapp;
 
   // In funnel → open the full lead drawer; otherwise a read-only discovery preview.
   const openDetails = () => {
-    if (inFunnel) setDetails(result.importedLeadId);
-    else setPreview(result);
+    if (inFunnel) {
+      setDetails(result.importedLeadId);
+      return;
+    }
+    setPreview(result);
+    // Lazy enrich this one business if it has a site but no contact yet.
+    if (result.hasWebsite && missingContact && !enrichDiscovery.isPending) {
+      enrichDiscovery.mutate({ searchId, placeId: result.placeId });
+    }
   };
 
   const openWhats = () => {

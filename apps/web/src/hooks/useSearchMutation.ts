@@ -154,6 +154,14 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
       queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
 
+      // Phase 2: discovery contact enrichment (top-N by score, best-effort).
+      // Fire-and-forget — refresh discovery once it finishes so the newly
+      // scraped contacts + re-scored temperatures appear on the map/list.
+      repo
+        .enrichDiscovery(searchId)
+        .then(() => queryClient.invalidateQueries({ queryKey: ["discovery"] }))
+        .catch(() => {});
+
       // For backward compat, also populate store
       // (leads will be fetched fresh by query hooks on next render)
       onSuccess([], searchMeta);

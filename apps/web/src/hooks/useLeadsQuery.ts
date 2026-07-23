@@ -72,6 +72,19 @@ export function useAddToFunnelMutation() {
   });
 }
 
+/** On-demand discovery contact enrichment for a single business (lazy, on-open).
+ * Best-effort; refreshes discovery so the preview shows the new contact fields. */
+export function useEnrichDiscoveryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ searchId, placeId }: { searchId: string; placeId: string }) =>
+      getSearchRepository().enrichDiscovery(searchId, placeId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
+    },
+  });
+}
+
 export function useLeadDetail(id: string | null) {
   return useQuery<Lead | null>({
     queryKey: leadKeys.detail(id ?? ""),

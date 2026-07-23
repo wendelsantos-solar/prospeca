@@ -7,7 +7,9 @@ import "leaflet.markercluster";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { RadarPill } from "./RadarPill";
-import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
+import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
+import { useQueryClient } from "@tanstack/react-query";
+import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
@@ -80,6 +82,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
   const setPreview = useLeadsStore((s) => s.setPreview);
   const searching = useLeadsStore((s) => s.searching);
   const addToFunnel = useAddToFunnelMutation();
+  const queryClient = useQueryClient();
   // Persisted so a marked circle / dark map survives a page refresh.
   const showCircle = useUIStore((s) => s.mapShowCircle);
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
@@ -288,8 +291,20 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
           }
           if (action === "details") {
             // In funnel → full lead drawer; otherwise read-only discovery preview.
-            if (result.importedLeadId != null) setDetails(result.importedLeadId);
-            else setPreview(result);
+            if (result.importedLeadId != null) {
+              setDetails(result.importedLeadId);
+            } else {
+              setPreview(result);
+              // Lazy enrich a with-site business lacking contact yet.
+              if (result.hasWebsite && !result.email && !result.instagram && !result.whatsapp) {
+                getSearchRepository()
+                  .enrichDiscovery(searchId, result.placeId)
+                  .then(() =>
+                    queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(searchId) }),
+                  )
+                  .catch(() => {});
+              }
+            }
           }
         };
         popupEl.addEventListener("click", handler);
@@ -304,7 +319,16 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
       markersRef.current.set(r.placeId, m);
     });
     setVisibleCount(results.length);
-  }, [results, focusedId, setFocused, setDetails, setPreview, addToFunnel, currentSearch?.id]);
+  }, [
+    results,
+    focusedId,
+    setFocused,
+    setDetails,
+    setPreview,
+    addToFunnel,
+    queryClient,
+    currentSearch?.id,
+  ]);
 
   useEffect(() => {
     if (!focusedId) return;

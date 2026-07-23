@@ -184,6 +184,10 @@ export class DemoSearchRepository implements SearchRepository {
     return [];
   }
 
+  async enrichDiscovery(): Promise<{ enriched: number }> {
+    return { enriched: 0 };
+  }
+
   async addToFunnel(): Promise<{ enrichableLeadIds: string[] }> {
     return { enrichableLeadIds: [] };
   }

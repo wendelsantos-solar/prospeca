@@ -134,6 +134,9 @@ export interface SearchRepository {
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }>;
   getDiscovery(searchId: string): Promise<DiscoveryResult[]>;
+  /** Enrich discovery contact fields via website scrape. No placeId → top-N by
+   * score; with placeId → just that business (lazy, on-open). Best-effort. */
+  enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }>;
   addToFunnel(
     searchId: string,
     placeId: string,
