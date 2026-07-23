@@ -32,3 +32,26 @@ test("telefone fixo → whatsapp unknown", () => {
   expect(input.whatsappStatus).toBe("unknown");
   expect(input.hasCategory).toBe(false);
 });
+
+test("enriched place → hasEmail/hasInstagram true, whatsapp verified", () => {
+  const input = scoreInputFromPlace(
+    {
+      websiteUri: "https://ex.com",
+      nationalPhoneNumber: "(21) 3333-4444",
+      email: "contato@ex.com",
+      instagram: "@ex",
+      whatsapp: "5521999998888",
+    },
+    null,
+  );
+  expect(input.hasEmail).toBe(true);
+  expect(input.hasInstagram).toBe(true);
+  // whatsapp present overrides the landline "unknown"
+  expect(input.whatsappStatus).toBe("verified");
+});
+
+test("empty-string enrichment fields count as absent", () => {
+  const input = scoreInputFromPlace({ email: "", instagram: "" }, null);
+  expect(input.hasEmail).toBe(false);
+  expect(input.hasInstagram).toBe(false);
+});

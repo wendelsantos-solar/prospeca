@@ -7,15 +7,27 @@ import type { GooglePlace } from "./google.ts";
  * (execute-search) e no import (import-search-results) para garantir score
  * idêntico nos dois caminhos. Mirror de packages/domain/src/score-input.ts.
  */
-export function scoreInputFromPlace(place: GooglePlace, distanceMeters: number | null): ScoreInput {
+// Enrichment fields (email/instagram/whatsapp) live on the places row, filled by
+// enrich-discovery. A freshly-mapped search-time place lacks them (→ absent).
+type PlaceWithEnrichment = GooglePlace & {
+  email?: string | null;
+  instagram?: string | null;
+  whatsapp?: string | null;
+};
+
+export function scoreInputFromPlace(
+  place: PlaceWithEnrichment,
+  distanceMeters: number | null,
+): ScoreInput {
   const rawPhone = place.nationalPhoneNumber ?? place.internationalPhoneNumber ?? null;
   const phone = rawPhone ? normalizeBrazilianPhone(rawPhone) : null;
+  const hasWhatsapp = place.whatsapp != null && place.whatsapp !== "";
   return {
     hasWebsite: hasRealWebsite(place.websiteUri ?? null),
     hasValidPhone: phone?.isValid ?? false,
-    whatsappStatus: phone?.type === "mobile" ? "possible" : "unknown",
-    hasEmail: false,
-    hasInstagram: false,
+    whatsappStatus: hasWhatsapp ? "verified" : phone?.type === "mobile" ? "possible" : "unknown",
+    hasEmail: place.email != null && place.email !== "",
+    hasInstagram: place.instagram != null && place.instagram !== "",
     hasCategory: place.primaryType != null || (place.types?.length ?? 0) > 0,
     rating: place.rating ?? null,
     reviewCount: place.userRatingCount ?? null,

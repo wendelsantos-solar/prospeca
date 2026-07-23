@@ -7,6 +7,9 @@ export interface PlaceLike {
   internationalPhoneNumber?: string | null;
   primaryType?: string | null;
   types?: string[] | null;
+  email?: string | null;
+  instagram?: string | null;
+  whatsapp?: string | null;
   rating?: number | null;
   userRatingCount?: number | null;
   businessStatus?: string | null;
@@ -20,12 +23,13 @@ export interface PlaceLike {
 export function scoreInputFromPlace(place: PlaceLike, distanceMeters: number | null): ScoreInput {
   const rawPhone = place.nationalPhoneNumber ?? place.internationalPhoneNumber ?? null;
   const phone = rawPhone ? normalizePhone(rawPhone) : null;
+  const hasWhatsapp = place.whatsapp != null && place.whatsapp !== "";
   return {
     hasWebsite: hasRealWebsite(place.websiteUri ?? null),
     hasValidPhone: phone?.isValid ?? false,
-    whatsappStatus: phone?.type === "mobile" ? "possible" : "unknown",
-    hasEmail: false,
-    hasInstagram: false,
+    whatsappStatus: hasWhatsapp ? "verified" : phone?.type === "mobile" ? "possible" : "unknown",
+    hasEmail: place.email != null && place.email !== "",
+    hasInstagram: place.instagram != null && place.instagram !== "",
     hasCategory: place.primaryType != null || (place.types?.length ?? 0) > 0,
     rating: place.rating ?? null,
     reviewCount: place.userRatingCount ?? null,
