@@ -1,6 +1,9 @@
 // Cache key builders with coordinate rounding (region bucketing) so equivalent
 // nearby searches reuse the same external result. Namespaced + versioned.
-export const CACHE_VERSION = "v1";
+// Bump on any change to search/query logic so stale payloads are invalidated.
+// v2: Overpass query unions tag selectors + name match (find businesses named X
+// but tagged otherwise).
+export const CACHE_VERSION = "v2";
 
 /** Round to a grid. precision 2 ≈ 1.1km, 3 ≈ 110m. Default 3. */
 export function roundCoord(value: number, precision = 3): number {

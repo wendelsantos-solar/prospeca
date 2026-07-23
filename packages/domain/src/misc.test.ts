@@ -45,14 +45,14 @@ describe("cache keys", () => {
       radiusMeters: 20000,
     });
     expect(k1).toBe(k2);
-    expect(k1.startsWith("v1:places:overpass:clinica_medica:")).toBe(true);
+    expect(k1.startsWith("v2:places:overpass:clinica_medica:")).toBe(true);
   });
   test("roundCoord precision", () => {
     expect(roundCoord(-51.21772, 3)).toBe(-51.218);
   });
   test("geocode key is namespaced + slugged", () => {
     expect(geocodeCacheKey({ provider: "nominatim", query: "Porto Alegre, RS" })).toBe(
-      "v1:geocode:nominatim:porto_alegre_rs",
+      "v2:geocode:nominatim:porto_alegre_rs",
     );
   });
 });
