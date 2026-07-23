@@ -5,7 +5,7 @@ import { AppError, handleOptions, json, logEvent, newRequestId } from "../_share
 import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
-import { placesCacheKey } from "../_shared/cache.ts";
+import { categoryKey, placesCacheKey } from "../_shared/cache.ts";
 import { hasRealWebsite } from "../_shared/normalize.ts";
 import { readPoint } from "../_shared/geo.ts";
 import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
     // Cache: skip the paid Google call when an equivalent recent search exists
     // (region+category bucketed at ~110m precision, cross-tenant). Payload holds
     // only public business data. TTL (30d, ToS limit) enforced via expires_at.
+    const categorySlug = categoryKey(textQuery);
     const cacheKey = placesCacheKey({
       provider: "google_places",
       category: textQuery,
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
       radiusMeters: search.radius_meters,
     });
 
+    // Fast path: exact key match (~110m bucket). Cheap, serves identical repeats.
     const { data: cachedRow } = await admin
       .from("provider_search_cache")
       .select("payload, hit_count")
@@ -105,18 +107,53 @@ Deno.serve(async (req) => {
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
+    let servedFromCache = false;
     if (cachedRow?.payload) {
       collected = cachedRow.payload as GooglePlace[];
       requestCount = 0;
+      servedFromCache = true;
       await admin
         .from("provider_search_cache")
         .update({ hit_count: (cachedRow.hit_count ?? 0) + 1 })
         .eq("cache_key", cacheKey);
+    } else {
+      // Coverage path (Nivel 2): a larger cached circle that geometrically
+      // contains this one can serve it — filter its payload by haversine to the
+      // requested circle. Geometrically correct reuse across centers/radii.
+      const { data: coverData } = await admin
+        .rpc("find_covering_cache", {
+          p_category: categorySlug,
+          p_lng: centerLng,
+          p_lat: centerLat,
+          p_radius: search.radius_meters,
+        })
+        .maybeSingle();
+      const cover = coverData as { payload: GooglePlace[]; radius_meters: number } | null;
+
+      if (cover?.payload) {
+        const all = cover.payload as GooglePlace[];
+        collected = all.filter((p) => {
+          const lat = p.location?.latitude ?? null;
+          const lng = p.location?.longitude ?? null;
+          // No coordinate -> cannot prove it's outside; keep (matches the fine
+          // radius cut below, which also lets coord-less places through).
+          if (lat == null || lng == null) return true;
+          return haversineMeters(centerLat, centerLng, lat, lng) <= search.radius_meters;
+        });
+        requestCount = 0;
+        servedFromCache = true;
+        // No upsert: this circle is already covered by the larger cached entry.
+      }
+    }
+
+    if (servedFromCache) {
       await admin
         .from("searches")
         .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
     } else {
+      // Real miss: pay Google, then cache under the exact key with the coverage
+      // columns (category + center + radius) so future circles can reuse it.
       let pageToken: string | undefined;
       for (let page = 0; page < ABSOLUTE_MAX_PAGES; page++) {
         const res = await textSearch({
@@ -149,6 +186,9 @@ Deno.serve(async (req) => {
           provider: "google_places",
           payload: collected,
           result_count: collected.length,
+          category: categorySlug,
+          center: `POINT(${centerLng} ${centerLat})`,
+          radius_meters: search.radius_meters,
         },
         { onConflict: "cache_key" },
       );

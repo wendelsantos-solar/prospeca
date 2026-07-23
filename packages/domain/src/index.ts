@@ -3,4 +3,5 @@ export * from "./normalize";
 export * from "./score";
 export * from "./dedup";
 export * from "./cache";
+export * from "./coverage";
 export * from "./status";
