@@ -61,8 +61,42 @@ function serverKey(): string {
   return key;
 }
 
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 400;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * fetch com retry para blips transitórios do Google (429 / 408 / 5xx / erro de
+ * rede) — backoff exponencial, respeitando Retry-After. Todas as chamadas são
+ * idempotentes (buscas/geocode/detalhes são leituras), então re-tentar é seguro.
+ * Falha persistente cai pro tratamento de status normal do chamador.
+ */
+async function fetchWithRetry(input: string | URL, init?: RequestInit): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      const retryable = res.status === 429 || res.status === 408 || res.status >= 500;
+      if (retryable && attempt < RETRY_ATTEMPTS - 1) {
+        const ra = Number(res.headers.get("retry-after"));
+        const delay = Number.isFinite(ra) && ra > 0 ? ra * 1000 : RETRY_BASE_MS * 2 ** attempt;
+        await sleep(delay);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS - 1) {
+        await sleep(RETRY_BASE_MS * 2 ** attempt);
+        continue;
+      }
+    }
+  }
+  throw lastErr ?? new AppError("PROVIDER_UNAVAILABLE", "Falha de rede ao consultar o provedor.");
+}
+
 async function placesRequest(path: string, body: unknown, fieldMask: string) {
-  const res = await fetch(`${PLACES_BASE}${path}`, {
+  const res = await fetchWithRetry(`${PLACES_BASE}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -148,7 +182,7 @@ export async function nearbySearch(input: {
 }
 
 export async function placeDetails(providerPlaceId: string): Promise<GooglePlace> {
-  const res = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(providerPlaceId)}`, {
+  const res = await fetchWithRetry(`${PLACES_BASE}/places/${encodeURIComponent(providerPlaceId)}`, {
     headers: {
       "X-Goog-Api-Key": serverKey(),
       "X-Goog-FieldMask": DETAILS_FIELD_MASK,
@@ -172,7 +206,7 @@ export async function geocode(query: string): Promise<{
   url.searchParams.set("region", "br");
   url.searchParams.set("language", "pt-BR");
   url.searchParams.set("key", serverKey());
-  const res = await fetch(url);
+  const res = await fetchWithRetry(url);
   if (!res.ok) throw new AppError("PROVIDER_UNAVAILABLE", "Falha na geocodificação.");
   const data = await res.json();
   const first = data.results?.[0];
@@ -213,7 +247,7 @@ export async function reverseGeocode(
   url.searchParams.set("region", "br");
   url.searchParams.set("language", "pt-BR");
   url.searchParams.set("key", serverKey());
-  const res = await fetch(url);
+  const res = await fetchWithRetry(url);
   if (!res.ok) throw new AppError("PROVIDER_UNAVAILABLE", "Falha na geocodificação reversa.");
   const data = await res.json();
   const first = data.results?.[0];
