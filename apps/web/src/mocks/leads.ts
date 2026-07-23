@@ -1,5 +1,5 @@
 import type { Lead } from "@/types";
-import { calculateScore, temperatureFromScore } from "@/lib/score";
+import { calculateScore, temperatureFromScore, scoreInputFromLead } from "@/lib/score";
 
 const CITIES: Record<string, { state: string; lat: number; lng: number; neighborhoods: string[] }> =
   {
@@ -184,7 +184,7 @@ function makeLead(companyName: string, category: string, cityName: string, seed:
     reviewCount,
     distanceKm,
   };
-  const { score } = calculateScore(partial);
+  const { total: score } = calculateScore(scoreInputFromLead(partial));
   const temperature = temperatureFromScore(score);
   const stagePool: Lead["stage"][] = ["new", "new", "new", "new", "qualified", "contacted"];
   const stage = stagePool[Math.floor(rand() * stagePool.length)];

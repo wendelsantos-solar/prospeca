@@ -24,7 +24,7 @@ import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { env } from "@/lib/env";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { calculateScore } from "@/lib/score";
+import { calculateScore, scoreInputFromLead } from "@/lib/score";
 import {
   MessageCircle,
   Phone,
@@ -105,7 +105,7 @@ export function LeadDetailsDrawer() {
   // Keep Sheet mounted during fetch to avoid overlay flicker
   const isLoading = detailsId != null && !lead;
 
-  const breakdown = lead ? calculateScore(lead).breakdown : [];
+  const breakdown = lead ? calculateScore(scoreInputFromLead(lead)).items : [];
   const insights: { icon: string; text: string; level: "high" | "med" | "low" }[] = lead
     ? [
         ...(!lead.hasWebsite
@@ -194,7 +194,7 @@ export function LeadDetailsDrawer() {
                             <div key={i} className="flex items-start justify-between gap-2 text-xs">
                               <div>
                                 <p className="font-medium">{b.label}</p>
-                                <p className="text-muted-foreground text-[11px]">{b.explanation}</p>
+                                <p className="text-muted-foreground text-[11px]">{b.reason}</p>
                               </div>
                               <span className="font-mono font-semibold text-primary">
                                 +{b.points}
