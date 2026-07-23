@@ -1,5 +1,46 @@
 import type { Lead } from "@/types";
+import type { DiscoveryResult } from "@/repositories/types";
 import { formatBRL, formatDate } from "./format";
+
+const DISCOVERY_HEADERS = [
+  "Empresa",
+  "Categoria",
+  "Telefone",
+  "Website",
+  "Possui site",
+  "Nota",
+  "Avaliações",
+  "Distância (km)",
+  "Temperatura",
+  "Score",
+  "No funil",
+];
+
+/** CSV das empresas descobertas (não são leads ainda). */
+export function exportDiscoveryCSV(results: DiscoveryResult[]) {
+  const row = (r: DiscoveryResult) => [
+    r.name,
+    r.category ?? "",
+    r.phone ?? "",
+    r.website ?? "",
+    r.hasWebsite ? "Sim" : "Não",
+    r.rating ?? "",
+    r.reviewCount ?? "",
+    r.distanceKm.toFixed(1),
+    r.temperature,
+    r.score,
+    r.importedLeadId != null ? "Sim" : "Não",
+  ];
+  const rows = [
+    DISCOVERY_HEADERS.join(","),
+    ...results.map((r) => row(r).map(csvEscape).join(",")),
+  ];
+  download(
+    "﻿" + rows.join("\n"),
+    `radar-local-descoberta-${Date.now()}.csv`,
+    "text/csv;charset=utf-8;",
+  );
+}
 
 const HEADERS = [
   "Empresa",

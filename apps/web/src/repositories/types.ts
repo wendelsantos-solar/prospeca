@@ -99,6 +99,26 @@ export interface LeadRepository {
   removeLead(id: string): Promise<void>;
 }
 
+/** One discovered business for a search — read from search_results ⋈ places.
+ * Not a lead: a lead only exists once the user adds it to the funnel. */
+export interface DiscoveryResult {
+  placeId: string;
+  name: string;
+  category: string | null;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  website: string | null;
+  hasWebsite: boolean;
+  rating: number | null;
+  reviewCount: number | null;
+  distanceKm: number;
+  score: number;
+  temperature: "hot" | "warm" | "cold";
+  /** Non-null once this business has been materialized as a lead (in the funnel). */
+  importedLeadId: string | null;
+}
+
 export interface SearchRepository {
   create(input: CreateSearchInput, idempotencyKey?: string): Promise<{ searchId: string }>;
   getStatus(searchId: string): Promise<SearchStatusSnapshot>;
@@ -109,6 +129,8 @@ export interface SearchRepository {
     placeIds: string[],
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }>;
+  getDiscovery(searchId: string): Promise<DiscoveryResult[]>;
+  addToFunnel(searchId: string, placeId: string, stage: "new" | "contacted"): Promise<void>;
 }
 
 export interface DashboardRepository {

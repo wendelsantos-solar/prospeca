@@ -1,6 +1,7 @@
 import type { Lead, LeadFilters } from "@/types";
 import type { SortValue } from "@/lib/constants";
 import { env } from "@/lib/env";
+import { distanceKm, type LatLng } from "@/lib/geo";
 
 const ALL_QUICK_FILTERS = [
   { id: "whatsapp", label: "WhatsApp", predicate: (l: Lead) => !!l.whatsapp },
@@ -22,6 +23,18 @@ const ALL_QUICK_FILTERS = [
 export const QUICK_FILTERS = env.useOsm
   ? ALL_QUICK_FILTERS.filter((f) => f.id !== "rating-4")
   : ALL_QUICK_FILTERS;
+
+/** Hard filter: only items inside the live search radius are ever shown — map,
+ * list, and counts must all agree, matching the reference product's behavior
+ * (radius = what you get, not a dimmed preview of what you'd get). Generic over
+ * anything with lat/lng (Lead or DiscoveryResult). */
+export function filterByRadius<T extends { latitude: number; longitude: number }>(
+  items: T[],
+  center: LatLng,
+  radiusKm: number,
+): T[] {
+  return items.filter((i) => distanceKm(center, { lat: i.latitude, lng: i.longitude }) <= radiusKm);
+}
 
 export function applyFilters(leads: Lead[], filters: LeadFilters): Lead[] {
   return leads.filter((l) => {

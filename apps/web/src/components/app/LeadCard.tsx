@@ -92,7 +92,7 @@ export const LeadCard = memo(function LeadCard({
       onClick={() => setFocused(lead.id)}
       className={cn(
         "lead-list-item group relative cursor-pointer border-border/70 shadow-elegant transition-all hover:border-primary/50 hover:shadow-elevated",
-        isFocused && "border-info ring-1 ring-info/40",
+        isFocused && "border-info ring-1 ring-info/40 bg-info/5",
         compact ? "p-2.5" : "p-3",
       )}
     >
@@ -179,7 +179,7 @@ export const LeadCard = memo(function LeadCard({
                   {STAGE_LABELS[lead.stage]}
                 </span>
                 {lead.estimatedValue != null && (
-                  <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground tabular-nums">
+                  <span className="rounded-md bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success tabular-nums">
                     {formatBRL(lead.estimatedValue)}
                   </span>
                 )}

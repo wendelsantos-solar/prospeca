@@ -13,6 +13,7 @@ import type {
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
+  DiscoveryResult,
   LeadRepository,
   ListLeadsInput,
   MoveLeadInput,
@@ -161,6 +162,8 @@ export class SupabaseLeadRepository implements LeadRepository {
     const pageSize = Math.min(input.pageSize ?? 50, 500);
     const from = (page - 1) * pageSize;
 
+    // Cumulative CRM leads (funnel). Discovery scoping moved to getDiscovery /
+    // the get_search_discovery RPC — the map no longer reads from `leads`.
     let query = supabase
       .from("leads")
       .select(LEAD_SELECT, { count: "exact" })
@@ -422,6 +425,33 @@ export class SupabaseSearchRepository implements SearchRepository {
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }> {
     return invokeFunction("import-search-results", { searchId, placeIds, importAll });
+  }
+
+  async getDiscovery(searchId: string): Promise<DiscoveryResult[]> {
+    const { data, error } = await getSupabase().rpc("get_search_discovery", {
+      p_search_id: searchId,
+    });
+    if (error) throw new Error(error.message);
+    return (data as Record<string, unknown>[]).map((r) => ({
+      placeId: r.place_id as string,
+      name: r.name as string,
+      category: (r.category as string) ?? null,
+      latitude: r.latitude as number,
+      longitude: r.longitude as number,
+      phone: (r.national_phone_number as string) ?? null,
+      website: (r.website_uri as string) ?? null,
+      hasWebsite: r.has_website as boolean,
+      rating: (r.rating as number) ?? null,
+      reviewCount: (r.review_count as number) ?? null,
+      distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
+      score: (r.score as number) ?? 0,
+      temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
+      importedLeadId: (r.imported_lead_id as string) ?? null,
+    }));
+  }
+
+  async addToFunnel(searchId: string, placeId: string, stage: "new" | "contacted"): Promise<void> {
+    await invokeFunction("import-search-results", { searchId, placeIds: [placeId], stage });
   }
 }
 

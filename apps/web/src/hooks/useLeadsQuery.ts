@@ -5,9 +5,9 @@
  * Phase 3 — CRM real: Kanban, list, notes, activities, details.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getLeadRepository } from "@/repositories";
+import { getLeadRepository, getSearchRepository } from "@/repositories";
 import type { Lead, LeadFilters, CreateLeadNoteInput, CreateLeadActivityInput } from "@/types";
-import type { MoveLeadInput, PaginatedResult } from "@/repositories/types";
+import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
 
 // ── Query keys ──────────────────────────────────────────────
 
@@ -17,14 +17,52 @@ export const leadKeys = {
   detail: (id: string) => ["leads", "detail", id] as const,
 };
 
+export const discoveryKeys = {
+  bySearch: (searchId: string) => ["discovery", searchId] as const,
+};
+
 // ── Queries ─────────────────────────────────────────────────
 
+/** CRM leads (Kanban pipeline, Painel metrics). Cumulative across all searches —
+ * a lead only exists once the user added the business to the funnel. Discovery
+ * (map + sidebar) does NOT use this; it uses useDiscoveryResults. */
 export function useLeadsList(filters: LeadFilters, sort?: string) {
   return useQuery<PaginatedResult<Lead>>({
     queryKey: leadKeys.list(filters, sort),
-    queryFn: () => getLeadRepository().list({ filters, sort, pageSize: 200 }),
+    queryFn: () => getLeadRepository().list({ filters, sort, pageSize: 500 }),
     staleTime: 60_000,
     structuralSharing: true,
+  });
+}
+
+/** Discovery results for a search (map + sidebar list). Reads search_results ⋈
+ * places via RPC; never creates leads. */
+export function useDiscoveryResults(searchId?: string) {
+  return useQuery<DiscoveryResult[]>({
+    queryKey: searchId ? discoveryKeys.bySearch(searchId) : ["discovery", "none"],
+    queryFn: () => (searchId ? getSearchRepository().getDiscovery(searchId) : Promise.resolve([])),
+    enabled: !!searchId,
+    staleTime: 60_000,
+  });
+}
+
+/** Materialize a discovered business as a lead in the funnel. */
+export function useAddToFunnelMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      searchId,
+      placeId,
+      stage,
+    }: {
+      searchId: string;
+      placeId: string;
+      stage: "new" | "contacted";
+    }) => getSearchRepository().addToFunnel(searchId, placeId, stage),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
+    },
   });
 }
 

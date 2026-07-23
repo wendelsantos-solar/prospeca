@@ -4,66 +4,63 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import type { Lead } from "@/types";
-import { useLeadsStore, useSearchDraftStore } from "@/stores";
-import { distanceKm } from "@/lib/geo";
+import type { DiscoveryResult } from "@/repositories/types";
+import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { RadarPill } from "./RadarPill";
-import { useMoveLeadMutation } from "@/hooks/useLeadsQuery";
+import { useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2 } from "lucide-react";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
 
-const tempColor: Record<Lead["temperature"], string> = {
+const tempColor: Record<DiscoveryResult["temperature"], string> = {
   hot: "oklch(0.72 0.17 55)",
   warm: "oklch(0.83 0.15 90)",
   cold: "oklch(0.72 0.04 250)",
 };
 
-function markerIcon(lead: Lead, selected: boolean) {
-  const color =
-    lead.stage === "won"
+function markerIcon(r: DiscoveryResult, selected: boolean) {
+  const inFunnel = r.importedLeadId != null;
+  const color = selected
+    ? "oklch(0.62 0.16 245)"
+    : inFunnel
       ? "oklch(0.62 0.15 155)"
-      : lead.stage === "discarded"
-        ? "oklch(0.60 0.22 27)"
-        : selected
-          ? "oklch(0.62 0.16 245)"
-          : tempColor[lead.temperature];
-  const html = `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.25);border:2px solid white;">${lead.score}</div>`;
+      : tempColor[r.temperature];
+  const ring = inFunnel ? "border:2px solid oklch(0.55 0.18 150);" : "border:2px solid white;";
+  const html = `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.25);${ring}">${r.score}</div>`;
   return L.divIcon({ html, className: "lead-marker", iconSize: [26, 26], iconAnchor: [13, 13] });
 }
 
-function channelIcons(l: Lead) {
+function channelIcons(r: DiscoveryResult) {
   const parts: string[] = [];
-  if (l.whatsapp) parts.push("💬");
-  if (l.phone) parts.push("📞");
-  if (l.instagram) parts.push("📷");
-  if (l.email) parts.push("✉️");
-  if (l.hasWebsite) parts.push("🌐");
+  if (r.phone) parts.push("📞");
+  if (r.hasWebsite) parts.push("🌐");
   return parts.join(" ");
 }
 
-function popupHtml(l: Lead) {
+function popupHtml(r: DiscoveryResult) {
+  const inFunnel = r.importedLeadId != null;
+  const funnelBtn = inFunnel
+    ? `<button disabled style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.9 0.02 155);color:oklch(0.45 0.05 155);font-size:11px;border:none;">No funil ✓</button>`
+    : `<button data-action="funnel" data-id="${r.placeId}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.62 0.16 245);color:white;font-size:11px;border:none;cursor:pointer;">+ Funil</button>`;
   return `
     <div style="min-width:220px;font-family:inherit;">
-      <div style="font-weight:600;font-size:13px;">${l.companyName}</div>
-      <div style="color:#666;font-size:11px;margin-bottom:6px;">${l.category} • ${l.neighborhood ?? l.city}</div>
+      <div style="font-weight:600;font-size:13px;">${r.name}</div>
+      <div style="color:#666;font-size:11px;margin-bottom:6px;">${r.category ?? ""}</div>
       <div style="font-size:11px;margin-bottom:2px;">
-        <b>${TEMPERATURE_LABELS[l.temperature]}</b> • Score <b>${l.score}</b> • Nota <b>${l.rating?.toFixed(1) ?? "—"}</b> (${l.reviewCount ?? 0})
+        <b>${TEMPERATURE_LABELS[r.temperature]}</b> • Score <b>${r.score}</b> • Nota <b>${r.rating?.toFixed(1) ?? "—"}</b> (${r.reviewCount ?? 0})
       </div>
-      <div style="font-size:11px;color:#666;">${l.address}</div>
-      <div style="font-size:11px;color:#666;">${l.phone ?? ""} • ${l.distanceKm.toFixed(1)} km • ${l.hasWebsite ? "Com site" : "<b style='color:oklch(0.72 0.17 55)'>Sem site</b>"}</div>
-      <div style="font-size:12px;margin-top:4px;">${channelIcons(l)}</div>
+      <div style="font-size:11px;color:#666;">${r.phone ?? ""} • ${r.distanceKm.toFixed(1)} km • ${r.hasWebsite ? "Com site" : "<b style='color:oklch(0.72 0.17 55)'>Sem site</b>"}</div>
+      <div style="font-size:12px;margin-top:4px;">${channelIcons(r)}</div>
       <div style="margin-top:8px;display:flex;gap:4px;">
-        <button data-action="whatsapp" data-id="${l.id}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.62 0.15 155);color:white;font-size:11px;border:none;cursor:pointer;">WhatsApp</button>
-        <button data-action="details" data-id="${l.id}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.58 0.14 155);color:white;font-size:11px;border:none;cursor:pointer;">Detalhes</button>
-        <button data-action="funnel" data-id="${l.id}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.62 0.16 245);color:white;font-size:11px;border:none;cursor:pointer;">+ Funil</button>
+        <button data-action="whatsapp" data-id="${r.placeId}" style="flex:1;padding:4px 8px;border-radius:6px;background:oklch(0.62 0.15 155);color:white;font-size:11px;border:none;cursor:pointer;">WhatsApp</button>
+        ${funnelBtn}
       </div>
     </div>`;
 }
 
-export function MapView({ leads }: { leads: Lead[] }) {
+export function MapView({ results }: { results: DiscoveryResult[] }) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
@@ -75,14 +72,16 @@ export function MapView({ leads }: { leads: Lead[] }) {
   const draft = useSearchDraftStore((s) => s.draft);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setFocused = useLeadsStore((s) => s.setFocused);
-  const setDetails = useLeadsStore((s) => s.setDetails);
   const searching = useLeadsStore((s) => s.searching);
-  const moveMutation = useMoveLeadMutation();
-  const [showCircle, setShowCircle] = useState(true);
-  const [mapDark, setMapDark] = useState(false);
+  const addToFunnel = useAddToFunnelMutation();
+  // Persisted so a marked circle / dark map survives a page refresh.
+  const showCircle = useUIStore((s) => s.mapShowCircle);
+  const setShowCircle = useUIStore((s) => s.setMapShowCircle);
+  const mapDark = useUIStore((s) => s.mapDark);
+  const setMapDark = useUIStore((s) => s.setMapDark);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(leads.length);
+  const [visibleCount, setVisibleCount] = useState(results.length);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -106,6 +105,13 @@ export function MapView({ leads }: { leads: Lead[] }) {
       const cluster = L.markerClusterGroup({
         maxClusterRadius: 48,
         showCoverageOnHover: false,
+        // Our marker-rebuild effect calls clearLayers()+re-adds on every leads/focus
+        // change, which can race with markercluster's own zoom/spiderfy animation
+        // queue and throw ("Cannot use 'in' operator... in undefined" inside
+        // _animationEnd/showMarker). Disabling the animation removes that async
+        // queue entirely.
+        animate: false,
+        animateAddingMarkers: false,
         iconCreateFunction: (c) =>
           L.divIcon({
             html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:oklch(0.58 0.14 155);color:#fff;font-size:12px;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${c.getChildCount()}</div>`,
@@ -125,6 +131,14 @@ export function MapView({ leads }: { leads: Lead[] }) {
         setVisibleCount(count);
       };
       const syncCenterToDraft = () => {
+        // Only sync while the user is still panning around to PICK a location,
+        // before any search/preview exists. Once a location is set (typed,
+        // searched, or previewed), panning to look at results must never
+        // silently retarget where the next search runs — the address field
+        // wouldn't reflect it, so a later "Atualizar busca" would search
+        // wherever the map was last dragged to, not where the field says.
+        const { currentSearch, previewLocation } = useLeadsStore.getState();
+        if (currentSearch || previewLocation) return;
         const c = map.getCenter();
         setDraft({ coords: { lat: c.lat, lng: c.lng } });
       };
@@ -135,6 +149,13 @@ export function MapView({ leads }: { leads: Lead[] }) {
         map.remove();
         mapRef.current = null;
         clusterRef.current = null;
+        // Must null these too: on a StrictMode remount (dev) the refs survive but
+        // point to a circle/marker on the now-destroyed map. Without clearing,
+        // the circle effect sees circleRef set and only *updates* the orphan on
+        // the dead map instead of creating a fresh one on the new map — so the
+        // circle never renders until the user toggles it off and back on.
+        circleRef.current = null;
+        centerRef.current = null;
       };
     } catch {
       setMapError(true);
@@ -142,80 +163,74 @@ export function MapView({ leads }: { leads: Lead[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !currentSearch) return;
-    map.setView([currentSearch.latitude, currentSearch.longitude], 13);
-    if (circleRef.current) {
-      map.removeLayer(circleRef.current);
-      circleRef.current = null;
-    }
-    if (showCircle) {
-      circleRef.current = L.circle([currentSearch.latitude, currentSearch.longitude], {
-        radius: currentSearch.radiusKm * 1000,
-        color: "oklch(0.58 0.14 155)",
-        fillColor: "oklch(0.58 0.14 155)",
-        fillOpacity: 0.06,
-        weight: 1.5,
-      }).addTo(map);
-    }
-    if (centerRef.current) map.removeLayer(centerRef.current);
-    centerRef.current = L.marker([currentSearch.latitude, currentSearch.longitude], {
-      icon: L.divIcon({
-        html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
-        className: "",
-        iconSize: [12, 12],
-      }),
-    }).addTo(map);
-  }, [currentSearch, showCircle]);
+  // Anchor for the circle/marker: the committed search center (fixed — panning
+  // or zooming the map must NEVER move it, like Tinder's "X km around me")
+  // takes priority, then a chosen-but-not-searched-yet preview location, then
+  // (only pre-first-search) the live map center as the user looks around.
+  const anchor = currentSearch
+    ? { lat: currentSearch.latitude, lng: currentSearch.longitude }
+    : previewLocation
+      ? { lat: previewLocation.lat, lng: previewLocation.lng }
+      : { lat: draft.coords.lat, lng: draft.coords.lng };
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || currentSearch || !previewLocation) return;
-    const { lat, lng, radiusKm } = previewLocation;
-    map.setView([lat, lng], 13);
-    if (circleRef.current) {
-      map.removeLayer(circleRef.current);
-      circleRef.current = null;
-    }
-    if (showCircle) {
-      circleRef.current = L.circle([lat, lng], {
-        radius: radiusKm * 1000,
-        color: "oklch(0.58 0.14 155)",
-        fillColor: "oklch(0.58 0.14 155)",
-        fillOpacity: 0.06,
-        weight: 1.5,
-      }).addTo(map);
-    }
-    if (centerRef.current) map.removeLayer(centerRef.current);
-    centerRef.current = L.marker([lat, lng], {
-      icon: L.divIcon({
-        html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
-        className: "",
-        iconSize: [12, 12],
-      }),
-    }).addTo(map);
-  }, [previewLocation, currentSearch, showCircle]);
+  // Effective radius: committed search wins, then preview, then the live slider.
+  const effectiveRadiusKm = currentSearch?.radiusKm ?? previewLocation?.radiusKm ?? draft.radiusKm;
 
-  // Live draft circle: redraws while the user drags the radius slider / edits
-  // location, before any (paid) search runs. Cheap, client-only.
+  // Always frame the whole circle: re-fit on center OR radius change. Zooming to
+  // fit the ring is the point — otherwise, shrinking the radius (or zooming in to
+  // inspect) leaves you INSIDE the circle where the faint fill is invisible and
+  // it looks like "the radar disappeared". toBounds(2*R) is the circle's bounding
+  // box; *2.4 adds breathing room.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !showCircle) return;
-    const center: [number, number] = [draft.coords.lat, draft.coords.lng];
-    if (circleRef.current) {
-      circleRef.current.setLatLng(center);
-      circleRef.current.setRadius(draft.radiusKm * 1000);
+    if (!map) return;
+    map.fitBounds(L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2.4));
+  }, [anchor.lat, anchor.lng, effectiveRadiusKm]);
+
+  // Circle + center marker: position is pinned to `anchor` (fixed once a search
+  // or preview exists); only the radius reacts live to the slider so shrinking
+  // it previews/filters instantly without ever dragging the circle off-center.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const radiusKm = effectiveRadiusKm;
+    // Plain hex (not oklch): Leaflet paints circles as SVG paths and sets stroke/
+    // fill as presentation attributes, where a hex value is guaranteed to render.
+    const circleStyle: L.PathOptions = {
+      color: "#2563eb",
+      fillColor: "#2563eb",
+      fillOpacity: 0.08,
+      weight: 3,
+      opacity: 0.95,
+    };
+    if (!showCircle) {
+      if (circleRef.current) {
+        map.removeLayer(circleRef.current);
+        circleRef.current = null;
+      }
+    } else if (circleRef.current) {
+      circleRef.current.setLatLng(anchor);
+      circleRef.current.setRadius(radiusKm * 1000);
     } else {
-      circleRef.current = L.circle(center, {
-        radius: draft.radiusKm * 1000,
-        color: "oklch(0.58 0.14 155)",
-        fillColor: "oklch(0.58 0.14 155)",
-        fillOpacity: 0.06,
-        weight: 1.5,
-      }).addTo(map);
+      circleRef.current = L.circle(anchor, { radius: radiusKm * 1000, ...circleStyle }).addTo(map);
     }
-  }, [draft.coords.lat, draft.coords.lng, draft.radiusKm, showCircle]);
+    if (centerRef.current) map.removeLayer(centerRef.current);
+    centerRef.current = L.marker(anchor, {
+      icon: L.divIcon({
+        html: '<div style="width:12px;height:12px;border-radius:50%;background:oklch(0.58 0.14 155);border:2px solid white;box-shadow:0 0 0 3px oklch(0.58 0.14 155 / 0.25);"></div>',
+        className: "",
+        iconSize: [12, 12],
+      }),
+    }).addTo(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchor is a derived object recomputed every render; tracked via its lat/lng primitives instead
+  }, [
+    anchor.lat,
+    anchor.lng,
+    currentSearch?.radiusKm,
+    previewLocation?.radiusKm,
+    draft.radiusKm,
+    showCircle,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -223,15 +238,18 @@ export function MapView({ leads }: { leads: Lead[] }) {
     if (!map || !cluster) return;
     cluster.clearLayers();
     markersRef.current.clear();
-    leads.forEach((l) => {
-      const m = L.marker([l.latitude, l.longitude], { icon: markerIcon(l, l.id === focusedId) }).on(
-        "click",
-        () => setFocused(l.id),
-      );
-      const within =
-        distanceKm(draft.coords, { lat: l.latitude, lng: l.longitude }) <= draft.radiusKm;
-      m.setOpacity(within ? 1 : 0.25);
-      m.bindPopup(popupHtml(l));
+    const searchId = currentSearch?.id;
+    results.forEach((r) => {
+      const m = L.marker([r.latitude, r.longitude], {
+        icon: markerIcon(r, r.placeId === focusedId),
+      }).on("click", () => {
+        setFocused(r.placeId);
+        // Lets AppSidebar scroll the matching card into view — the list has no
+        // other way to know a focus change originated from a map click vs. a
+        // click on the card itself (which is already in view).
+        window.dispatchEvent(new CustomEvent("lead-focused-from-map", { detail: r.placeId }));
+      });
+      m.bindPopup(popupHtml(r));
       m.on("popupopen", () => {
         // Use event delegation on the popup container — more reliable than
         // setTimeout + querySelectorAll which races with Leaflet's DOM updates.
@@ -243,19 +261,24 @@ export function MapView({ leads }: { leads: Lead[] }) {
           );
           if (!btn) return;
           e.preventDefault();
-          const id = btn.dataset.id!;
+          const placeId = btn.dataset.id!;
           const action = btn.dataset.action;
-          const lead = leads.find((x) => x.id === id);
-          if (!lead) return;
-          if (action === "details") setDetails(id);
+          const result = results.find((x) => x.placeId === placeId);
+          if (!result || !searchId) return;
           if (action === "whatsapp") {
-            const num = (lead.whatsapp ?? lead.phone ?? "").replace(/\D/g, "");
-            if (num) window.open(`https://wa.me/${num}`, "_blank");
-            else toast.error("Sem WhatsApp/telefone");
+            const num = (result.phone ?? "").replace(/\D/g, "");
+            if (!num) return toast.error("Sem telefone");
+            // Contatar = entra no funil como 'contacted'.
+            if (result.importedLeadId == null) {
+              addToFunnel.mutate({ searchId, placeId, stage: "contacted" });
+            }
+            window.open(`https://wa.me/${num}`, "_blank");
           }
           if (action === "funnel") {
-            moveMutation.mutate({ id, input: { toStage: "qualified" } });
-            toast.success("Lead adicionado ao funil como Qualificado");
+            addToFunnel.mutate(
+              { searchId, placeId, stage: "new" },
+              { onSuccess: () => toast.success("Adicionado ao funil") },
+            );
           }
         };
         popupEl.addEventListener("click", handler);
@@ -267,20 +290,10 @@ export function MapView({ leads }: { leads: Lead[] }) {
         m.on("popupclose", cleanup);
       });
       cluster.addLayer(m);
-      markersRef.current.set(l.id, m);
+      markersRef.current.set(r.placeId, m);
     });
-    setVisibleCount(leads.length);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- coords tracked via lat/lng primitives to avoid object-ref churn
-  }, [
-    leads,
-    focusedId,
-    setFocused,
-    setDetails,
-    moveMutation,
-    draft.coords.lat,
-    draft.coords.lng,
-    draft.radiusKm,
-  ]);
+    setVisibleCount(results.length);
+  }, [results, focusedId, setFocused, addToFunnel, currentSearch?.id]);
 
   useEffect(() => {
     if (!focusedId) return;
@@ -293,8 +306,10 @@ export function MapView({ leads }: { leads: Lead[] }) {
   }, [focusedId]);
 
   const fitAll = () => {
-    if (!mapRef.current || leads.length === 0) return;
-    const bounds = L.latLngBounds(leads.map((l) => [l.latitude, l.longitude] as [number, number]));
+    if (!mapRef.current || results.length === 0) return;
+    const bounds = L.latLngBounds(
+      results.map((r) => [r.latitude, r.longitude] as [number, number]),
+    );
     mapRef.current.fitBounds(bounds, { padding: [40, 40] });
   };
 
@@ -308,7 +323,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
       { label: "Quente", color: tempColor.hot },
       { label: "Morno", color: tempColor.warm },
       { label: "Frio", color: tempColor.cold },
-      { label: "Ganho", color: "oklch(0.62 0.15 155)" },
+      { label: "No funil", color: "oklch(0.62 0.15 155)" },
       { label: "Selecionado", color: "oklch(0.62 0.16 245)" },
     ],
     [],
@@ -318,7 +333,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
     <div className={`relative isolate h-full w-full ${mapDark ? "map-dark" : ""}`}>
       <div
         ref={containerRef}
-        className="h-full w-full"
+        className="h-full w-full isolate"
         role="application"
         aria-label="Mapa de leads"
       />
@@ -378,7 +393,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
           size="icon"
           variant={showCircle ? "default" : "secondary"}
           className="h-8 w-8 shadow-elevated"
-          onClick={() => setShowCircle((v) => !v)}
+          onClick={() => setShowCircle(!showCircle)}
           aria-label="Alternar círculo de raio"
           aria-pressed={showCircle}
         >
@@ -388,7 +403,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
           size="icon"
           variant={mapDark ? "default" : "secondary"}
           className="h-8 w-8 shadow-elevated"
-          onClick={() => setMapDark((v) => !v)}
+          onClick={() => setMapDark(!mapDark)}
           aria-label="Alternar tema do mapa"
           aria-pressed={mapDark}
         >
@@ -407,8 +422,7 @@ export function MapView({ leads }: { leads: Lead[] }) {
         ))}
       </div>
       <div className="absolute top-3 left-3 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
-        {visibleCount}{" "}
-        <span className="text-muted-foreground">de {leads.length} leads visíveis</span>
+        {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>
       </div>
     </div>
   );

@@ -6,12 +6,16 @@ export function ErrorState({
   title,
   description,
   onRetry,
+  onSecondary,
+  secondaryLabel,
   onBack,
   className,
 }: {
   title: string;
   description?: string;
   onRetry?: () => void;
+  onSecondary?: () => void;
+  secondaryLabel?: string;
   onBack?: () => void;
   className?: string;
 }) {
@@ -32,9 +36,15 @@ export function ErrorState({
           <p className="mt-1 text-xs text-muted-foreground max-w-xs">{description}</p>
         )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
+        {onSecondary && (
+          <Button size="sm" onClick={onSecondary} className="gap-1.5">
+            <RotateCcw className="h-3.5 w-3.5" />
+            {secondaryLabel ?? "Tentar novamente"}
+          </Button>
+        )}
         {onRetry && (
-          <Button size="sm" onClick={onRetry} className="gap-1.5">
+          <Button size="sm" variant={onSecondary ? "outline" : "default"} onClick={onRetry} className="gap-1.5">
             <RotateCcw className="h-3.5 w-3.5" />
             Tentar novamente
           </Button>

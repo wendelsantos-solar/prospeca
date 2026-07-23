@@ -6,7 +6,7 @@
       "name": "tanstack_start_ts",
       "devDependencies": {
         "prettier": "^3.7.3",
-        "turbo": "^2.3.3",
+        "turbo": "^2.10.5",
       },
     },
     "apps/web": {

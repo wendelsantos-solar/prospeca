@@ -42,9 +42,20 @@ export function QuickFilters() {
   const leads = useLeadsStore((s) => s.leads);
   const toggle = useLeadsStore((s) => s.toggleQuickFilter);
   const counts = useMemo(() => quickFilterCounts(leads, filters), [leads, filters]);
+  const [showAll, setShowAll] = useState(false);
+
+  // Chips at 0 results are just noise until the user actually needs them —
+  // keep active ones visible regardless so a toggled-on chip never disappears.
+  const hiddenCount = QUICK_FILTERS.filter(
+    (f) => (counts[f.id] ?? 0) === 0 && !filters.quick.includes(f.id),
+  ).length;
+  const visible = QUICK_FILTERS.filter(
+    (f) => showAll || (counts[f.id] ?? 0) > 0 || filters.quick.includes(f.id),
+  );
+
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtros rápidos">
-      {QUICK_FILTERS.map((f) => {
+      {visible.map((f) => {
         const active = filters.quick.includes(f.id);
         return (
           <button
@@ -62,6 +73,14 @@ export function QuickFilters() {
           </button>
         );
       })}
+      {!showAll && hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          + {hiddenCount} sem resultado
+        </button>
+      )}
     </div>
   );
 }

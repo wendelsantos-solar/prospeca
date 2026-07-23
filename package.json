@@ -14,10 +14,11 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "org:set-quota": "deno run -A --env-file=.env.local scripts/set-org-quota.ts"
   },
   "devDependencies": {
     "prettier": "^3.7.3",
-    "turbo": "^2.3.3"
+    "turbo": "^2.10.5"
   }
 }

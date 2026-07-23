@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
-import { applyFilters, sortLeads } from "@/lib/filters";
+import { useLeadsStore, useLocationStore, useSettingsStore, useSearchDraftStore } from "@/stores";
+import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import { filterByRadius } from "@/lib/filters";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { HOME_SUGGESTIONS } from "@/lib/constants";
@@ -105,6 +105,7 @@ function MapaPage() {
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
   const clearFilters = useLeadsStore((s) => s.clearFilters);
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
   const lastLocation = useLocationStore((s) => s.lastLocation);
   const defaultRadius = useSettingsStore((s) => s.defaultRadius);
   const [promptDismissed, setPromptDismissed] = useState(false);
@@ -124,20 +125,29 @@ function MapaPage() {
     }
   }, [lastLocation, setPreviewLocation, defaultRadius]);
 
-  // CRM real — leads now come from TanStack Query (Phase 3)
-  const { data } = useLeadsList(filters, sort);
-  const allLeads = useMemo(() => data?.items ?? [], [data]);
+  // Discovery: results of the current search (search_results ⋈ places), never
+  // the org's accumulated leads. Ordered by score in the RPC.
+  const { data: discovery } = useDiscoveryResults(currentSearch?.id);
+  const allResults = useMemo(() => discovery ?? [], [discovery]);
 
-  const filtered = useMemo(
-    () => sortLeads(applyFilters(allLeads, filters), sort),
-    [allLeads, filters, sort],
+  const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
+  const draftCoords = useSearchDraftStore((s) => s.draft.coords);
+  // Radius is a hard filter: center comes from the committed search, not
+  // draftCoords (which also tracks map pan/zoom and would empty the map on a pan).
+  const radiusCenter = currentSearch
+    ? { lat: currentSearch.latitude, lng: currentSearch.longitude }
+    : draftCoords;
+  const resultsInRadius = useMemo(
+    () => filterByRadius(allResults, radiusCenter, radiusKm),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on lat/lng primitives to avoid object-ref churn
+    [allResults, radiusCenter.lat, radiusCenter.lng, radiusKm],
   );
 
-  if (searching && allLeads.length === 0) {
+  if (searching && allResults.length === 0) {
     return <CenteredLoader label="Buscando empresas..." />;
   }
 
-  if (searchError && allLeads.length === 0) {
+  if (searchError && allResults.length === 0) {
     return (
       <div className="grid h-full place-items-center">
         <ErrorState
@@ -150,13 +160,13 @@ function MapaPage() {
     );
   }
 
-  if (!loaded && allLeads.length === 0) {
+  if (!loaded && allResults.length === 0) {
     const showPrompt = !lastLocation && !previewLocation && !promptDismissed;
     if (previewLocation || showPrompt) {
       return (
         <div className="relative h-full w-full">
           <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
-            <MapView leads={[]} />
+            <MapView results={[]} />
           </Suspense>
           {showPrompt && (
             <LocationPrompt
@@ -173,22 +183,22 @@ function MapaPage() {
     return <HomeState />;
   }
 
-  if (filtered.length === 0) {
-    const filtersExcludeAll = allLeads.length > 0;
+  if (resultsInRadius.length === 0) {
+    const outsideRadius = allResults.length > 0;
     return (
       <div className="grid h-full place-items-center">
         <EmptyState
           icon={MapIcon}
-          title={filtersExcludeAll ? "Nenhum lead com esses filtros" : "Nenhum lead no mapa"}
+          title={outsideRadius ? "Nada dentro do raio" : "Nenhum resultado"}
           description={
-            filtersExcludeAll
-              ? "Nenhum dos leads carregados passa nos filtros atuais."
-              : "Ajuste os filtros ou faça uma nova busca."
+            outsideRadius
+              ? "Nenhuma empresa desta busca está dentro do raio atual. Aumente o raio."
+              : "Ajuste a busca e tente novamente."
           }
           action={
-            filtersExcludeAll ? (
+            outsideRadius ? (
               <Button variant="outline" size="sm" onClick={() => clearFilters()}>
-                Afrouxar os filtros
+                Limpar filtros
               </Button>
             ) : undefined
           }
@@ -199,7 +209,7 @@ function MapaPage() {
 
   return (
     <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
-      <MapView leads={filtered} />
+      <MapView results={resultsInRadius} />
     </Suspense>
   );
 }

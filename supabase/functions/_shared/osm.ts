@@ -13,6 +13,16 @@ function env(name: string, fallback = ""): string {
   return Deno.env.get(name) ?? fallback;
 }
 
+/** Thrown when a provider call is aborted by our own timeout — distinct from a plain
+ * HTTP/parse failure so callers can surface a "provider slow, try a smaller area"
+ * message instead of a generic internal error. */
+export class OsmTimeoutError extends Error {
+  constructor(message = "OSM provider timed out") {
+    super(message);
+    this.name = "OsmTimeoutError";
+  }
+}
+
 async function fetchJson<T>(url: string, init: RequestInit, timeoutMs: number): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -20,6 +30,9 @@ async function fetchJson<T>(url: string, init: RequestInit, timeoutMs: number): 
     const res = await fetch(url, { ...init, signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw new OsmTimeoutError();
+    throw err;
   } finally {
     clearTimeout(timer);
   }

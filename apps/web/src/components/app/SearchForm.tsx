@@ -130,18 +130,35 @@ export function SearchForm() {
   });
 
   function runSearch(input?: Partial<SearchInput>) {
+    // Read fresh from the store (not the render-scope consts above) so calls from
+    // the "retry-search"/"radar-search" listeners — registered once on mount — never
+    // resubmit a stale draft after the user changes niche/location/radius.
+    const current = useSearchDraftStore.getState().draft;
     const payload: SearchInput = {
-      niche: input?.niche ?? niche,
-      location: input?.location ?? location,
-      latitude: input?.latitude ?? locCoords.lat,
-      longitude: input?.longitude ?? locCoords.lng,
-      radiusKm: input?.radiusKm ?? radius,
-      presence: input?.presence ?? presence,
+      niche: input?.niche ?? current.niche,
+      location: input?.location ?? current.location,
+      latitude: input?.latitude ?? current.coords.lat,
+      longitude: input?.longitude ?? current.coords.lng,
+      radiusKm: input?.radiusKm ?? current.radiusKm,
+      presence: input?.presence ?? current.presence,
     };
     setSearching(true);
     setSearchError(null);
     run(payload);
   }
+
+  // Auto-busca: dispara sozinha ~700ms depois que nicho/local/raio-pra-cima/
+  // presença mudam o suficiente pra exigir busca nova no servidor (`dirty` já
+  // exclui mudanças client-only, tipo raio pra baixo — ver classifyDirty).
+  // OSM não tem custo por request, então não precisa mais gate manual: exigir
+  // clique em "Atualizar busca" só causava confusão (resultado da busca antiga
+  // ficava na tela parecendo bater com o nicho novo já digitado).
+  useEffect(() => {
+    if (!dirty || loading) return;
+    const timer = setTimeout(() => runSearch(), 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on any draft change while dirty; runSearch reads fresh state itself
+  }, [draft, dirty, loading]);
 
   // Eventos globais (home page, histórico, retry, geolocalização).
   useEffect(() => {
@@ -362,6 +379,11 @@ export function SearchForm() {
             ? "Atualizar busca"
             : "Buscar empresas"}
       </Button>
+      {!loading && dirty && hasResults && (
+        <p className="text-[11px] text-muted-foreground text-center -mt-1.5">
+          Atualizando em instantes — ou clique acima pra já
+        </p>
+      )}
 
       {progress && (
         <div

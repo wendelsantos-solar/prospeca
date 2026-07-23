@@ -15,6 +15,7 @@ import type {
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
+  DiscoveryResult,
   LeadRepository,
   ListLeadsInput,
   MoveLeadInput,
@@ -176,6 +177,15 @@ export class DemoSearchRepository implements SearchRepository {
 
   async importResults(): Promise<{ imported: number; duplicates: number }> {
     return { imported: 0, duplicates: 0 };
+  }
+
+  async getDiscovery(): Promise<DiscoveryResult[]> {
+    // Demo usa o mock de leads; descoberta real só no modo Supabase.
+    return [];
+  }
+
+  async addToFunnel(): Promise<void> {
+    // no-op no modo demo.
   }
 }
 

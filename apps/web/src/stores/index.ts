@@ -47,10 +47,14 @@ interface UIState {
   density: "compact" | "comfortable";
   sidebarCollapsed: boolean;
   collapsedColumns: LeadStage[];
+  mapShowCircle: boolean;
+  mapDark: boolean;
   toggleTheme: () => void;
   setDensity: (d: "compact" | "comfortable") => void;
   setSidebarCollapsed: (v: boolean) => void;
   toggleColumnCollapsed: (stage: LeadStage) => void;
+  setMapShowCircle: (v: boolean) => void;
+  setMapDark: (v: boolean) => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -59,6 +63,8 @@ export const useUIStore = create<UIState>()(
       density: "comfortable",
       sidebarCollapsed: false,
       collapsedColumns: [],
+      mapShowCircle: true,
+      mapDark: false,
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -68,6 +74,8 @@ export const useUIStore = create<UIState>()(
             ? s.collapsedColumns.filter((c) => c !== stage)
             : [...s.collapsedColumns, stage],
         })),
+      setMapShowCircle: (mapShowCircle) => set({ mapShowCircle }),
+      setMapDark: (mapDark) => set({ mapDark }),
     }),
     { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },
   ),
