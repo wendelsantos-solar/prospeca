@@ -456,7 +456,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
           </div>
         ))}
       </div>
-      <div className="absolute top-3 left-3 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>
       </div>
     </div>
