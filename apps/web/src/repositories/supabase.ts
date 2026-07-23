@@ -359,6 +359,36 @@ export class SupabaseLeadRepository implements LeadRepository {
     const { error } = await getSupabase().from("leads").delete().eq("id", id);
     if (error) throw new Error(error.message);
   }
+
+  async listSuppressionHashes(): Promise<string[]> {
+    // RLS scopes rows to the caller's organization(s).
+    const { data, error } = await getSupabase().from("suppression_list").select("value_hash");
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r) => r.value_hash as string);
+  }
+
+  async addSuppression(
+    entries: { type: string; value_hash: string; reason?: string }[],
+  ): Promise<void> {
+    if (!entries.length) return;
+    const supabase = getSupabase();
+    const { data: memberships } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .limit(1);
+    const organizationId = memberships?.[0]?.organization_id;
+    if (!organizationId) throw new Error("Organização não encontrada.");
+    const { error } = await supabase.from("suppression_list").upsert(
+      entries.map((e) => ({
+        organization_id: organizationId,
+        type: e.type,
+        value_hash: e.value_hash,
+        reason: e.reason ?? null,
+      })),
+      { onConflict: "organization_id,type,value_hash" },
+    );
+    if (error) throw new Error(error.message);
+  }
 }
 
 export class SupabaseSearchRepository implements SearchRepository {

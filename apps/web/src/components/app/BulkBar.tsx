@@ -1,5 +1,11 @@
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
-import { useLeadsList, useDiscoveryResults, useAddToFunnelMutation } from "@/hooks/useLeadsQuery";
+import {
+  useLeadsList,
+  useDiscoveryResults,
+  useAddToFunnelMutation,
+  useSuppressionHashes,
+} from "@/hooks/useLeadsQuery";
+import { isContactSuppressed } from "@/lib/suppression";
 
 interface BulkTarget {
   id: string;
@@ -9,6 +15,7 @@ interface BulkTarget {
   neighborhood: string;
   phone: string | null;
   whatsapp: string | null;
+  email: string | null;
   kind: "discovery" | "lead";
   inFunnel: boolean;
 }
@@ -122,6 +129,7 @@ export function BulkMessageDialog({
   const { data: leadPage } = useLeadsList({ quick: [] });
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const addToFunnel = useAddToFunnelMutation();
+  const { data: suppressed } = useSuppressionHashes();
 
   // Selection can hold discovery place ids (prospecting from the sidebar/map) or
   // lead ids (kanban). Resolve each against both so the dialog works for either.
@@ -139,7 +147,8 @@ export function BulkMessageDialog({
             city: "",
             neighborhood: "",
             phone: r.phone,
-            whatsapp: null,
+            whatsapp: r.whatsapp,
+            email: r.email,
             kind: "discovery",
             inFunnel: r.importedLeadId != null,
           };
@@ -154,6 +163,7 @@ export function BulkMessageDialog({
             neighborhood: l.neighborhood ?? "",
             phone: l.phone ?? null,
             whatsapp: l.whatsapp ?? null,
+            email: l.email ?? null,
             kind: "lead",
             inFunnel: true,
           };
@@ -195,9 +205,12 @@ export function BulkMessageDialog({
 
   if (!current) return null;
 
-  const openWA = () => {
+  const openWA = async () => {
     const num = digitsOnly(current.whatsapp ?? current.phone ?? "");
     if (!num) return toast.error("Sem telefone");
+    if (suppressed && (await isContactSuppressed(suppressed, current))) {
+      return toast.error("Contato em opt-out — não contatar (LGPD).");
+    }
     // Contatar uma empresa descoberta materializa o lead como 'contacted'.
     if (current.kind === "discovery" && !current.inFunnel && currentSearch) {
       addToFunnel.mutate({ searchId: currentSearch.id, placeId: current.id, stage: "contacted" });

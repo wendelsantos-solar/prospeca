@@ -97,6 +97,9 @@ export interface LeadRepository {
   toggleNotePin(leadId: string, noteId: string): Promise<LeadNote>;
   createActivity(leadId: string, input: CreateLeadActivityInput): Promise<LeadActivity>;
   removeLead(id: string): Promise<void>;
+  /** LGPD opt-out: value_hash set of suppressed contacts for the org. */
+  listSuppressionHashes(): Promise<string[]>;
+  addSuppression(entries: { type: string; value_hash: string; reason?: string }[]): Promise<void>;
 }
 
 /** One discovered business for a search — read from search_results ⋈ places.

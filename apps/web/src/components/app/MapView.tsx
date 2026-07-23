@@ -7,7 +7,8 @@ import "leaflet.markercluster";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { RadarPill } from "./RadarPill";
-import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
+import { useAddToFunnelMutation, discoveryKeys, useSuppressionHashes } from "@/hooks/useLeadsQuery";
+import { isContactSuppressed } from "@/lib/suppression";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
   const searching = useLeadsStore((s) => s.searching);
   const addToFunnel = useAddToFunnelMutation();
   const queryClient = useQueryClient();
+  const { data: suppressed } = useSuppressionHashes();
   // Persisted so a marked circle / dark map survives a page refresh.
   const showCircle = useUIStore((s) => s.mapShowCircle);
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
@@ -264,7 +266,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
         // setTimeout + querySelectorAll which races with Leaflet's DOM updates.
         const popupEl = m.getPopup()?.getElement();
         if (!popupEl) return;
-        const handler = (e: Event) => {
+        const handler = async (e: Event) => {
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(
             "[data-action][data-id]",
           );
@@ -277,6 +279,9 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
           if (action === "whatsapp") {
             const num = (result.phone ?? "").replace(/\D/g, "");
             if (!num) return toast.error("Sem telefone");
+            if (suppressed && (await isContactSuppressed(suppressed, result))) {
+              return toast.error("Contato em opt-out — não contatar (LGPD).");
+            }
             // Contatar = entra no funil como 'contacted'.
             if (result.importedLeadId == null) {
               addToFunnel.mutate({ searchId, placeId, stage: "contacted" });
@@ -327,6 +332,7 @@ export function MapView({ results }: { results: DiscoveryResult[] }) {
     setPreview,
     addToFunnel,
     queryClient,
+    suppressed,
     currentSearch?.id,
   ]);
 

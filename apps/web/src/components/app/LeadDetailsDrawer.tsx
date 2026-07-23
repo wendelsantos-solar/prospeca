@@ -7,7 +7,10 @@ import {
   useToggleNotePinMutation,
   useAddActivityMutation,
   useAddToFunnelMutation,
+  useSuppressionHashes,
+  useSuppressMutation,
 } from "@/hooks/useLeadsQuery";
+import { suppressionEntriesFor, isContactSuppressed } from "@/lib/suppression";
 import {
   Sheet,
   SheetContent,
@@ -41,6 +44,7 @@ import {
   Trash2,
   Pencil,
   PlusCircle,
+  Ban,
   Search as SearchIcon,
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -139,11 +143,31 @@ export function LeadDetailsDrawer() {
       ]
     : [];
 
-  const openWhats = () => {
+  const { data: suppressed } = useSuppressionHashes();
+  const suppressMut = useSuppressMutation();
+
+  const openWhats = async () => {
     if (!lead) return;
     const num = digitsOnly(lead.whatsapp ?? lead.phone);
     if (!num) return toast.error("Sem WhatsApp/telefone");
+    if (suppressed && (await isContactSuppressed(suppressed, lead))) {
+      return toast.error("Contato em opt-out — não contatar (LGPD).");
+    }
     window.open(`https://wa.me/${num}`, "_blank");
+  };
+
+  const handleSuppress = async () => {
+    if (!lead) return;
+    const entries = await suppressionEntriesFor({
+      phone: lead.phone,
+      email: lead.email,
+      reason: "opt-out manual",
+    });
+    if (!entries.length) return toast.error("Sem telefone/e-mail para suprimir.");
+    suppressMut.mutate(entries, {
+      onSuccess: () => toast.success("Marcado como não contatar (opt-out)."),
+      onError: () => toast.error("Falha ao suprimir."),
+    });
   };
 
   return (
@@ -240,6 +264,19 @@ export function LeadDetailsDrawer() {
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
                 </Button>
+                {(lead.phone || lead.email) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={handleSuppress}
+                    disabled={suppressMut.isPending}
+                    title="Marcar como não contatar (LGPD opt-out)"
+                  >
+                    <Ban className="h-3.5 w-3.5" />
+                    Não contatar
+                  </Button>
+                )}
                 {lead.phone && (
                   <Button
                     size="sm"

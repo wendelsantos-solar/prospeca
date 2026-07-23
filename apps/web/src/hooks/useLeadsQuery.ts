@@ -21,6 +21,26 @@ export const discoveryKeys = {
   bySearch: (searchId: string) => ["discovery", searchId] as const,
 };
 
+export const suppressionKeys = { all: ["suppression"] as const };
+
+/** LGPD opt-out: the org's suppressed contact hashes as a Set for O(1) lookup. */
+export function useSuppressionHashes() {
+  return useQuery<Set<string>>({
+    queryKey: suppressionKeys.all,
+    queryFn: async () => new Set(await getLeadRepository().listSuppressionHashes()),
+    staleTime: 60_000,
+  });
+}
+
+export function useSuppressMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entries: { type: string; value_hash: string; reason?: string }[]) =>
+      getLeadRepository().addSuppression(entries),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: suppressionKeys.all }),
+  });
+}
+
 // ── Queries ─────────────────────────────────────────────────
 
 /** CRM leads (Kanban pipeline, Painel metrics). Cumulative across all searches —

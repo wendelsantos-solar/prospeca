@@ -13,7 +13,12 @@ import {
   Eye,
 } from "lucide-react";
 import { useLeadsStore } from "@/stores";
-import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
+import {
+  useAddToFunnelMutation,
+  useEnrichDiscoveryMutation,
+  useSuppressionHashes,
+} from "@/hooks/useLeadsQuery";
+import { isContactSuppressed } from "@/lib/suppression";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
@@ -40,6 +45,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
   const setPreview = useLeadsStore((s) => s.setPreview);
   const addToFunnel = useAddToFunnelMutation();
   const enrichDiscovery = useEnrichDiscoveryMutation();
+  const { data: suppressed } = useSuppressionHashes();
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
   const missingContact = !result.email && !result.instagram && !result.whatsapp;
@@ -57,9 +63,12 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     }
   };
 
-  const openWhats = () => {
+  const openWhats = async () => {
     const num = (result.phone ?? "").replace(/\D/g, "");
     if (!num) return toast.error("Sem telefone");
+    if (suppressed && (await isContactSuppressed(suppressed, result))) {
+      return toast.error("Contato em opt-out — não contatar (LGPD).");
+    }
     if (!inFunnel) addToFunnel.mutate({ searchId, placeId: result.placeId, stage: "contacted" });
     window.open(`https://wa.me/${num}`, "_blank");
   };

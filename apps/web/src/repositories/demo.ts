@@ -131,6 +131,14 @@ export class DemoLeadRepository implements LeadRepository {
   async removeLead(id: string): Promise<void> {
     demoLeads = demoLeads.filter((l) => l.id !== id);
   }
+
+  async listSuppressionHashes(): Promise<string[]> {
+    return [];
+  }
+
+  async addSuppression(): Promise<void> {
+    // no-op no modo demo.
+  }
 }
 
 export class DemoSearchRepository implements SearchRepository {
