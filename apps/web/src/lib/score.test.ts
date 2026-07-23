@@ -23,8 +23,8 @@ test("scoreInputFromLead maps a lead to ScoreInput", () => {
   expect(input.distanceMeters).toBe(3000);
 });
 
-test("unified calculateScore scores the mapped lead as hot", () => {
+test("unified calculateScore scores the mapped lead (v3)", () => {
   const { total } = calculateScore(scoreInputFromLead(lead));
-  // sem-site 35 + phone 20 + whatsapp 15 + <=5km 10 + category 5 = 85
-  expect(total).toBe(85);
+  // v3: sem-site 30 + phone 20 + whatsapp 12 + <=5km 8 + category 3 = 73
+  expect(total).toBe(73);
 });

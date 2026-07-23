@@ -17,9 +17,9 @@ describe("score", () => {
       distanceMeters: 5000,
       businessStatus: "OPERATIONAL",
     });
-    // v2.0.0: no_website 35 + valid_phone 20 + whatsapp 15 + nearby_5 10 = 80
-    expect(s.total).toBe(35 + 20 + 15 + 10);
-    expect(s.ruleVersion).toBe("v2.0.0");
+    // v3.0.0: no_website 30 + valid_phone 20 + whatsapp 12 + nearby_5 8 = 70
+    expect(s.total).toBe(30 + 20 + 12 + 8);
+    expect(s.ruleVersion).toBe("v3.0.0");
   });
   test("clamped to 0..100 and temperature bands", () => {
     expect(temperatureFromScore(80)).toBe("hot");

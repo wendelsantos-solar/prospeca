@@ -57,7 +57,7 @@ test("empty-string enrichment fields count as absent", () => {
   expect(input.hasInstagram).toBe(false);
 });
 
-test("re-score after enrichment adds exactly email(10)+instagram(5) = +15", () => {
+test("re-score after enrichment adds exactly email(8)+instagram(5) = +13", () => {
   const bare = {
     websiteUri: "https://ex.com",
     nationalPhoneNumber: "(21) 99999-8888",
@@ -67,7 +67,7 @@ test("re-score after enrichment adds exactly email(10)+instagram(5) = +15", () =
   const after = calculateScore(
     scoreInputFromPlace({ ...bare, email: "c@ex.com", instagram: "@ex" }, 2000),
   );
-  // with-site: valid_phone 20 + whatsapp 15 + nearby_5 10 + category 5 = 50
-  expect(before.total).toBe(50);
-  expect(after.total).toBe(65);
+  // v3 with-site: valid_phone 20 + whatsapp 12 + nearby_5 8 + category 3 = 43
+  expect(before.total).toBe(43);
+  expect(after.total).toBe(56);
 });

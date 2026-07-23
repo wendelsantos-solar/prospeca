@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const { data: leads } = await ctx.userClient
       .from("leads")
       .select(
-        "id, has_website, phone_e164, whatsapp_status, email, instagram, rating, review_count",
+        "id, has_website, phone_e164, whatsapp_status, email, instagram, category, rating, review_count",
       )
       .in("id", parsed.data.leadIds);
 
@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
         whatsappStatus: lead.whatsapp_status,
         hasEmail: !!lead.email,
         hasInstagram: !!lead.instagram,
+        hasCategory: !!lead.category,
         rating: lead.rating,
         reviewCount: lead.review_count,
         distanceMeters: null,

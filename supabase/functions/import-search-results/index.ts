@@ -168,6 +168,9 @@ Deno.serve(async (req) => {
             whatsappStatus: phone?.type === "mobile" ? "possible" : "unknown",
             hasEmail: false,
             hasInstagram: false,
+            hasCategory:
+              place.primary_type != null ||
+              (Array.isArray(place.types) && place.types.length > 0),
             rating: (place.rating as number | null) ?? null,
             reviewCount: (place.user_rating_count as number | null) ?? null,
             distanceMeters: row.distance_meters,
