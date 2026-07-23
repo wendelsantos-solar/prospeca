@@ -28,6 +28,9 @@ describe("buildOverpassQuery", () => {
     });
     expect(q).toContain("shop=hairdresser");
     expect(q).toContain('name~"barbearia",i');
+    // name search must be POI-scoped (not an unscoped whole-area scan that times out)
+    expect(q).toContain('nwr[~"^(shop|amenity|craft|office|healthcare|leisure|tourism)$"~"."]');
+    expect(q).not.toContain('node[name~"barbearia",i]');
   });
   test("falls back to name match for unknown category", () => {
     const q = buildOverpassQuery({

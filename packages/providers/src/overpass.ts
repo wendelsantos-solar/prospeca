@@ -51,19 +51,20 @@ const CATEGORY_SELECTORS: Record<string, string[]> = {
   contabil: ["office=accountant"],
 };
 
-function selectorsFor(query: string): string[] {
+// POI-bearing keys — scope the name search to real businesses so Overpass does
+// not scan every node/building in the radius (an unscoped name~ regex over a
+// large area times out).
+const POI_KEYS = "^(shop|amenity|craft|office|healthcare|leisure|tourism)$";
+
+/** Tag selectors for a known category keyword. May be empty (unknown category). */
+function categoryTags(query: string): string[] {
   // Word-based match so "barbearia" doesn't match the "bar" keyword.
   const words = normalizeCompanyName(query).split(" ").filter(Boolean);
   const matched: string[] = [];
   for (const [kw, sels] of Object.entries(CATEGORY_SELECTORS)) {
     if (words.some((w) => w === kw || (kw.length >= 4 && w.startsWith(kw)))) matched.push(...sels);
   }
-  // Match by name substring too (escaped) — union with tags so OSM entries named
-  // e.g. "Barbearia X" but tagged differently (or with no shop tag) are still found.
-  const safe = query.replace(/["\\]/g, "");
-  const nameSel = `name~"${safe}",i`;
-  if (matched.length > 0) return [...new Set([...matched, nameSel])];
-  return [nameSel];
+  return [...new Set(matched)];
 }
 
 export function buildOverpassQuery(input: {
@@ -74,10 +75,16 @@ export function buildOverpassQuery(input: {
   timeoutSec?: number;
 }): string {
   const around = `(around:${Math.round(input.radiusMeters)},${input.latitude},${input.longitude})`;
-  const parts = selectorsFor(input.query)
-    .flatMap((sel) => [`node[${sel}]${around};`, `way[${sel}]${around};`])
-    .join("\n  ");
-  return `[out:json][timeout:${input.timeoutSec ?? 25}];\n(\n  ${parts}\n);\nout center tags;`;
+  const tagParts = categoryTags(input.query).flatMap((sel) => [
+    `node[${sel}]${around};`,
+    `way[${sel}]${around};`,
+  ]);
+  // Union with a POI-scoped name match — finds businesses named like the query
+  // even when tagged differently, without scanning the whole area.
+  const safe = input.query.replace(/["\\]/g, "");
+  const nameLine = `nwr[~"${POI_KEYS}"~"."][name~"${safe}",i]${around};`;
+  const parts = [...tagParts, nameLine].join("\n  ");
+  return `[out:json][timeout:${input.timeoutSec ?? 50}];\n(\n  ${parts}\n);\nout center tags;`;
 }
 
 /** "node/42" -> element-by-id Overpass query. null if not an OSM id. */

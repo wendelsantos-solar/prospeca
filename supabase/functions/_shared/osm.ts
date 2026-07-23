@@ -119,19 +119,20 @@ function normalizeCategory(query: string): string {
     .trim();
 }
 
-function selectorsFor(query: string): string[] {
+// POI-bearing keys. The name search is scoped to elements carrying one of these
+// so Overpass only scans real businesses, not every node/building in the radius
+// (an unscoped name~ regex over a large area times out).
+const POI_KEYS = "^(shop|amenity|craft|office|healthcare|leisure|tourism)$";
+
+/** Tag selectors for a known category keyword. May be empty (unknown category). */
+function categoryTags(query: string): string[] {
   // Word-based match so "barbearia" doesn't match the "bar" keyword.
   const words = normalizeCategory(query).split(" ").filter(Boolean);
   const matched: string[] = [];
   for (const [kw, sels] of Object.entries(CATEGORY_SELECTORS)) {
     if (words.some((w) => w === kw || (kw.length >= 4 && w.startsWith(kw)))) matched.push(...sels);
   }
-  // Match by name substring too (escaped) — union with tags so OSM entries named
-  // e.g. "Barbearia X" but tagged differently (or with no shop tag) are still found.
-  const safe = query.replace(/["\\]/g, "");
-  const nameSel = `name~"${safe}",i`;
-  if (matched.length) return [...new Set([...matched, nameSel])];
-  return [nameSel];
+  return [...new Set(matched)];
 }
 
 export function buildOverpassQuery(input: {
@@ -141,10 +142,16 @@ export function buildOverpassQuery(input: {
   radiusMeters: number;
 }): string {
   const around = `(around:${Math.round(input.radiusMeters)},${input.latitude},${input.longitude})`;
-  const parts = selectorsFor(input.query)
-    .flatMap((sel) => [`node[${sel}]${around};`, `way[${sel}]${around};`])
-    .join("\n  ");
-  return `[out:json][timeout:25];\n(\n  ${parts}\n);\nout center tags;`;
+  const tagParts = categoryTags(input.query).flatMap((sel) => [
+    `node[${sel}]${around};`,
+    `way[${sel}]${around};`,
+  ]);
+  // Union with a POI-scoped name match — finds businesses named like the query
+  // even when tagged differently, without scanning the whole area.
+  const safe = input.query.replace(/["\\]/g, "");
+  const nameLine = `nwr[~"${POI_KEYS}"~"."][name~"${safe}",i]${around};`;
+  const parts = [...tagParts, nameLine].join("\n  ");
+  return `[out:json][timeout:50];\n(\n  ${parts}\n);\nout center tags;`;
 }
 
 interface OverpassEl {
@@ -193,7 +200,7 @@ export async function osmSearchBusinesses(input: {
 }): Promise<{ places: GooglePlace[] }> {
   const base = env("OVERPASS_BASE_URL", "https://overpass-api.de/api/interpreter");
   const ua = env("OVERPASS_USER_AGENT", "leads-platform/1.0");
-  const timeout = Number(env("OVERPASS_TIMEOUT_MS", "30000"));
+  const timeout = Number(env("OVERPASS_TIMEOUT_MS", "55000"));
   const ql = buildOverpassQuery(input);
 
   const data = await fetchJson<{ elements?: OverpassEl[] }>(
@@ -242,7 +249,7 @@ export async function osmPlaceDetails(providerPlaceId: string): Promise<GooglePl
   if (!ql) return null;
   const base = env("OVERPASS_BASE_URL", "https://overpass-api.de/api/interpreter");
   const ua = env("OVERPASS_USER_AGENT", "leads-platform/1.0");
-  const timeout = Number(env("OVERPASS_TIMEOUT_MS", "30000"));
+  const timeout = Number(env("OVERPASS_TIMEOUT_MS", "55000"));
   const data = await fetchJson<{ elements?: OverpassEl[] }>(
     base,
     {
