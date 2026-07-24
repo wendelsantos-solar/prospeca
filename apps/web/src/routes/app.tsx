@@ -98,9 +98,7 @@ function MobileNav() {
         return (
           <Link
             key={t.to}
-            // "/app/agenda" doesn't have a route file yet (later task) so the
-            // generated route tree doesn't type it.
-            to={t.to as never}
+            to={t.to}
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium",

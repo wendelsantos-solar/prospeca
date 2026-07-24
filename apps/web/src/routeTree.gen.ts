@@ -22,6 +22,7 @@ import { Route as AppKanbanRouteImport } from './routes/app.kanban'
 import { Route as AppHojeRouteImport } from './routes/app.hoje'
 import { Route as AppHistoricoRouteImport } from './routes/app.historico'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
+import { Route as AppAgendaRouteImport } from './routes/app.agenda'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
@@ -89,6 +90,11 @@ const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgendaRoute = AppAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/app/admin'
+    | '/app/agenda'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/hoje'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/app/admin'
+    | '/app/agenda'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/hoje'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/app/admin'
+    | '/app/agenda'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/hoje'
@@ -295,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agenda': {
+      id: '/app/agenda'
+      path: '/agenda'
+      fullPath: '/app/agenda'
+      preLoaderRoute: typeof AppAgendaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/admin': {
       id: '/app/admin'
       path: '/admin'
@@ -307,6 +326,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppAgendaRoute: typeof AppAgendaRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppHistoricoRoute: typeof AppHistoricoRoute
   AppHojeRoute: typeof AppHojeRoute
@@ -318,6 +338,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppAgendaRoute: AppAgendaRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppHistoricoRoute: AppHistoricoRoute,
   AppHojeRoute: AppHojeRoute,
