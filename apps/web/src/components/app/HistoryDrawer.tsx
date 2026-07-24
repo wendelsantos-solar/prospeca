@@ -51,10 +51,13 @@ export function HistoryDrawer() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="justify-start gap-2 w-full text-xs h-8">
+        <button
+          className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Buscas anteriores"
+          title="Buscas anteriores"
+        >
           <History className="h-3.5 w-3.5" />
-          Buscas anteriores
-        </Button>
+        </button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>

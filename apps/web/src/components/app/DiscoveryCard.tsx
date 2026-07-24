@@ -24,15 +24,9 @@ import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const tempClass: Record<DiscoveryResult["temperature"], string> = {
-  hot: "text-hot",
-  warm: "text-warm",
-  cold: "text-cold",
-};
-
 const tempBadgeClass: Record<DiscoveryResult["temperature"], string> = {
   hot: "bg-primary text-primary-foreground",
-  warm: "bg-warm/15 text-warm",
+  warm: "bg-warning/15 text-warning-foreground",
   cold: "bg-muted text-muted-foreground",
 };
 
@@ -76,8 +70,8 @@ function MiniBtn({
       className={cn(
         "inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] font-medium transition-colors",
         tone === "primary"
-          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-          : "border border-border bg-surface text-muted-foreground hover:border-border hover:text-foreground",
+          ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+          : "border border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
       )}
     >
       {children}
@@ -140,7 +134,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     <Card
       onClick={() => setFocused(result.placeId)}
       className={cn(
-        "group relative cursor-pointer rounded-xl border-border/70 p-3 shadow-none transition-all hover:border-primary/50 hover:shadow-card",
+        "group relative cursor-pointer rounded-xl border-border p-3 shadow-none transition-all hover:border-border-strong hover:shadow-card",
         isFocused && "border-info ring-1 ring-info/40 bg-info/5",
       )}
     >
@@ -170,13 +164,13 @@ export const DiscoveryCard = memo(function DiscoveryCard({
         </span>
         {result.rating != null && (
           <span className="inline-flex items-center gap-1">
-            <Star className="h-3 w-3 fill-warm text-warm" />
+            <Star className="h-3 w-3 fill-warning text-warning" />
             {result.rating.toFixed(1)}{" "}
-            <span className="text-muted-foreground/70">({result.reviewCount ?? 0})</span>
+            <span className="text-subtle-foreground">({result.reviewCount ?? 0})</span>
           </span>
         )}
         {!result.hasWebsite && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-warm/15 px-1.5 py-0.5 text-[10.5px] font-medium text-warm">
+          <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-warning/12 px-1.5 py-0.5 text-[10.5px] font-medium text-warning-foreground">
             <GlobeLock className="h-3 w-3" /> Sem site
           </span>
         )}

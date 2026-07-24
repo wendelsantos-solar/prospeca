@@ -36,7 +36,6 @@ import { filterByRadius } from "@/lib/filters";
 import { exportDiscoveryCSV } from "@/lib/export";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { BulkBar } from "./BulkBar";
 
 type SortBy = "score" | "distance" | "rating";
 
@@ -260,11 +259,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
             </div>
           </div>
         )}
-
-        <BulkBar
-          visibleIds={resultsInRadius.map((r) => r.placeId)}
-          onOpenPrepare={() => window.dispatchEvent(new CustomEvent("open-bulk-messages"))}
-        />
 
         {/* List */}
         <div className="min-h-0 flex-1 p-3">
