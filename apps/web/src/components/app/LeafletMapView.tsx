@@ -44,6 +44,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
+  const lastCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -157,15 +158,21 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   // Effective radius: committed search wins, then preview, then the live slider.
   const effectiveRadiusKm = currentSearch?.radiusKm ?? previewLocation?.radiusKm ?? draft.radiusKm;
 
-  // Always frame the whole circle: re-fit on center OR radius change. Zooming to
-  // fit the ring is the point — otherwise, shrinking the radius (or zooming in to
-  // inspect) leaves you INSIDE the circle where the faint fill is invisible and
-  // it looks like "the radar disappeared". toBounds(2*R) is the circle's bounding
-  // box; *2.4 adds breathing room.
+  // Enquadra ao trocar o CENTRO (busca nova) ou quando o círculo não cabe todo
+  // na tela. Se só o raio muda e o círculo ainda cabe, mantém o zoom → o círculo
+  // cresce/encolhe À VISTA (feedback claro), em vez de sempre preencher a tela.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.fitBounds(L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2.4));
+    const circleBounds = L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2);
+    const centerChanged =
+      !lastCenterRef.current ||
+      lastCenterRef.current.lat !== anchor.lat ||
+      lastCenterRef.current.lng !== anchor.lng;
+    if (centerChanged || !map.getBounds().contains(circleBounds)) {
+      map.fitBounds(L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2.4));
+    }
+    lastCenterRef.current = { lat: anchor.lat, lng: anchor.lng };
   }, [anchor.lat, anchor.lng, effectiveRadiusKm]);
 
   // Circle + center marker: position is pinned to `anchor` (fixed once a search
