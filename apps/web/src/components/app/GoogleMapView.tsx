@@ -211,7 +211,9 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
       ? { lat: previewLocation.lat, lng: previewLocation.lng }
       : { lat: draft.coords.lat, lng: draft.coords.lng };
 
-  const effectiveRadiusKm = currentSearch?.radiusKm ?? previewLocation?.radiusKm ?? draft.radiusKm;
+  // Raio segue o SLIDER ao vivo (draft) — o círculo cresce/encolhe enquanto você
+  // arrasta. (O centro/anchor fica pinado no currentSearch; só o raio é live.)
+  const effectiveRadiusKm = draft.radiusKm;
 
   // Enquadra SÓ ao trocar de centro (busca/local nova). Mudar o raio NÃO
   // re-enquadra → o círculo cresce/encolhe à vista no zoom atual. (O botão de
