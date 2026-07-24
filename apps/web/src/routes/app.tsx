@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app/AppSidebar";
+import { TopNav } from "@/components/app/TopNav";
 import { useLeadsStore } from "@/stores";
 import { LeadDetailsDrawer } from "@/components/app/LeadDetailsDrawer";
 import { BulkMessageDialog } from "@/components/app/BulkBar";
@@ -12,7 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { MapIcon, LayoutGrid, BarChart3, Search } from "lucide-react";
+import { MapIcon, Sunrise, Kanban, CalendarDays, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useThemeSync } from "@/hooks/useThemeSync";
@@ -83,8 +84,9 @@ function MobileNav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const tabs = [
     { to: "/app/mapa", icon: MapIcon, label: "Mapa" },
-    { to: "/app/kanban", icon: LayoutGrid, label: "Kanban" },
-    { to: "/app/painel", icon: BarChart3, label: "Painel" },
+    { to: "/app/hoje", icon: Sunrise, label: "Hoje" },
+    { to: "/app/kanban", icon: Kanban, label: "Pipeline" },
+    { to: "/app/agenda", icon: CalendarDays, label: "Agenda" },
   ];
   return (
     <nav
@@ -96,7 +98,9 @@ function MobileNav() {
         return (
           <Link
             key={t.to}
-            to={t.to}
+            // "/app/hoje" and "/app/agenda" don't have route files yet (later
+            // tasks) so the generated route tree doesn't type them.
+            to={t.to as never}
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium",
@@ -155,8 +159,11 @@ function AppLayout() {
     <AuthGate>
       <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
         <AppSidebar />
-        <main className="flex-1 min-w-0 overflow-hidden pb-14 md:pb-0">
-          <Outlet />
+        <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
+          <TopNav />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <Outlet />
+          </div>
         </main>
         <MobileNav />
         <LeadDetailsDrawer />
