@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShieldAlert } from "lucide-react";
@@ -37,6 +39,7 @@ interface OrgRow {
   users: number;
   searches: number;
   est_cost_usd: number;
+  budget_usd: number | null;
   last_activity: string | null;
 }
 interface Series {
@@ -100,7 +103,58 @@ function Bars({ series }: { series: Series[] }) {
   );
 }
 
+/** Teto de gasto US$/mês editável. Vazio = ilimitado. Salva no blur/Enter e
+ * ativa o guarda-corpo do execute-search (para de pagar Google ao estourar). */
+function BudgetCell({ org, onSaved }: { org: OrgRow; onSaved: () => void }) {
+  const [val, setVal] = useState(org.budget_usd != null ? String(org.budget_usd) : "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const trimmed = val.trim();
+    const budget = trimmed === "" ? null : Number(trimmed);
+    if (budget != null && (!Number.isFinite(budget) || budget < 0)) {
+      toast.error("Valor inválido");
+      setVal(org.budget_usd != null ? String(org.budget_usd) : "");
+      return;
+    }
+    if (budget === (org.budget_usd ?? null)) return; // sem mudança
+    setSaving(true);
+    try {
+      await invokeFunction("set-org-budget", { orgId: org.org_id, budget });
+      toast.success(budget == null ? "Teto removido (ilimitado)" : `Teto: US$ ${budget}/mês`);
+      onSaved();
+    } catch {
+      toast.error("Falha ao salvar teto");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span className="text-xs text-muted-foreground">US$</span>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="decimal"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        placeholder="∞"
+        disabled={saving}
+        aria-label={`Teto mensal de ${org.name}`}
+        className="w-20 rounded border bg-background px-2 py-1 text-right text-sm disabled:opacity-50"
+      />
+    </div>
+  );
+}
+
 function AdminPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery<AdminData>({
     queryKey: ["admin-overview"],
     queryFn: () => invokeFunction<AdminData>("get-admin-overview", {}),
@@ -215,6 +269,7 @@ function AdminPage() {
                     <th className="py-2 pr-3 font-medium text-right">Usuários</th>
                     <th className="py-2 pr-3 font-medium text-right">Buscas</th>
                     <th className="py-2 pr-3 font-medium text-right">Custo est.</th>
+                    <th className="py-2 pr-3 font-medium text-right">Teto (US$/mês)</th>
                     <th className="py-2 font-medium">Última atividade</th>
                   </tr>
                 </thead>
@@ -227,7 +282,24 @@ function AdminPage() {
                       </td>
                       <td className="py-2 pr-3 text-right">{r.users}</td>
                       <td className="py-2 pr-3 text-right">{r.searches}</td>
-                      <td className="py-2 pr-3 text-right">US$ {r.est_cost_usd.toFixed(2)}</td>
+                      <td
+                        className={
+                          "py-2 pr-3 text-right" +
+                          (r.budget_usd != null && r.est_cost_usd >= r.budget_usd
+                            ? " font-medium text-destructive"
+                            : "")
+                        }
+                      >
+                        US$ {r.est_cost_usd.toFixed(2)}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <BudgetCell
+                          org={r}
+                          onSaved={() =>
+                            queryClient.invalidateQueries({ queryKey: ["admin-overview"] })
+                          }
+                        />
+                      </td>
                       <td className="py-2 text-muted-foreground">
                         {r.last_activity
                           ? new Date(r.last_activity).toLocaleDateString("pt-BR")
@@ -237,7 +309,7 @@ function AdminPage() {
                   ))}
                   {data.orgs.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-4 text-center text-muted-foreground">
                         Nenhuma organização ainda.
                       </td>
                     </tr>
