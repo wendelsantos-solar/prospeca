@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, Loader2, MapPin, X, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
+import { NICHES } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSearchDraftStore } from "@/stores";
 import { distanceKm } from "@/lib/geo";
@@ -87,10 +87,6 @@ export function SearchForm() {
   const locCoords = draft.coords;
   const presence = draft.presence;
   const radius = draft.radiusKm;
-  const sliderIndex = Math.max(
-    0,
-    RADIUS_OPTIONS.indexOf(radius as (typeof RADIUS_OPTIONS)[number]),
-  );
 
   const leads = useLeadsStore((s) => s.leads);
   const leadsInRadius = useMemo(
@@ -347,10 +343,10 @@ export function SearchForm() {
           </span>
         </div>
         <Slider
-          value={[sliderIndex]}
-          onValueChange={(v) => setDraft({ radiusKm: RADIUS_OPTIONS[v[0]!]! })}
-          min={0}
-          max={RADIUS_OPTIONS.length - 1}
+          value={[radius]}
+          onValueChange={(v) => setDraft({ radiusKm: v[0]! })}
+          min={1}
+          max={100}
           step={1}
           aria-label="Raio de busca"
         />
