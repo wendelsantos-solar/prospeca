@@ -44,7 +44,6 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
-  const lastCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -158,22 +157,14 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   // Effective radius: committed search wins, then preview, then the live slider.
   const effectiveRadiusKm = currentSearch?.radiusKm ?? previewLocation?.radiusKm ?? draft.radiusKm;
 
-  // Enquadra ao trocar o CENTRO (busca nova) ou quando o círculo não cabe todo
-  // na tela. Se só o raio muda e o círculo ainda cabe, mantém o zoom → o círculo
-  // cresce/encolhe À VISTA (feedback claro), em vez de sempre preencher a tela.
+  // Enquadra SÓ ao trocar de centro (busca/local nova). Mudar o raio NÃO
+  // re-enquadra → o círculo cresce/encolhe à vista no zoom atual.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const circleBounds = L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2);
-    const centerChanged =
-      !lastCenterRef.current ||
-      lastCenterRef.current.lat !== anchor.lat ||
-      lastCenterRef.current.lng !== anchor.lng;
-    if (centerChanged || !map.getBounds().contains(circleBounds)) {
-      map.fitBounds(L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2.4));
-    }
-    lastCenterRef.current = { lat: anchor.lat, lng: anchor.lng };
-  }, [anchor.lat, anchor.lng, effectiveRadiusKm]);
+    map.fitBounds(L.latLng(anchor.lat, anchor.lng).toBounds(effectiveRadiusKm * 1000 * 2.4));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit só no centro; raio faz resize in-place
+  }, [anchor.lat, anchor.lng]);
 
   // Circle + center marker: position is pinned to `anchor` (fixed once a search
   // or preview exists); only the radius reacts live to the slider so shrinking

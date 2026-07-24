@@ -52,7 +52,6 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const circleRef = useRef<google.maps.Circle | null>(null);
   const centerRef = useRef<google.maps.Marker | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
-  const lastCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -214,25 +213,17 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
 
   const effectiveRadiusKm = currentSearch?.radiusKm ?? previewLocation?.radiusKm ?? draft.radiusKm;
 
-  // Enquadra ao trocar o CENTRO (busca nova) ou quando o círculo não cabe todo
-  // na tela. Se só o raio muda e o círculo ainda cabe, mantém o zoom → o círculo
-  // cresce/encolhe À VISTA, em vez de sempre preencher a tela.
+  // Enquadra SÓ ao trocar de centro (busca/local nova). Mudar o raio NÃO
+  // re-enquadra → o círculo cresce/encolhe à vista no zoom atual. (O botão de
+  // ajuste reenquadra se ficar grande demais.)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     const circle = new google.maps.Circle({ center: anchor, radius: effectiveRadiusKm * 1000 });
     const cb = circle.getBounds();
-    if (!cb) return;
-    const centerChanged =
-      !lastCenterRef.current ||
-      lastCenterRef.current.lat !== anchor.lat ||
-      lastCenterRef.current.lng !== anchor.lng;
-    const vb = map.getBounds();
-    const overflows = !vb || !vb.contains(cb.getNorthEast()) || !vb.contains(cb.getSouthWest());
-    if (centerChanged || overflows) map.fitBounds(cb, 48);
-    lastCenterRef.current = { lat: anchor.lat, lng: anchor.lng };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchor tracked via lat/lng primitives
-  }, [anchor.lat, anchor.lng, effectiveRadiusKm, mapReady]);
+    if (cb) map.fitBounds(cb, 48);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit só no centro; raio faz resize in-place
+  }, [anchor.lat, anchor.lng, mapReady]);
 
   // Radius circle + center dot, pinned to anchor.
   useEffect(() => {
