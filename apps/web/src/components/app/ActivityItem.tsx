@@ -3,7 +3,6 @@ import {
   Clock,
   MessageCircle,
   Phone,
-  Mail,
   Users,
   RotateCw,
   FileText,
