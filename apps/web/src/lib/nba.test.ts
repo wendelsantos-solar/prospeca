@@ -20,4 +20,14 @@ test("won → low/system", () => {
 test("no channels → medium/system", () => {
   const n = computeNba(base({ stage: "new" }));
   expect(n.channel).toBe("system");
+  expect(n.priority).toBe("medium");
+});
+test("contacted with whatsapp, 3 days since interaction → high/whatsapp", () => {
+  const n = computeNba(base({
+    stage: "contacted",
+    whatsapp: "551199",
+    lastInteractionAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+  }));
+  expect(n.priority).toBe("high");
+  expect(n.channel).toBe("whatsapp");
 });
