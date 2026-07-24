@@ -1,16 +1,15 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Trash2, Download, Upload, RotateCcw } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,7 +25,28 @@ import { RADIUS_OPTIONS, SORT_OPTIONS, STORAGE_KEY, type SortValue } from "@/lib
 import type { PresenceFilter } from "@/types";
 import { toast } from "sonner";
 
+function Row({
+  label,
+  desc,
+  children,
+}: {
+  label: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface p-3">
+      <div>
+        <div className="text-[13px] font-medium">{label}</div>
+        <div className="text-[11.5px] text-muted-foreground">{desc}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function SettingsDialog() {
+  const [open, setOpen] = useState(false);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const density = useUIStore((s) => s.density);
@@ -85,21 +105,30 @@ export function SettingsDialog() {
     toast.success("Dados de demonstração sendo restaurados...");
   };
 
+  const handleSave = () => {
+    toast.success("Configurações salvas");
+    setOpen(false);
+  };
+
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Configurações">
-          <Settings className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Configurações</DialogTitle>
-          <DialogDescription>
-            Ajuste preferências, modelo de mensagem e exportação de dados.
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8"
+        aria-label="Configurações"
+        onClick={() => setOpen(true)}
+      >
+        <Settings className="h-4 w-4" />
+      </Button>
+      <DialogContent className="max-w-2xl gap-0 p-0">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-[15px]">Configurações</DialogTitle>
+          <DialogDescription className="text-[12px] text-muted-foreground">
+            Ajuste como o Radar Local funciona para você.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="general">
+        <Tabs defaultValue="general" className="px-6 py-4">
           <TabsList className="flex-wrap">
             <TabsTrigger value="general">Geral</TabsTrigger>
             <TabsTrigger value="prospect">Prospecção</TabsTrigger>
@@ -107,28 +136,27 @@ export function SettingsDialog() {
             <TabsTrigger value="data">Dados</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general" className="space-y-3 mt-4">
-            <div>
-              <Label htmlFor="set-user">Nome do usuário</Label>
+          <TabsContent value="general" className="mt-4 space-y-4">
+            <Row label="Nome do usuário" desc="Aparece como responsável dos leads.">
               <Input
                 id="set-user"
                 placeholder="Seu nome"
                 value={settings.userName}
                 onChange={(e) => settings.set({ userName: e.target.value })}
+                className="w-48"
               />
-            </div>
-            <div>
-              <Label htmlFor="set-company">Nome da empresa</Label>
+            </Row>
+            <Row label="Nome da empresa" desc="Usado nas mensagens e exportações.">
               <Input
                 id="set-company"
                 placeholder="Sua empresa"
                 value={settings.companyName}
                 onChange={(e) => settings.set({ companyName: e.target.value })}
+                className="w-48"
               />
-            </div>
-            <div>
-              <Label>Tema</Label>
-              <div className="mt-1 flex gap-2">
+            </Row>
+            <Row label="Tema" desc="Aparência da interface.">
+              <div className="flex gap-2">
                 {(["light", "dark"] as const).map((t) => (
                   <Button
                     key={t}
@@ -140,10 +168,9 @@ export function SettingsDialog() {
                   </Button>
                 ))}
               </div>
-            </div>
-            <div>
-              <Label>Densidade</Label>
-              <div className="mt-1 flex gap-2">
+            </Row>
+            <Row label="Densidade" desc="Compactação da lista de leads.">
+              <div className="flex gap-2">
                 {(["compact", "comfortable"] as const).map((d) => (
                   <Button
                     key={d}
@@ -155,26 +182,24 @@ export function SettingsDialog() {
                   </Button>
                 ))}
               </div>
-            </div>
-            <div>
-              <Label>Formato de moeda</Label>
+            </Row>
+            <Row label="Formato de moeda" desc="Outras moedas em versões futuras.">
               <Select value="BRL" disabled>
-                <SelectTrigger>
+                <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="BRL">Real brasileiro (R$)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Outras moedas em versões futuras.
-              </p>
-            </div>
+            </Row>
           </TabsContent>
 
-          <TabsContent value="prospect" className="space-y-3 mt-4">
-            <div>
-              <Label htmlFor="set-limit">Limite de seleção em massa</Label>
+          <TabsContent value="prospect" className="mt-4 space-y-4">
+            <Row
+              label="Limite de seleção em massa"
+              desc="Máximo de leads selecionáveis de uma vez."
+            >
               <Input
                 id="set-limit"
                 type="number"
@@ -186,15 +211,15 @@ export function SettingsDialog() {
                     bulkLimit: Math.max(1, Math.min(50, Number(e.target.value) || 10)),
                   })
                 }
+                className="w-24"
               />
-            </div>
-            <div>
-              <Label>Filtro padrão de presença digital</Label>
+            </Row>
+            <Row label="Filtro padrão de presença digital" desc="Aplicado ao abrir uma nova busca.">
               <Select
                 value={settings.defaultPresence}
                 onValueChange={(v) => settings.set({ defaultPresence: v as PresenceFilter })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,14 +228,13 @@ export function SettingsDialog() {
                   <SelectItem value="all">Todos</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Raio padrão</Label>
+            </Row>
+            <Row label="Raio padrão" desc="Raio de busca inicial no mapa.">
               <Select
                 value={String(settings.defaultRadius)}
                 onValueChange={(v) => settings.set({ defaultRadius: Number(v) })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -221,14 +245,13 @@ export function SettingsDialog() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Ordenação padrão</Label>
+            </Row>
+            <Row label="Ordenação padrão" desc="Ordem inicial dos resultados de busca.">
               <Select
                 value={settings.defaultSort}
                 onValueChange={(v) => settings.set({ defaultSort: v as SortValue })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,45 +262,53 @@ export function SettingsDialog() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Row>
           </TabsContent>
 
-          <TabsContent value="messages" className="space-y-3 mt-4">
+          <TabsContent value="messages" className="mt-4 space-y-4">
             <div>
-              <Label htmlFor="set-template">Modelo padrão do WhatsApp</Label>
+              <div className="text-[13px] font-medium">Modelo padrão do WhatsApp</div>
+              <div className="text-[11.5px] text-muted-foreground">
+                Texto usado ao iniciar uma conversa pelo WhatsApp.
+              </div>
               <Textarea
                 id="set-template"
                 rows={4}
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
+                className="mt-2"
               />
             </div>
-            <div>
-              <Label htmlFor="set-sender">Nome do remetente</Label>
+            <Row
+              label="Nome do remetente"
+              desc={`Substitui a variável {{meu_nome}} nas mensagens.`}
+            >
               <Input
                 id="set-sender"
                 placeholder="Como você se apresenta"
                 value={settings.senderName}
                 onChange={(e) => settings.set({ senderName: e.target.value })}
+                className="w-48"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Substitui a variável {"{{meu_nome}}"} nas mensagens.
-              </p>
-            </div>
+            </Row>
             <div>
-              <Label htmlFor="set-signature">Assinatura</Label>
+              <div className="text-[13px] font-medium">Assinatura</div>
+              <div className="text-[11.5px] text-muted-foreground">
+                Anexada ao final das mensagens enviadas.
+              </div>
               <Textarea
                 id="set-signature"
                 rows={2}
                 placeholder="Assinatura anexada ao final das mensagens"
                 value={settings.signature}
                 onChange={(e) => settings.set({ signature: e.target.value })}
+                className="mt-2"
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="data" className="space-y-3 mt-4">
-            <p className="text-sm text-muted-foreground">
+          <TabsContent value="data" className="mt-4 space-y-4">
+            <p className="text-[11.5px] text-muted-foreground">
               Gerencie os dados locais desta demonstração.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -311,19 +342,38 @@ export function SettingsDialog() {
                 Restaurar demonstração
               </Button>
             </div>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                clearAllState();
-                toast.success("Dados limpos. Recarregue a página.");
-              }}
-            >
-              <Trash2 className="mr-1 h-4 w-4" />
-              Limpar todos os dados
-            </Button>
+            <div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  clearAllState();
+                  toast.success("Dados limpos. Recarregue a página.");
+                }}
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Limpar todos os dados
+              </Button>
+              <p className="mt-1 text-[11.5px] text-muted-foreground">
+                Isso remove leads, pipeline e histórico deste dispositivo.
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
+        <DialogFooter className="border-t border-border px-6 py-3">
+          <button
+            onClick={() => setOpen(false)}
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-[13px] font-medium hover:border-border-strong"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="rounded-md bg-primary px-3 py-1.5 text-[13px] font-semibold text-primary-foreground hover:bg-primary-hover"
+          >
+            Salvar alterações
+          </button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
