@@ -43,6 +43,14 @@ test("moving center is dirty (location)", () => {
     reason: "location",
   });
 });
+test("typing location text (coords unchanged) is location-text, not location", () => {
+  // Same coords as current, only the address string differs → user still typing,
+  // must NOT auto-search (only commit does).
+  expect(classifyDirty({ ...base, location: "Curitiba" }, current)).toMatchObject({
+    dirty: true,
+    reason: "location-text",
+  });
+});
 test("radius down is client-only, not dirty", () => {
   expect(classifyDirty({ ...base, radiusKm: 10 }, current)).toMatchObject({
     dirty: false,

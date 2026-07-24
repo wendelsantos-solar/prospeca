@@ -155,7 +155,10 @@ export function SearchForm() {
   // "Usar X" / botão Buscar). `dirty` já exclui mudanças client-only (raio↓).
   useEffect(() => {
     if (!dirty || loading) return;
-    if (reason === "niche") return; // nicho busca só no commit, não ao digitar
+    // Nicho e localização buscam só no COMMIT (selecionar da lista / "Usar X" /
+    // botão), nunca a cada tecla. `location-text` = digitando o endereço sem
+    // coordenada resolvida ainda; `location` (coords movidas) é commit e busca.
+    if (reason === "niche" || reason === "location-text") return;
     const timer = setTimeout(() => runSearch(), 700);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on any draft change while dirty; runSearch reads fresh state itself
