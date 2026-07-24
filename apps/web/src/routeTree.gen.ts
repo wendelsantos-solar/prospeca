@@ -19,6 +19,7 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppPainelRouteImport } from './routes/app.painel'
 import { Route as AppMapaRouteImport } from './routes/app.mapa'
 import { Route as AppKanbanRouteImport } from './routes/app.kanban'
+import { Route as AppHojeRouteImport } from './routes/app.hoje'
 import { Route as AppHistoricoRouteImport } from './routes/app.historico'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
@@ -73,6 +74,11 @@ const AppKanbanRoute = AppKanbanRouteImport.update({
   path: '/kanban',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHojeRoute = AppHojeRouteImport.update({
+  id: '/hoje',
+  path: '/hoje',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistoricoRoute = AppHistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
+  '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
+  '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
+  '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
+    | '/app/hoje'
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
+    | '/app/hoje'
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
+    | '/app/hoje'
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
@@ -262,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKanbanRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/hoje': {
+      id: '/app/hoje'
+      path: '/hoje'
+      fullPath: '/app/hoje'
+      preLoaderRoute: typeof AppHojeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/historico': {
       id: '/app/historico'
       path: '/historico'
@@ -290,6 +309,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppHistoricoRoute: typeof AppHistoricoRoute
+  AppHojeRoute: typeof AppHojeRoute
   AppKanbanRoute: typeof AppKanbanRoute
   AppMapaRoute: typeof AppMapaRoute
   AppPainelRoute: typeof AppPainelRoute
@@ -300,6 +320,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppHistoricoRoute: AppHistoricoRoute,
+  AppHojeRoute: AppHojeRoute,
   AppKanbanRoute: AppKanbanRoute,
   AppMapaRoute: AppMapaRoute,
   AppPainelRoute: AppPainelRoute,

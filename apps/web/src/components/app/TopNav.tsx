@@ -71,9 +71,9 @@ export function TopNav() {
           return (
             <Link
               key={t.to}
-              // "/app/hoje" and "/app/agenda" don't have route files yet (later
-              // tasks) so the generated route tree doesn't type them — safe to
-              // assert since `to` is still a plain string at runtime.
+              // "/app/agenda" doesn't have a route file yet (later task) so the
+              // generated route tree doesn't type it — safe to assert since
+              // `to` is still a plain string at runtime.
               to={t.to as never}
               className={cn(
                 "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",

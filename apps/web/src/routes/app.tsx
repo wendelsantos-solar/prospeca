@@ -98,8 +98,8 @@ function MobileNav() {
         return (
           <Link
             key={t.to}
-            // "/app/hoje" and "/app/agenda" don't have route files yet (later
-            // tasks) so the generated route tree doesn't type them.
+            // "/app/agenda" doesn't have a route file yet (later task) so the
+            // generated route tree doesn't type it.
             to={t.to as never}
             aria-current={active ? "page" : undefined}
             className={cn(
