@@ -102,7 +102,7 @@ export function SearchForm() {
     [leads, draft.coords.lat, draft.coords.lng, draft.radiusKm],
   );
 
-  const { dirty } = useIsDirty();
+  const { dirty, reason } = useIsDirty();
   const hasResults = useLeadsStore((s) => s.currentSearch) != null;
 
   const [nicheOpen, setNicheOpen] = useState(false);
@@ -148,19 +148,18 @@ export function SearchForm() {
     run(payload);
   }
 
-  // Auto-busca: dispara sozinha ~700ms depois que nicho/local/raio-pra-cima/
-  // presença mudam o suficiente pra exigir busca nova no servidor (`dirty` já
-  // exclui mudanças client-only, tipo raio pra baixo — ver classifyDirty).
-  // Busca no servidor passa pelo cache (hit = custo Google zero), então não
-  // precisa de gate manual: exigir clique em "Atualizar busca" só causava
-  // confusão (resultado da busca antiga ficava na tela parecendo bater com o
-  // nicho novo já digitado). Force-refresh (paga Google) é ação explícita.
+  // Auto-busca: dispara sozinha ~700ms depois que local/raio-pra-cima/presença
+  // mudam (mudanças discretas e deliberadas). NÃO dispara enquanto o NICHO está
+  // sendo digitado — buscar a cada tecla ("barbe" antes de "barbearia") era ruim
+  // e desperdiçava busca. O nicho só busca no COMMIT (selecionar da lista /
+  // "Usar X" / botão Buscar). `dirty` já exclui mudanças client-only (raio↓).
   useEffect(() => {
     if (!dirty || loading) return;
+    if (reason === "niche") return; // nicho busca só no commit, não ao digitar
     const timer = setTimeout(() => runSearch(), 700);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on any draft change while dirty; runSearch reads fresh state itself
-  }, [draft, dirty, loading]);
+  }, [draft, dirty, reason, loading]);
 
   // Eventos globais (home page, histórico, retry, geolocalização).
   useEffect(() => {
@@ -241,7 +240,11 @@ export function SearchForm() {
                 <CommandEmpty>
                   <button
                     className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded"
-                    onClick={() => setNicheOpen(false)}
+                    onClick={() => {
+                      setNicheOpen(false);
+                      if (useSearchDraftStore.getState().draft.location.trim())
+                        runSearch({ niche });
+                    }}
                   >
                     Usar "{niche}"
                   </button>
@@ -254,6 +257,9 @@ export function SearchForm() {
                       onSelect={(v) => {
                         setDraft({ niche: v });
                         setNicheOpen(false);
+                        // Commit do nicho = buscar (se já há localização).
+                        if (useSearchDraftStore.getState().draft.location.trim())
+                          runSearch({ niche: v });
                       }}
                     >
                       {n}
