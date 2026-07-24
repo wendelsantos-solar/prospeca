@@ -21,6 +21,7 @@ import { Route as AppMapaRouteImport } from './routes/app.mapa'
 import { Route as AppKanbanRouteImport } from './routes/app.kanban'
 import { Route as AppHistoricoRouteImport } from './routes/app.historico'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
+import { Route as AppAdminRouteImport } from './routes/app.admin'
 
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
@@ -82,6 +83,11 @@ const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/kanban'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/kanban'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/app/admin'
     | '/app/configuracoes'
     | '/app/historico'
     | '/app/kanban'
@@ -264,10 +276,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppHistoricoRoute: typeof AppHistoricoRoute
   AppKanbanRoute: typeof AppKanbanRoute
@@ -277,6 +297,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppHistoricoRoute: AppHistoricoRoute,
   AppKanbanRoute: AppKanbanRoute,

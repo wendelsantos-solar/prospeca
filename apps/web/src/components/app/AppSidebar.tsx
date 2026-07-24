@@ -14,11 +14,13 @@ import {
   Search,
   Phone,
   Check,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { APP_NAME, APP_TAGLINE, RADIUS_OPTIONS } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
@@ -111,10 +113,14 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     };
   }, [resultsInRadius]);
 
+  const isPlatformAdmin = useIsPlatformAdmin();
   const tabs = [
     { to: "/app/mapa", icon: MapIcon, label: "Mapa", count: resultsInRadius.length },
     { to: "/app/kanban", icon: LayoutGrid, label: "Kanban", count: undefined },
     { to: "/app/painel", icon: BarChart3, label: "Painel", count: undefined },
+    ...(isPlatformAdmin
+      ? [{ to: "/app/admin", icon: Shield, label: "Admin", count: undefined }]
+      : []),
   ];
 
   if (collapsed && !mobile) {
