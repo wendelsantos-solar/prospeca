@@ -48,6 +48,7 @@ interface Series {
   est_cost_usd: number;
 }
 interface AdminData {
+  days: number;
   overview: Overview;
   orgs: OrgRow[];
   timeseries: Series[];
@@ -153,14 +154,18 @@ function BudgetCell({ org, onSaved }: { org: OrgRow; onSaved: () => void }) {
   );
 }
 
+const PERIODS = [7, 15, 30, 90];
+
 function AdminPage() {
   const queryClient = useQueryClient();
+  const [days, setDays] = useState(30);
   const { data, isLoading, error } = useQuery<AdminData>({
-    queryKey: ["admin-overview"],
-    queryFn: () => invokeFunction<AdminData>("get-admin-overview", {}),
+    queryKey: ["admin-overview", days],
+    queryFn: () => invokeFunction<AdminData>("get-admin-overview", { days }),
     enabled: isRealMode,
     retry: false,
     staleTime: 60_000,
+    placeholderData: (prev) => prev, // mantém a tela na troca de período (sem flash)
   });
 
   if (!isRealMode) {
@@ -197,11 +202,30 @@ function AdminPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Administração da plataforma</h1>
-          <p className="text-sm text-muted-foreground">
-            Visão consolidada de todos os clientes · mês corrente. Custos são estimativas.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold">Administração da plataforma</h1>
+            <p className="text-sm text-muted-foreground">
+              Visão consolidada de todos os clientes · últimos {days} dias. Custos são estimativas.
+            </p>
+          </div>
+          <div className="flex gap-1 rounded-lg border bg-surface p-1">
+            {PERIODS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                className={
+                  "rounded px-3 py-1 text-sm font-medium transition-colors " +
+                  (days === d
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent")
+                }
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -246,7 +270,7 @@ function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Buscas por dia (30d)</CardTitle>
+            <CardTitle className="text-base">Buscas por dia ({days}d)</CardTitle>
             <CardDescription>Barra = buscas concluídas no dia.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -256,7 +280,7 @@ function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Custo por organização (mês)</CardTitle>
+            <CardTitle className="text-base">Custo por organização (últimos {days}d)</CardTitle>
             <CardDescription>Ordenado por gasto estimado.</CardDescription>
           </CardHeader>
           <CardContent>
