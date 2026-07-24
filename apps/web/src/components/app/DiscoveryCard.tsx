@@ -1,16 +1,16 @@
 import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   MessageCircle,
   Globe,
   GlobeLock,
   Star,
   MapPin,
-  PlusCircle,
+  Plus,
   Check,
   Eye,
+  Flame,
 } from "lucide-react";
 import { useLeadsStore } from "@/stores";
 import {
@@ -29,6 +29,61 @@ const tempClass: Record<DiscoveryResult["temperature"], string> = {
   warm: "text-warm",
   cold: "text-cold",
 };
+
+const tempBadgeClass: Record<DiscoveryResult["temperature"], string> = {
+  hot: "bg-primary text-primary-foreground",
+  warm: "bg-warm/15 text-warm",
+  cold: "bg-muted text-muted-foreground",
+};
+
+function ScoreBadge({
+  score,
+  temperature,
+}: {
+  score: number;
+  temperature: DiscoveryResult["temperature"];
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold",
+        tempBadgeClass[temperature],
+      )}
+    >
+      {temperature === "hot" && <Flame className="h-3 w-3" />}
+      {score}
+    </span>
+  );
+}
+
+function MiniBtn({
+  children,
+  onClick,
+  tone,
+}: {
+  children: React.ReactNode;
+  onClick: (e: React.MouseEvent) => void;
+  tone?: "primary";
+}) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) =>
+        (e.key === "Enter" || e.key === " ") && onClick(e as unknown as React.MouseEvent)
+      }
+      className={cn(
+        "inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] font-medium transition-colors",
+        tone === "primary"
+          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+          : "border border-border bg-surface text-muted-foreground hover:border-border hover:text-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
 /** Card for a discovered business (not yet a lead). Actions materialize it into
  * the funnel: WhatsApp → 'contacted', +Funil → 'new'. */
@@ -79,94 +134,92 @@ export const DiscoveryCard = memo(function DiscoveryCard({
       { onSuccess: () => toast.success("Adicionado ao funil") },
     );
 
+  const hasContact = !!result.phone;
+
   return (
     <Card
       onClick={() => setFocused(result.placeId)}
       className={cn(
-        "group relative cursor-pointer border-border/70 p-3 shadow-elegant transition-all hover:border-primary/50 hover:shadow-elevated",
+        "group relative cursor-pointer rounded-xl border-border/70 p-3 shadow-none transition-all hover:border-primary/50 hover:shadow-card",
         isFocused && "border-info ring-1 ring-info/40 bg-info/5",
       )}
     >
+      {/* line 1 */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h3 className="truncate text-sm font-semibold text-foreground">{result.name}</h3>
+            <span className="truncate text-[13.5px] font-semibold text-foreground">
+              {result.name}
+            </span>
             {result.hasWebsite ? (
               <Globe className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-label="Com site" />
-            ) : (
-              <GlobeLock className="h-3 w-3 shrink-0 text-hot" aria-label="Sem site" />
-            )}
+            ) : null}
           </div>
-          <p className="text-[11px] text-muted-foreground">{categoryLabel(result.category)}</p>
+          <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+            {categoryLabel(result.category)}
+          </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className={cn("text-xs font-bold tabular-nums", tempClass[result.temperature])}>
-            {result.score}
-          </span>
-        </div>
+        <ScoreBadge score={result.score} temperature={result.temperature} />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        <MapPin className="h-3 w-3" />
-        <span className="tabular-nums">{formatDistance(result.distanceKm)}</span>
+      {/* line 3 */}
+      <div className="mt-2.5 flex items-center gap-3 text-[11.5px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <MapPin className="h-3 w-3" />
+          {formatDistance(result.distanceKm)}
+        </span>
         {result.rating != null && (
-          <>
-            <span>•</span>
+          <span className="inline-flex items-center gap-1">
             <Star className="h-3 w-3 fill-warm text-warm" />
-            <span className="font-medium tabular-nums text-foreground">
-              {result.rating.toFixed(1)}
-            </span>
-            <span>({result.reviewCount ?? 0})</span>
-          </>
+            {result.rating.toFixed(1)}{" "}
+            <span className="text-muted-foreground/70">({result.reviewCount ?? 0})</span>
+          </span>
         )}
-        {result.phone && (
-          <>
-            <span>•</span>
-            <span className="tabular-nums">{result.phone}</span>
-          </>
+        {!result.hasWebsite && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-warm/15 px-1.5 py-0.5 text-[10.5px] font-medium text-warm">
+            <GlobeLock className="h-3 w-3" /> Sem site
+          </span>
         )}
       </div>
 
-      <div className="mt-2 flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 gap-1 px-2 text-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            openWhats();
-          }}
-        >
-          <MessageCircle className="h-3 w-3" /> WhatsApp
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 gap-1 px-2 text-xs"
+      {/* actions */}
+      <div className="mt-2.5 flex items-center gap-1">
+        {hasContact && (
+          <MiniBtn
+            tone="primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              openWhats();
+            }}
+          >
+            <MessageCircle className="h-3 w-3" /> WhatsApp
+          </MiniBtn>
+        )}
+        <MiniBtn
           onClick={(e) => {
             e.stopPropagation();
             openDetails();
           }}
         >
           <Eye className="h-3 w-3" /> Detalhes
-        </Button>
-        {inFunnel ? (
-          <span className="inline-flex h-7 items-center gap-1 rounded-md bg-success/15 px-2 text-xs font-medium text-success">
-            <Check className="h-3 w-3" /> No funil
-          </span>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1 px-2 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              addFunnel();
-            }}
-          >
-            <PlusCircle className="h-3 w-3" /> Funil
-          </Button>
-        )}
+        </MiniBtn>
+        <div className="ml-auto">
+          {inFunnel ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-1.5 py-1 text-[10.5px] font-semibold text-primary">
+              <Flame className="h-3 w-3" /> No funil
+            </span>
+          ) : (
+            <MiniBtn
+              tone="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                addFunnel();
+              }}
+            >
+              <Plus className="h-3 w-3" /> Funil
+            </MiniBtn>
+          )}
+        </div>
       </div>
     </Card>
   );

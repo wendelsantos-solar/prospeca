@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, Loader2, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
@@ -213,9 +212,8 @@ export function SearchForm() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Nicho</Label>
+    <div className="flex flex-col gap-2.5">
+      <div>
         <Popover open={nicheOpen} onOpenChange={setNicheOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -223,10 +221,17 @@ export function SearchForm() {
               variant="outline"
               role="combobox"
               aria-expanded={nicheOpen}
-              className="w-full justify-between font-normal h-9"
+              className="h-auto w-full items-center justify-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-2 font-normal shadow-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-primary/15"
             >
-              <span className="truncate">{niche || "Selecione um nicho"}</span>
-              <Search className="h-3.5 w-3.5 opacity-60" />
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Nicho
+                </span>
+                <span className="block truncate text-[13px] text-foreground">
+                  {niche || "Selecione um nicho"}
+                </span>
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
@@ -272,14 +277,19 @@ export function SearchForm() {
         </Popover>
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Localização</Label>
+      <div>
         <Popover open={locOpen} onOpenChange={setLocOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-between font-normal h-9">
-              <span className="flex items-center gap-2 truncate">
-                <MapPin className="h-3.5 w-3.5 opacity-60" />
-                <span className="truncate">{location}</span>
+            <Button
+              variant="outline"
+              className="h-auto w-full items-center justify-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-2 font-normal shadow-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-primary/15"
+            >
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Localização
+                </span>
+                <span className="block truncate text-[13px] text-foreground">{location}</span>
               </span>
             </Button>
           </PopoverTrigger>
@@ -319,10 +329,12 @@ export function SearchForm() {
         />
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-medium text-muted-foreground">Raio de busca</Label>
-          <span className="text-xs font-semibold tabular-nums">{radius} km</span>
+      <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[11px] font-medium text-muted-foreground">Raio de busca</span>
+          <span className="rounded-md bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
+            {radius} km
+          </span>
         </div>
         <Slider
           value={[sliderIndex]}
@@ -332,20 +344,15 @@ export function SearchForm() {
           step={1}
           aria-label="Raio de busca"
         />
-        <div className="flex justify-between text-[10px] text-muted-foreground/70 tabular-nums">
-          {RADIUS_OPTIONS.map((r) => (
-            <span key={r}>{r}</span>
-          ))}
-        </div>
         {leads.length > 0 && (
-          <p className="text-[11px] text-muted-foreground tabular-nums">
+          <p className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
             ~{leadsInRadius} de {leads.length} empresas neste raio
           </p>
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Presença digital</Label>
+      <div>
+        <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">Presença digital</div>
         <div
           className="grid grid-cols-3 gap-1 rounded-lg border bg-muted/40 p-0.5"
           role="group"
@@ -353,9 +360,9 @@ export function SearchForm() {
         >
           {(
             [
+              { v: "all", l: "Todas" },
               { v: "no-website", l: "Sem site" },
               { v: "with-website", l: "Com site" },
-              { v: "all", l: "Todos" },
             ] as const
           ).map((o) => (
             <button
@@ -365,7 +372,7 @@ export function SearchForm() {
               className={cn(
                 "text-xs font-medium rounded-md px-2 py-1.5 transition-colors",
                 presence === o.v
-                  ? "bg-surface text-foreground shadow-elegant"
+                  ? "bg-surface text-foreground shadow-card"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -380,16 +387,12 @@ export function SearchForm() {
         disabled={loading}
         size="lg"
         className={cn(
-          "w-full gap-2 shadow-elegant",
+          "w-full gap-2 shadow-card",
           dirty && hasResults && "bg-amber-500 hover:bg-amber-600 text-white",
         )}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-        {loading
-          ? "Buscando empresas..."
-          : dirty && hasResults
-            ? "Atualizar busca"
-            : "Buscar empresas"}
+        {loading ? "Buscando…" : dirty && hasResults ? "Atualizar busca" : "Buscar oportunidades"}
       </Button>
       {!loading && dirty && hasResults && (
         <p className="text-[11px] text-muted-foreground text-center -mt-1.5">

@@ -1,30 +1,32 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Radar,
   Moon,
   Sun,
-  MapIcon,
-  LayoutGrid,
-  BarChart3,
-  FileDown,
-  ChevronsLeft,
-  ChevronsRight,
   Search,
   Phone,
-  Check,
-  Shield,
+  Globe,
+  MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ArrowUpDown,
+  Filter,
+  Download,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
-import { useDiscoveryResults, useLeadsList } from "@/hooks/useLeadsQuery";
-import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
-import { APP_NAME, APP_TAGLINE, RADIUS_OPTIONS } from "@/lib/constants";
+import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import { RADIUS_OPTIONS } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
-import { MessageTemplateDialog } from "./MessageTemplateDialog";
 import { HistoryDrawer } from "./HistoryDrawer";
 import { SettingsDialog } from "./SettingsDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -35,6 +37,8 @@ import { exportDiscoveryCSV } from "@/lib/export";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BulkBar } from "./BulkBar";
+
+type SortBy = "score" | "distance" | "rating";
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const theme = useUIStore((s) => s.theme);
@@ -61,16 +65,12 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const focusedId = useLeadsStore((s) => s.focusedId);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
+  const [sortBy, setSortBy] = useState<SortBy>("score");
+
   // Discovery list: results of the current search (search_results ⋈ places),
   // NOT the org's accumulated leads. A lead only exists once added to the funnel.
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const results = useMemo(() => discovery ?? [], [discovery]);
-
-  // Funnel size for the Kanban nav badge — leads (materialized funnel), NOT
-  // discovery. Distinct from the Mapa badge, which counts search results.
-  const leadFilters = useLeadsStore((s) => s.filters);
-  const leadSort = useLeadsStore((s) => s.sort);
-  const { data: funnelLeads } = useLeadsList(leadFilters, leadSort);
 
   // A map marker click focuses a result but the list has no reason to react on
   // its own — without this the selected card can be scrolled off-screen with
@@ -86,8 +86,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     return () => window.removeEventListener("lead-focused-from-map", onFocusFromMap);
   }, []);
 
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
-
   // Radius is a hard filter, not a dimmed preview — map, list, and counts must
   // all agree on what "inside the radius" means (matches reference product).
   const resultsInRadius = useMemo(
@@ -96,19 +94,30 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     [results, radiusCenter.lat, radiusCenter.lng, radiusKm],
   );
 
+  const sortedResults = useMemo(() => {
+    const arr = [...resultsInRadius];
+    if (sortBy === "score") arr.sort((a, b) => b.score - a.score);
+    if (sortBy === "distance") arr.sort((a, b) => a.distanceKm - b.distanceKm);
+    if (sortBy === "rating") arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    return arr;
+  }, [resultsInRadius, sortBy]);
+
   const summary = useMemo(() => {
     if (!resultsInRadius.length) return null;
     let noSite = 0;
     let phones = 0;
+    let whats = 0;
     let inFunnel = 0;
     for (const r of resultsInRadius) {
       if (!r.hasWebsite) noSite++;
       if (r.phone) phones++;
+      if (r.whatsapp) whats++;
       if (r.importedLeadId != null) inFunnel++;
     }
     return {
       noSite,
       phones,
+      whats,
       inFunnel,
       // Denominador = o que existe de fato na lista/mapa (dentro do raio real),
       // não o found_count bruto do provider (inclui cantos da bbox fora do
@@ -119,59 +128,23 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     };
   }, [resultsInRadius]);
 
-  const isPlatformAdmin = useIsPlatformAdmin();
-  const tabs = [
-    { to: "/app/mapa", icon: MapIcon, label: "Mapa", count: resultsInRadius.length },
-    { to: "/app/kanban", icon: LayoutGrid, label: "Kanban", count: funnelLeads?.total },
-    { to: "/app/painel", icon: BarChart3, label: "Painel", count: undefined },
-    ...(isPlatformAdmin
-      ? [{ to: "/app/admin", icon: Shield, label: "Admin", count: undefined }]
-      : []),
-  ];
+  const handleExportCsv = () => {
+    try {
+      exportDiscoveryCSV(resultsInRadius);
+      toast.success(`CSV exportado (${resultsInRadius.length} empresas)`);
+    } catch {
+      toast.error("Falha ao exportar CSV");
+    }
+  };
 
   if (collapsed && !mobile) {
     return (
       <aside className="hidden md:flex w-14 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex h-14 items-center justify-center border-b">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            onClick={() => setCollapsed(false)}
-            aria-label="Expandir painel lateral"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+        <div className="flex h-14 items-center justify-center border-b border-sidebar-border">
+          <IconBtn onClick={() => setCollapsed(false)} label="Expandir painel lateral">
+            <PanelLeftOpen className="h-4 w-4" />
+          </IconBtn>
         </div>
-        <TooltipProvider>
-          <nav className="flex flex-col items-center gap-1 py-3">
-            {tabs.map((t) => {
-              const active = pathname === t.to;
-              return (
-                <Tooltip key={t.to}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={t.to}
-                      className={cn(
-                        "grid h-9 w-9 place-items-center rounded-md",
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent",
-                      )}
-                      aria-label={t.label}
-                    >
-                      <t.icon className="h-4 w-4" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    {t.label}
-                    {t.count != null ? ` (${t.count})` : ""}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </nav>
-        </TooltipProvider>
       </aside>
     );
   }
@@ -185,90 +158,116 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
           : "hidden md:flex w-full max-w-[360px] xl:max-w-[400px] shrink-0 border-r",
       )}
     >
-      <header className="flex items-center gap-2 border-b p-3">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-elegant">
-          <Radar className="h-5 w-5" />
+      {/* Header */}
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-card">
+            <Radar className="h-4 w-4" strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-[15px] font-semibold leading-tight">Radar Local</div>
+            <div className="truncate text-[11px] text-muted-foreground">Prospecção comercial</div>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-sm font-semibold tracking-tight">{APP_NAME}</h1>
-          <p className="truncate text-[10px] text-muted-foreground">{APP_TAGLINE}</p>
+        <div className="flex items-center gap-0.5">
+          <IconBtn onClick={toggleTheme} label="Alternar tema">
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </IconBtn>
+          <SettingsDialog />
+          {!mobile && (
+            <IconBtn onClick={() => setCollapsed(true)} label="Recolher painel lateral">
+              <PanelLeftClose className="h-4 w-4" />
+            </IconBtn>
+          )}
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          onClick={toggleTheme}
-          aria-label="Alternar tema"
-        >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-        <SettingsDialog />
-        {!mobile && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 hidden md:flex"
-            onClick={() => setCollapsed(true)}
-            aria-label="Recolher painel lateral"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-        )}
-      </header>
+      </div>
 
       <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto">
-        <div className="border-b p-3">
+        {/* Search block */}
+        <div className="border-b border-sidebar-border p-4">
+          <div className="mb-3">
+            <div className="text-[13px] font-semibold text-foreground">Descobrir empresas</div>
+            <div className="text-[11.5px] text-muted-foreground">
+              Encontre oportunidades comerciais em uma região.
+            </div>
+          </div>
           <SearchForm />
         </div>
 
-        <div className="border-b p-3 space-y-2">
-          <MessageTemplateDialog />
-          <HistoryDrawer />
-        </div>
-
+        {/* Summary */}
         {searching ? (
           <SummarySkeleton />
         ) : summary ? (
-          <div className="border-b bg-muted/30 p-3">
-            <p className="text-[11px] font-medium text-foreground">
-              <b className="text-hot tabular-nums">{summary.noSite}</b> sem site, de{" "}
-              <b className="tabular-nums">{summary.total}</b> encontradas
-            </p>
-            <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
-              <ChannelStat icon={Phone} label="Com telefone" value={summary.phones} />
-              <ChannelStat icon={Check} label="No funil" value={summary.inFunnel} />
+          <div className="border-b border-sidebar-border px-4 py-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Resumo da pesquisa
+              </span>
+              <HistoryDrawer />
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              <SummaryPill label="Encontradas" value={summary.total} />
+              <SummaryPill label="Sem site" value={summary.noSite} icon={Globe} />
+              <SummaryPill label="Telefones" value={summary.phones} icon={Phone} />
+              <SummaryPill label="WhatsApp" value={summary.whats} icon={MessageCircle} />
+              <SummaryPill label="Pipeline" value={summary.inFunnel} tone="primary" />
             </div>
           </div>
         ) : null}
 
-        <div className="border-b p-3">
-          <div className="flex gap-1.5">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs gap-1"
-              disabled={resultsInRadius.length === 0}
-              onClick={() => {
-                try {
-                  exportDiscoveryCSV(resultsInRadius);
-                  toast.success(`CSV exportado (${resultsInRadius.length} empresas)`);
-                } catch {
-                  toast.error("Falha ao exportar CSV");
-                }
-              }}
+        {/* Toolbar */}
+        {!!summary && (
+          <div className="flex shrink-0 items-center gap-1 border-b border-sidebar-border px-3 py-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                <ArrowUpDown className="h-3 w-3" />
+                Ordenar
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSortBy("score")}>
+                  Score (maior)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("distance")}>
+                  Distância (menor)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("rating")}>
+                  Avaliação (maior)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              onClick={() => toast.info("Filtros avançados em breve")}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <FileDown className="h-3.5 w-3.5" />
-              CSV
-            </Button>
+              <Filter className="h-3 w-3" />
+              Filtros
+            </button>
+            <div className="ml-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={resultsInRadius.length === 0}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  <Download className="h-3 w-3" />
+                  Exportar
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={handleExportCsv}>Exportar CSV</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </div>
+        )}
 
         <BulkBar
           visibleIds={resultsInRadius.map((r) => r.placeId)}
           onOpenPrepare={() => window.dispatchEvent(new CustomEvent("open-bulk-messages"))}
         />
 
-        <div className="p-2">
+        {/* List */}
+        <div className="min-h-0 flex-1 p-3">
           {searching ? (
             <LeadListSkeleton />
           ) : searchError ? (
@@ -297,17 +296,17 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
             />
           ) : (
             <Virtuoso
-              totalCount={resultsInRadius.length}
+              totalCount={sortedResults.length}
               useWindowScroll={false}
               itemContent={(index) => {
-                const r = resultsInRadius[index];
+                const r = sortedResults[index];
                 return (
                   <div className="px-0.5 py-0.5" data-place-id={r.placeId}>
                     <DiscoveryCard result={r} searchId={currentSearch?.id ?? ""} />
                   </div>
                 );
               }}
-              style={{ height: `${Math.max(resultsInRadius.length * 120, 200)}px` }}
+              style={{ height: `${Math.max(sortedResults.length * 120, 200)}px` }}
             />
           )}
         </div>
@@ -317,22 +316,55 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   );
 }
 
-function ChannelStat({
-  icon: Icon,
+function IconBtn({
+  children,
+  onClick,
   label,
-  value,
 }: {
-  icon: typeof Phone;
+  children: React.ReactNode;
+  onClick: () => void;
   label: string;
-  value: number;
 }) {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-md border bg-surface px-1.5 py-0.5 text-muted-foreground"
-      aria-label={`${label}: ${value}`}
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
-      <Icon className="h-3 w-3" />
-      <b className="font-semibold tabular-nums text-foreground">{value}</b>
-    </span>
+      {children}
+    </button>
+  );
+}
+
+function SummaryPill({
+  label,
+  value,
+  tone,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  tone?: "primary";
+  icon?: typeof Globe;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md px-1.5 py-1.5 text-center",
+        tone === "primary" ? "bg-primary-soft" : "bg-muted",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center gap-0.5 text-[15px] font-semibold",
+          tone === "primary" ? "text-primary" : "text-foreground",
+        )}
+      >
+        {Icon && <Icon className="h-3 w-3 opacity-60" />}
+        {value}
+      </div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+    </div>
   );
 }
