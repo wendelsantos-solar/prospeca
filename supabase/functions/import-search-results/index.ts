@@ -7,13 +7,15 @@ import { adminClient, requireAuth } from "../_shared/auth.ts";
 import { readPoint } from "../_shared/geo.ts";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
+import { scoreInputFromRow, type PlaceRow } from "../_shared/score-input.ts";
 import {
   hasRealWebsite,
-  normalizeBrazilianPhone,
   normalizeCompanyName,
   normalizeDomain,
+  normalizePhone,
 } from "../_shared/normalize.ts";
 import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "../_shared/score.ts";
+import { parseAddress } from "../_shared/address.ts";
 
 const InputSchema = z.object({
   searchId: z.string().uuid(),
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
           const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as
             | string
             | null;
-          const phone = phoneRaw ? normalizeBrazilianPhone(phoneRaw) : null;
+          const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
           const domain = normalizeDomain(place.website_uri as string | null);
 
           // Dedupe chain
@@ -162,20 +164,15 @@ Deno.serve(async (req) => {
           const websiteReal = hasRealWebsite(place.website_uri as string | null);
           // PostgREST serializes geography as hex EWKB, not GeoJSON — decode it.
           const coords = readPoint(place.location); // [lng, lat] | null
-          const breakdown = calculateScore({
-            hasWebsite: websiteReal,
-            hasValidPhone: phone?.isValid ?? false,
-            whatsappStatus: phone?.type === "mobile" ? "possible" : "unknown",
-            hasEmail: false,
-            hasInstagram: false,
-            hasCategory:
-              place.primary_type != null ||
-              (Array.isArray(place.types) && place.types.length > 0),
-            rating: (place.rating as number | null) ?? null,
-            reviewCount: (place.user_rating_count as number | null) ?? null,
-            distanceMeters: row.distance_meters,
-            businessStatus: (place.business_status as string | null) ?? null,
-          });
+          // Same signals as discovery — hand-building this input made an enriched
+          // business score lower here than it did on the map.
+          const breakdown = calculateScore(
+            scoreInputFromRow(place as PlaceRow, row.distance_meters),
+          );
+          const addressParts = parseAddress(
+            place.formatted_address as string | null,
+            place.address_components,
+          );
 
           const { data: lead, error } = await ctx.adminClient
             .from("leads")
@@ -186,12 +183,23 @@ Deno.serve(async (req) => {
               company_name: place.name,
               category: place.primary_type ?? null,
               address: place.formatted_address ?? null,
+              // Bairro/cidade/UF vêm do endereço do Google — sem isso os filtros
+              // por cidade/bairro (leads.city / leads.neighborhood) ficam vazios.
+              neighborhood: addressParts.neighborhood,
+              city: addressParts.city,
+              state: addressParts.state,
               latitude: coords?.[1] ?? null,
               longitude: coords?.[0] ?? null,
               phone: phoneRaw,
               phone_e164: phone?.e164 ?? null,
-              whatsapp: phone?.type === "mobile" ? phone.e164 : null,
-              whatsapp_status: phone?.type === "mobile" ? "possible" : "unknown",
+              // A scraped WhatsApp (enrich-discovery) wins over phone inference.
+              whatsapp:
+                (place.whatsapp as string | null) ?? (phone?.type === "mobile" ? phone.e164 : null),
+              whatsapp_status: place.whatsapp
+                ? "verified"
+                : phone?.type === "mobile"
+                  ? "possible"
+                  : "unknown",
               website: place.website_uri ?? null,
               website_domain: domain,
               has_website: websiteReal,
@@ -245,10 +253,10 @@ Deno.serve(async (req) => {
     );
 
     logEvent({ requestId, operation: "import-search-results", status: "ok", ...result });
-    return json(result);
+    return json(result, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
     logEvent({ requestId, operation: "import-search-results", status: "error" });
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

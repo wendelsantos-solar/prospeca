@@ -4,9 +4,10 @@ import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MarkerClusterer, type Renderer } from "@googlemaps/markerclusterer";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
+import { useSearchSession } from "@/stores/searchSession";
 import { RadarPill } from "./RadarPill";
-import { useAddToFunnelMutation, discoveryKeys, useSuppressionHashes } from "@/hooks/useLeadsQuery";
-import { isContactSuppressed } from "@/lib/suppression";
+import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
+import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const searching = useLeadsStore((s) => s.searching);
   const addToFunnel = useAddToFunnelMutation();
   const queryClient = useQueryClient();
-  const { data: suppressed } = useSuppressionHashes();
+  const { openWhatsApp } = useOutbound();
   const showCircle = useUIStore((s) => s.mapShowCircle);
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
   const mapDark = useUIStore((s) => s.mapDark);
@@ -72,28 +73,17 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const [visibleCount, setVisibleCount] = useState(results.length);
 
   // Latest popup-action handler kept in a ref so the marker effect always calls
-  // the current closure (results/suppressed change) without rebinding listeners.
+  // the current closure (results change) without rebinding listeners.
   const actionRef = useRef<(action: string, placeId: string) => void>(() => {});
   actionRef.current = (action, placeId) => {
     const searchId = currentSearch?.id;
     const result = results.find((x) => x.placeId === placeId);
     if (!result || !searchId) return;
     if (action === "whatsapp") {
-      const num = (result.phone ?? "").replace(/\D/g, "");
-      if (!num) {
-        toast.error("Sem telefone");
-        return;
-      }
-      (async () => {
-        if (suppressed && (await isContactSuppressed(suppressed, result))) {
-          toast.error("Contato em opt-out — não contatar (LGPD).");
-          return;
-        }
-        if (result.importedLeadId == null) {
-          addToFunnel.mutate({ searchId, placeId, stage: "contacted" });
-        }
-        window.open(`https://wa.me/${num}`, "_blank");
-      })();
+      // Contatar = entra no funil como 'contacted'.
+      void openWhatsApp(result, {
+        materialize: result.importedLeadId == null ? { searchId, placeId } : undefined,
+      });
     }
     if (action === "funnel") {
       addToFunnel.mutate(
@@ -372,7 +362,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         aria-label="Mapa de leads"
       />
 
-      <RadarPill onSearch={() => window.dispatchEvent(new CustomEvent("radar-search"))} />
+      <RadarPill onSearch={() => useSearchSession.getState().radarSearch()} />
 
       {(searching || !mapReady) && !mapError && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-background/60 backdrop-blur-sm">
@@ -405,7 +395,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
             variant="secondary"
             className="h-8 w-8 shadow-elevated"
             onClick={() => {
-              window.dispatchEvent(new CustomEvent("refresh-search"));
+              useSearchSession.getState().refreshSearch();
               toast.info("Atualizando resultados direto do Google…");
             }}
             aria-label="Atualizar resultados (busca nova no Google)"

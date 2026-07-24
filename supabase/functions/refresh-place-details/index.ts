@@ -63,9 +63,9 @@ Deno.serve(async (req) => {
       status: "ok",
       resultCount: refreshed,
     });
-    return json({ refreshed, skipped: parsed.data.placeIds.length - refreshed });
+    return json({ refreshed, skipped: parsed.data.placeIds.length - refreshed }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

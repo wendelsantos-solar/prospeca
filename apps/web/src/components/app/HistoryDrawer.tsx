@@ -14,8 +14,8 @@ import { History, RotateCcw, Trash2, Eye } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useNavigate } from "@tanstack/react-router";
 import type { Search } from "@/types";
-import type { SuggestSearchDetail } from "./SearchForm";
 import { toast } from "sonner";
+import { useSearchSession } from "@/stores/searchSession";
 
 export function HistoryDrawer() {
   const history = useLeadsStore((s) => s.history);
@@ -25,15 +25,14 @@ export function HistoryDrawer() {
   const [open, setOpen] = useState(false);
 
   const rerun = (h: Search) => {
-    const detail: SuggestSearchDetail = {
+    useSearchSession.getState().suggestSearch({
       niche: h.niche === "Todas as categorias" ? "" : h.niche,
       location: h.location,
       lat: h.latitude,
       lng: h.longitude,
       presence: h.presence,
       radiusKm: h.radiusKm,
-    };
-    window.dispatchEvent(new CustomEvent("suggest-search", { detail }));
+    });
     setOpen(false);
     toast.info(`Repetindo busca: ${h.niche} em ${h.location}`);
   };

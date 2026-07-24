@@ -15,7 +15,7 @@ import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit } from "../_shared/quota.ts";
 import { enrichFromWebsite } from "../_shared/enrich.ts";
 import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
-import { scoreInputFromPlace } from "../_shared/score-input.ts";
+import { scoreInputFromRow, type PlaceRow } from "../_shared/score-input.ts";
 
 const InputSchema = z.union([
   z.object({ searchId: z.string().uuid() }),
@@ -119,22 +119,8 @@ Deno.serve(async (req) => {
       await ctx.adminClient.from("places").update(patch).eq("id", r.place_id);
 
       // Re-score with the merged (post-patch) place state.
-      const merged = { ...p, ...patch };
-      const placeForScore = {
-        websiteUri: merged.website_uri as string | null,
-        nationalPhoneNumber: merged.national_phone_number as string | null,
-        internationalPhoneNumber: merged.international_phone_number as string | null,
-        primaryType: merged.primary_type as string | null,
-        types: (merged.types as string[] | null) ?? [],
-        email: merged.email as string | null,
-        instagram: merged.instagram as string | null,
-        whatsapp: merged.whatsapp as string | null,
-        rating: merged.rating as number | null,
-        userRatingCount: merged.user_rating_count as number | null,
-        businessStatus: merged.business_status as string | null,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bd = calculateScore(scoreInputFromPlace(placeForScore as any, r.distance_meters));
+      const merged = { ...p, ...patch } as PlaceRow;
+      const bd = calculateScore(scoreInputFromRow(merged, r.distance_meters));
       await ctx.adminClient
         .from("search_results")
         .update({
@@ -156,10 +142,10 @@ Deno.serve(async (req) => {
       status: "ok",
       resultCount: results.length,
     });
-    return json({ enriched: results.length, status: "ok" });
+    return json({ enriched: results.length, status: "ok" }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
     logEvent({ requestId, operation: "enrich-discovery", status: "error" });
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

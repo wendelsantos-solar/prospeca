@@ -59,6 +59,7 @@ export interface Lead {
   rating?: number;
   reviewCount?: number;
   score: number;
+  scoreBreakdown?: Record<string, unknown>;
   temperature: LeadTemperature;
   stage: LeadStage;
   estimatedValue?: number;

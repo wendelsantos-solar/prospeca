@@ -1,6 +1,23 @@
 // Search status state machine. Single source of truth for allowed transitions
 // so API, worker and UI agree on progress semantics.
-import type { SearchStatus } from "@leads/contracts";
+
+export const SEARCH_STATUSES = [
+  "queued",
+  "geocoding",
+  "searching",
+  "discovering",
+  "normalizing",
+  "deduplicating",
+  "importing",
+  "persisting",
+  "enriching",
+  "completed",
+  "partial",
+  "partially_completed",
+  "failed",
+  "cancelled",
+] as const;
+export type SearchStatus = (typeof SEARCH_STATUSES)[number];
 
 const TRANSITIONS: Record<SearchStatus, SearchStatus[]> = {
   queued: ["geocoding", "searching", "cancelled", "failed"],

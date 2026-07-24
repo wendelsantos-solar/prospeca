@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   const startedAt = Date.now();
 
   if (!(await isInternalCall(req))) {
-    return new AppError("FORBIDDEN", "Função interna.").toResponse(requestId);
+    return new AppError("FORBIDDEN", "Função interna.").toResponse(requestId, req);
   }
 
   const admin = adminClient();
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!search) throw new AppError("SEARCH_NOT_FOUND", "Busca não encontrada.");
     if (!["queued", "searching"].includes(search.status)) {
-      return json({ searchId, status: search.status, skipped: true });
+      return json({ searchId, status: search.status, skipped: true }, 200, {}, req);
     }
 
     await admin
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
           requestCount: 0,
           resultCount: reused,
         });
-        return json({ searchId, status: "completed", found: reused, reused: true });
+        return json({ searchId, status: "completed", found: reused, reused: true }, 200, {}, req);
       }
     }
 
@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
       .select("status")
       .eq("id", searchId)
       .single();
-    if (fresh?.status === "cancelled") return json({ searchId, status: "cancelled" });
+    if (fresh?.status === "cancelled") return json({ searchId, status: "cancelled" }, 200, {}, req);
 
     await admin.from("searches").update({ status: "importing" }).eq("id", searchId);
 
@@ -406,7 +406,7 @@ Deno.serve(async (req) => {
       resultCount: collected.length,
       insideRadius: insideCount,
     });
-    return json({ searchId, status: "completed", found: collected.length });
+    return json({ searchId, status: "completed", found: collected.length }, 200, {}, req);
   } catch (err) {
     const code = err instanceof AppError ? err.code : "INTERNAL_ERROR";
     const errorMessage =
@@ -433,7 +433,7 @@ Deno.serve(async (req) => {
       status: "error",
       errorCode: code,
     });
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

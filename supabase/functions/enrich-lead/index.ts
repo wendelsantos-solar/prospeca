@@ -95,10 +95,10 @@ Deno.serve(async (req) => {
       status: "ok",
       resultCount: results.length,
     });
-    return json({ results });
+    return json({ results }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
     logEvent({ requestId, operation: "enrich-lead", status: "error" });
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

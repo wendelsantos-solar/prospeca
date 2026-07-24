@@ -14,12 +14,13 @@ import type {
   CreateLeadActivityInput,
 } from "@/types";
 import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
+import type { SortValue } from "@/lib/constants";
 
 // ── Query keys ──────────────────────────────────────────────
 
 export const leadKeys = {
   all: ["leads"] as const,
-  list: (filters: LeadFilters, sort?: string) => ["leads", "list", filters, sort] as const,
+  list: (filters: LeadFilters, sort?: SortValue) => ["leads", "list", filters, sort] as const,
   detail: (id: string) => ["leads", "detail", id] as const,
 };
 
@@ -52,7 +53,7 @@ export function useSuppressMutation() {
 /** CRM leads (Kanban pipeline, Painel metrics). Cumulative across all searches —
  * a lead only exists once the user added the business to the funnel. Discovery
  * (map + sidebar) does NOT use this; it uses useDiscoveryResults. */
-export function useLeadsList(filters: LeadFilters, sort?: string) {
+export function useLeadsList(filters: LeadFilters, sort?: SortValue) {
   return useQuery<PaginatedResult<Lead>>({
     queryKey: leadKeys.list(filters, sort),
     queryFn: () => getLeadRepository().list({ filters, sort, pageSize: 500 }),

@@ -18,7 +18,12 @@ const base: ScoreInput = {
 // v3.0.0 weights: no_website 30, weak_reputation 15 (rating<3.5), low_traction 10
 // (reviewCount<20), valid_phone 20, whatsapp 12, email 8, instagram 5, nearby_5 8
 // / nearby_15 4, category 3. businessStatus != OPERATIONAL zeros the score.
-const vectors: Array<{ name: string; input: Partial<ScoreInput>; total: number; temp: string }> = [
+const vectors: Array<{
+  name: string;
+  input: Partial<ScoreInput>;
+  total: number;
+  temp: "hot" | "warm" | "cold";
+}> = [
   {
     name: "V1 sem-site + phone + whatsapp + <=5km + category",
     input: {

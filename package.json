@@ -15,9 +15,11 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "org:set-quota": "deno run -A --env-file=.env.local scripts/set-org-quota.ts"
   },
   "devDependencies": {
+    "bun-types": "^1.3.14",
     "prettier": "^3.7.3",
     "turbo": "^2.10.5"
   }

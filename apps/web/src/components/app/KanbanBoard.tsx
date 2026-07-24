@@ -20,14 +20,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLeadsStore, useSettingsStore } from "@/stores";
-import { useMoveLeadMutation } from "@/hooks/useLeadsQuery";
+import { useMoveLeadMutation, useRemoveLeadMutation } from "@/hooks/useLeadsQuery";
 import type { Lead, LeadStage, LeadTemperature, LeadChannel } from "@/types";
 import { STAGE_ORDER, STAGE_LABELS, TEMPERATURE_LABELS } from "@/lib/constants";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatBRL, formatRelative, formatDate, digitsOnly } from "@/lib/format";
+import { formatBRL, formatRelative, formatDate } from "@/lib/format";
+import { useOutbound } from "@/hooks/useOutbound";
 import {
   MessageCircle,
   Search,
@@ -85,13 +86,13 @@ const KanbanCard = memo(function KanbanCard({
   const setPendingWin = useLeadsStore((s) => s.setPendingWin);
   const setPendingDiscard = useLeadsStore((s) => s.setPendingDiscard);
   const moveMutation = useMoveLeadMutation();
+  const removeLeadMut = useRemoveLeadMutation();
   const bulkLimit = useSettingsStore((s) => s.bulkLimit);
+  const { openWhatsApp } = useOutbound();
 
   const openWhats = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const num = digitsOnly(lead.whatsapp ?? lead.phone);
-    if (!num) return toast.error("Sem WhatsApp/telefone");
-    window.open(`https://wa.me/${num}`, "_blank");
+    void openWhatsApp(lead);
   };
 
   const style = overlay ? undefined : { transform: CSS.Transform.toString(transform), transition };
@@ -207,6 +208,17 @@ const KanbanCard = memo(function KanbanCard({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setDetails(lead.id)}>Ver detalhes</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeLeadMut.mutate(lead.id);
+                toast.success("Lead removido do pipeline");
+              }}
+            >
+              Remover lead
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

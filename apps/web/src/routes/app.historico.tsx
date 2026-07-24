@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RotateCcw, History } from "lucide-react";
 import { getSearchRepository } from "@/repositories";
+import { useSearchSession } from "@/stores/searchSession";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatDateTime } from "@/lib/format";
 
@@ -27,21 +28,17 @@ function HistoryPage() {
   });
 
   const rerun = useMutation({
-    mutationFn: (search: NonNullable<typeof history>[number]) =>
-      Promise.resolve(
-        window.dispatchEvent(
-          new CustomEvent("suggest-search", {
-            detail: {
-              niche: search.niche,
-              location: search.location,
-              latitude: search.latitude,
-              longitude: search.longitude,
-              radiusKm: search.radiusKm,
-              presence: search.presence,
-            },
-          }),
-        ),
-      ),
+    mutationFn: (search: NonNullable<typeof history>[number]) => {
+      useSearchSession.getState().suggestSearch({
+        niche: search.niche,
+        location: search.location,
+        lat: search.latitude,
+        lng: search.longitude,
+        radiusKm: search.radiusKm,
+        presence: search.presence,
+      });
+      return Promise.resolve();
+    },
     onSuccess: () => {
       toast.info("Configuração da busca carregada no formulário.");
       queryClient.invalidateQueries({ queryKey: queryKeys.searches.all });

@@ -51,9 +51,9 @@ Deno.serve(async (req) => {
     }
 
     logEvent({ requestId, operation: "calculate-lead-score", status: "ok", resultCount: updated });
-    return json({ updated, ruleVersion: SCORE_RULE_VERSION });
+    return json({ updated, ruleVersion: SCORE_RULE_VERSION }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

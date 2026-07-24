@@ -9,6 +9,7 @@ import type {
   CreateLeadActivityInput,
   DashboardPeriod,
 } from "@/types";
+import type { SortValue } from "@/lib/constants";
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -22,7 +23,9 @@ export interface ListLeadsInput {
   filters: LeadFilters;
   page?: number;
   pageSize?: number;
-  sort?: string;
+  /** Same vocabulary the UI speaks (SORT_OPTIONS) — a bare string let the repo
+   * silently ignore every value the store could produce. */
+  sort?: SortValue;
 }
 
 export interface MoveLeadInput {
@@ -119,6 +122,12 @@ export interface DiscoveryResult {
   category: string | null;
   latitude: number;
   longitude: number;
+  /** Street + number, derived from the Google address (see `lib/address.ts`). */
+  address: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  /** UF. */
+  state: string | null;
   phone: string | null;
   website: string | null;
   hasWebsite: boolean;

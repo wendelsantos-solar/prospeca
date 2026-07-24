@@ -173,11 +173,11 @@ Deno.serve(async (req) => {
       durationMs: Date.now() - startedAt,
       status: "ok",
     });
-    return json(result, 201);
+    return json(result, 201, {}, req);
   } catch (err) {
     if (err instanceof AppError) {
       logEvent({ requestId, operation: "create-search", status: "error", errorCode: err.code });
-      return err.toResponse(requestId);
+      return err.toResponse(requestId, req);
     }
     logEvent({
       requestId,
@@ -185,6 +185,6 @@ Deno.serve(async (req) => {
       status: "error",
       errorCode: "INTERNAL_ERROR",
     });
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

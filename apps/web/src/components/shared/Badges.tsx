@@ -31,6 +31,40 @@ export function TemperatureBadge({
   );
 }
 
+/**
+ * Compact score pill used in the lead drawer header — merges temperature (icon)
+ * and score (number) into a single badge, colored by score band.
+ */
+export function ScorePill({
+  score,
+  temperature,
+  className,
+}: {
+  score: number;
+  temperature: LeadTemperature;
+  className?: string;
+}) {
+  const { icon: Icon } = map[temperature];
+  const tone =
+    score >= 75
+      ? "bg-primary-hover text-primary-foreground"
+      : score >= 45
+        ? "bg-warm text-warm-foreground"
+        : "bg-muted text-muted-foreground";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
+        tone,
+        className,
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {score}
+    </span>
+  );
+}
+
 export function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 75 ? "text-hot" : score >= 45 ? "text-warm-foreground" : "text-muted-foreground";

@@ -17,10 +17,16 @@ const args = parseArgs(Deno.args, {
 
 const email = args.email;
 const searchLimit = args["search-limit"] ? Number(args["search-limit"]) : undefined;
-const placeLimit = args["place-limit"] ? Number(args["place-limit"]) : searchLimit ? searchLimit * 10 : undefined;
+const placeLimit = args["place-limit"]
+  ? Number(args["place-limit"])
+  : searchLimit
+    ? searchLimit * 10
+    : undefined;
 
 if (!email || !searchLimit) {
-  console.error("Usage: deno run -A scripts/set-org-quota.ts --email <email> --search-limit <n> [--place-limit <n>]");
+  console.error(
+    "Usage: deno run -A scripts/set-org-quota.ts --email <email> --search-limit <n> [--place-limit <n>]",
+  );
   Deno.exit(1);
 }
 
@@ -51,7 +57,10 @@ const { data: membership, error: membershipError } = await admin
   .limit(1)
   .maybeSingle();
 if (membershipError || !membership) {
-  console.error("Failed to find organization for user:", membershipError?.message ?? "no membership");
+  console.error(
+    "Failed to find organization for user:",
+    membershipError?.message ?? "no membership",
+  );
   Deno.exit(1);
 }
 

@@ -41,9 +41,9 @@ Deno.serve(async (req) => {
       organizationId: ctx.organizationId,
       status: "ok",
     });
-    return json({ deleted: true });
+    return json({ deleted: true }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

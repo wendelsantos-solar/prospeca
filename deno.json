@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "@leads/domain": "./packages/domain/src/index.ts",
+    "@leads/domain/score": "./packages/domain/src/score.ts",
+    "@leads/domain/score-input": "./packages/domain/src/score-input.ts",
+    "@leads/domain/normalize": "./packages/domain/src/normalize.ts",
+    "@leads/domain/cache": "./packages/domain/src/cache.ts",
+    "@leads/domain/dedup": "./packages/domain/src/dedup.ts",
+    "@leads/domain/address": "./packages/domain/src/address.ts",
+    "@leads/domain/coverage": "./packages/domain/src/coverage.ts",
+    "@leads/domain/status": "./packages/domain/src/status.ts",
+    "@leads/domain/ssrf": "./packages/domain/src/ssrf.ts",
+    "@leads/geo": "./packages/geo/src/index.ts"
+  }
+}

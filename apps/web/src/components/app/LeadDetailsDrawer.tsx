@@ -7,10 +7,11 @@ import {
   useToggleNotePinMutation,
   useAddActivityMutation,
   useAddToFunnelMutation,
-  useSuppressionHashes,
+  useRemoveLeadMutation,
   useSuppressMutation,
 } from "@/hooks/useLeadsQuery";
-import { suppressionEntriesFor, isContactSuppressed } from "@/lib/suppression";
+import { useOutbound } from "@/hooks/useOutbound";
+import { suppressionEntriesFor } from "@/lib/suppression";
 import {
   Sheet,
   SheetContent,
@@ -20,15 +21,15 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
-import { formatBRL, formatDate, formatDateTime, formatDistance, digitsOnly } from "@/lib/format";
+import { ScorePill } from "@/components/shared/Badges";
+import { formatBRL, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { whatsappDisplay } from "@/lib/whatsapp";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { calculateScore, scoreInputFromLead } from "@/lib/score";
 import { NbaCard } from "@/components/app/NbaCard";
+import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
 import {
   MessageCircle,
   Phone,
@@ -36,7 +37,6 @@ import {
   Instagram,
   Globe,
   MapPin,
-  Sparkles,
   Info,
   Star,
   Pin,
@@ -44,7 +44,14 @@ import {
   Trash2,
   Pencil,
   PlusCircle,
+  MinusCircle,
   Ban,
+  Navigation,
+  Building2,
+  Clock,
+  CalendarDays,
+  Banknote,
+  GitBranch,
   Search as SearchIcon,
   TrendingUp,
 } from "lucide-react";
@@ -90,6 +97,9 @@ export function LeadDetailsDrawer() {
   const addActivityMut = useAddActivityMutation();
   const [noteText, setNoteText] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
+  const [prepareOpen, setPrepareOpen] = useState(false);
+  // Removing from the pipeline is destructive, so the button asks once first.
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [act, setAct] = useState<{
@@ -111,50 +121,21 @@ export function LeadDetailsDrawer() {
   // Keep Sheet mounted during fetch to avoid overlay flicker
   const isLoading = detailsId != null && !lead;
 
-  const breakdown = lead ? calculateScore(scoreInputFromLead(lead)).items : [];
-  const insights: { icon: string; text: string; level: "high" | "med" | "low" }[] = lead
-    ? [
-        ...(!lead.hasWebsite
-          ? [
-              {
-                icon: "🌐",
-                text: "Empresa sem site — alta oportunidade de abordagem",
-                level: "high" as const,
-              },
-            ]
-          : []),
-        ...((lead.rating ?? 0) >= 4.5
-          ? [{ icon: "⭐", text: "Excelentes avaliações", level: "med" as const }]
-          : []),
-        ...(lead.whatsapp
-          ? [{ icon: "💬", text: "WhatsApp encontrado — contato direto", level: "high" as const }]
-          : []),
-        ...(!lead.instagram
-          ? [
-              {
-                icon: "📷",
-                text: "Sem Instagram — presença social incompleta",
-                level: "med" as const,
-              },
-            ]
-          : []),
-        ...(lead.temperature === "hot"
-          ? [{ icon: "🔥", text: "Lead quente — priorize o contato", level: "high" as const }]
-          : []),
-      ]
-    : [];
+  // Score breakdown comes from the DB (single source of truth — C3).
+  const breakdown =
+    (
+      lead?.scoreBreakdown as
+        | { items?: Array<{ key: string; label: string; points: number; reason: string }> }
+        | undefined
+    )?.items ?? [];
 
-  const { data: suppressed } = useSuppressionHashes();
   const suppressMut = useSuppressMutation();
+  const removeLeadMut = useRemoveLeadMutation();
+  const { openWhatsApp } = useOutbound();
 
-  const openWhats = async () => {
+  const openWhats = () => {
     if (!lead) return;
-    const num = digitsOnly(lead.whatsapp ?? lead.phone);
-    if (!num) return toast.error("Sem WhatsApp/telefone");
-    if (suppressed && (await isContactSuppressed(suppressed, lead))) {
-      return toast.error("Contato em opt-out — não contatar (LGPD).");
-    }
-    window.open(`https://wa.me/${num}`, "_blank");
+    void openWhatsApp(lead);
   };
 
   const handleSuppress = async () => {
@@ -196,33 +177,40 @@ export function LeadDetailsDrawer() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <div
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-[13px] font-bold text-primary"
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-soft text-[13px] font-bold text-primary"
                       aria-hidden
                     >
                       {leadInitials(lead.companyName)}
                     </div>
                     <div className="min-w-0">
-                      <SheetTitle className="text-lg">{lead.companyName}</SheetTitle>
-                      <SheetDescription className="text-sm text-muted-foreground">
-                        {categoryLabel(lead.category)} • {lead.neighborhood ?? ""} • {lead.city},{" "}
-                        {lead.state}
+                      <SheetTitle className="text-[17px] font-bold leading-tight">
+                        {lead.companyName}
+                      </SheetTitle>
+                      <SheetDescription className="text-[13px] text-muted-foreground">
+                        {[
+                          categoryLabel(lead.category).toLowerCase(),
+                          [lead.neighborhood, lead.city].filter(Boolean).join(", "),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </SheetDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TemperatureBadge temperature={lead.temperature} />
+                  <div className="flex items-center gap-2 pr-6">
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
-                          className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm font-semibold"
+                          className="cursor-pointer rounded-full"
                           aria-label="Composição do score"
                         >
-                          <ScoreBadge score={lead.score} />
-                          <Info className="h-3 w-3 text-muted-foreground" />
+                          <ScorePill score={lead.score} temperature={lead.temperature} />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-72">
-                        <p className="mb-2 text-xs font-semibold">Composição do score</p>
+                        <p className="mb-2 flex items-center gap-1 text-xs font-semibold">
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                          Composição do score
+                        </p>
                         <div className="space-y-1.5">
                           {breakdown.map((b, i) => (
                             <div key={i} className="flex items-start justify-between gap-2 text-xs">
@@ -267,6 +255,37 @@ export function LeadDetailsDrawer() {
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
                 </ActionBtn>
+                {lead.phone && (
+                  <ActionBtn onClick={() => window.open(`tel:${lead.phone}`)}>
+                    <Phone className="h-3.5 w-3.5" />
+                    Ligar
+                  </ActionBtn>
+                )}
+                <ActionBtn onClick={() => setPrepareOpen(true)}>
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Preparar mensagem
+                </ActionBtn>
+                {!readOnly && (
+                  <ActionBtn
+                    tone={confirmRemove ? "danger" : undefined}
+                    disabled={removeLeadMut.isPending}
+                    title="Remover este lead do pipeline"
+                    onClick={() => {
+                      if (!confirmRemove) return setConfirmRemove(true);
+                      removeLeadMut.mutate(lead.id, {
+                        onSuccess: () => {
+                          toast.success("Removido do pipeline");
+                          setConfirmRemove(false);
+                          setDetails(null);
+                        },
+                        onError: () => toast.error("Falha ao remover."),
+                      });
+                    }}
+                  >
+                    <MinusCircle className="h-3.5 w-3.5" />
+                    {confirmRemove ? "Confirmar remoção" : "Remover do pipeline"}
+                  </ActionBtn>
+                )}
                 {(lead.phone || lead.email) && (
                   <ActionBtn
                     tone="danger"
@@ -278,39 +297,19 @@ export function LeadDetailsDrawer() {
                     Não contatar
                   </ActionBtn>
                 )}
-                {lead.phone && (
-                  <ActionBtn onClick={() => window.open(`tel:${lead.phone}`)}>
-                    <Phone className="h-3.5 w-3.5" />
-                    Ligar
-                  </ActionBtn>
-                )}
-                {lead.email && (
-                  <ActionBtn onClick={() => window.open(`mailto:${lead.email}`)}>
-                    <Mail className="h-3.5 w-3.5" />
-                    E-mail
-                  </ActionBtn>
-                )}
-                {lead.instagram && (
-                  <ActionBtn
-                    onClick={() =>
-                      window.open(
-                        `https://instagram.com/${lead.instagram!.replace("@", "")}`,
-                        "_blank",
-                      )
-                    }
-                  >
-                    <Instagram className="h-3.5 w-3.5" />
-                    Instagram
-                  </ActionBtn>
-                )}
-                {lead.website && (
-                  <ActionBtn onClick={() => window.open(lead.website, "_blank")}>
-                    <Globe className="h-3.5 w-3.5" />
-                    Site
-                  </ActionBtn>
-                )}
               </div>
             </div>
+
+            <PrepareMessageDialog
+              lead={lead}
+              open={prepareOpen}
+              onOpenChange={setPrepareOpen}
+              materialize={
+                readOnly && currentSearch && preview
+                  ? { searchId: currentSearch.id, placeId: preview.placeId }
+                  : undefined
+              }
+            />
 
             <div className="p-5 pb-0">
               {!readOnly && <NbaCard lead={lead} />}
@@ -318,96 +317,122 @@ export function LeadDetailsDrawer() {
             </div>
 
             <Tabs defaultValue="info" className="p-5 pt-0">
-              <TabsList>
-                <TabsTrigger value="info">Informações</TabsTrigger>
-                <TabsTrigger value="insights">Oportunidade</TabsTrigger>
-                <TabsTrigger value="notes">Notas ({lead.notes.length})</TabsTrigger>
+              <TabsList className="grid h-10 w-full grid-cols-4">
+                <TabsTrigger value="info">Visão geral</TabsTrigger>
+                <TabsTrigger value="notes">Notas</TabsTrigger>
                 <TabsTrigger value="activities">Atividades</TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="info" className="space-y-3 mt-4">
-                <InfoRow icon={MapPin} label="Endereço">
-                  {readOnly
-                    ? "—"
-                    : `${lead.address}, ${lead.neighborhood ?? ""}, ${lead.city} - ${lead.state}`}
-                </InfoRow>
-                <InfoRow icon={Phone} label="Telefone">
-                  {lead.phone ?? "—"}
-                </InfoRow>
-                <InfoRow icon={MessageCircle} label="WhatsApp">
-                  {(() => {
-                    const wa = whatsappDisplay(lead.whatsapp, lead.phone);
-                    if (!wa) return "—";
-                    return (
-                      <>
-                        {wa.value}
-                        {wa.probable && (
-                          <span className="ml-1 text-[10px] text-muted-foreground">(provável)</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </InfoRow>
-                <InfoRow icon={Mail} label="E-mail">
-                  {lead.email ?? "—"}
-                </InfoRow>
-                <InfoRow icon={Instagram} label="Instagram">
-                  {lead.instagram ?? "—"}
-                </InfoRow>
-                <InfoRow icon={Globe} label="Website">
-                  {lead.website ?? "—"}
-                </InfoRow>
-                <InfoRow icon={Star} label="Nota / Avaliações">
-                  {lead.rating?.toFixed(1) ?? "—"} ({lead.reviewCount ?? 0})
-                </InfoRow>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <MiniStat label="Distância" value={formatDistance(lead.distanceKm)} />
-                  <MiniStat
-                    label="Estágio"
-                    value={readOnly ? "— (não no funil)" : STAGE_LABELS[lead.stage]}
+              <TabsContent value="info" className="mt-4">
+                <Section title="Contato">
+                  <DataRow
+                    icon={Phone}
+                    label="Telefone"
+                    value={lead.phone}
+                    href={lead.phone ? `tel:${lead.phone}` : undefined}
                   />
-                  <MiniStat label="Valor estimado" value={formatBRL(lead.estimatedValue)} />
-                  <MiniStat
-                    label="Descoberto em"
-                    value={readOnly ? "—" : formatDate(lead.discoveredAt)}
+                  <DataRow
+                    icon={MessageCircle}
+                    label="WhatsApp"
+                    value={(() => {
+                      const wa = whatsappDisplay(lead.whatsapp, lead.phone);
+                      if (!wa) return null;
+                      return (
+                        <>
+                          {wa.value}
+                          {wa.probable && (
+                            <span className="ml-1 text-[10px] text-muted-foreground">
+                              (provável)
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
+                    onClick={openWhats}
                   />
-                </div>
-                {lead.openingHours && (
-                  <div className="rounded-md border p-3 text-xs text-muted-foreground">
-                    <p className="mb-1 font-medium text-foreground">Horário de funcionamento</p>
-                    {lead.openingHours.map((h) => (
-                      <p key={h}>{h}</p>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+                  <DataRow
+                    icon={Mail}
+                    label="E-mail"
+                    value={lead.email}
+                    href={lead.email ? `mailto:${lead.email}` : undefined}
+                  />
+                  <DataRow
+                    icon={Globe}
+                    label="Site"
+                    value={lead.website}
+                    href={lead.website}
+                    external
+                  />
+                  <DataRow
+                    icon={Instagram}
+                    label="Instagram"
+                    value={lead.instagram}
+                    href={
+                      lead.instagram
+                        ? `https://instagram.com/${lead.instagram.replace("@", "")}`
+                        : undefined
+                    }
+                    external
+                  />
+                </Section>
 
-              <TabsContent value="insights" className="space-y-2 mt-4">
-                {insights.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhum insight destacado.</p>
+                <Section title="Localização">
+                  <DataRow
+                    icon={MapPin}
+                    label="Endereço"
+                    value={[lead.address, lead.neighborhood].filter(Boolean).join(", ")}
+                  />
+                  <DataRow
+                    icon={Navigation}
+                    label="Distância"
+                    value={formatDistance(lead.distanceKm)}
+                  />
+                  <DataRow
+                    icon={Building2}
+                    label="Cidade"
+                    value={[lead.city, lead.state].filter(Boolean).join(" - ")}
+                  />
+                </Section>
+
+                <Section title="Reputação">
+                  <DataRow
+                    icon={Star}
+                    label="Avaliação"
+                    value={lead.rating != null ? `${lead.rating.toFixed(1)} ★` : null}
+                  />
+                  <DataRow
+                    icon={Star}
+                    label="Avaliações"
+                    value={lead.reviewCount != null ? String(lead.reviewCount) : null}
+                  />
+                </Section>
+
+                <Section title="Comercial">
+                  <DataRow
+                    icon={GitBranch}
+                    label="Estágio"
+                    value={readOnly ? "Não está no funil" : STAGE_LABELS[lead.stage]}
+                  />
+                  <DataRow
+                    icon={Banknote}
+                    label="Valor estimado"
+                    value={lead.estimatedValue != null ? formatBRL(lead.estimatedValue) : null}
+                  />
+                  <DataRow
+                    icon={CalendarDays}
+                    label="Descoberto em"
+                    value={readOnly ? null : formatDate(lead.discoveredAt)}
+                  />
+                </Section>
+
+                {lead.openingHours && lead.openingHours.length > 0 && (
+                  <Section title="Horário de funcionamento">
+                    {lead.openingHours.map((h) => (
+                      <DataRow key={h} icon={Clock} label="" value={h} />
+                    ))}
+                  </Section>
                 )}
-                {insights.map((i, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 rounded-lg border bg-surface p-3"
-                  >
-                    <span className="text-lg">{i.icon}</span>
-                    <div className="flex-1">
-                      <p className="text-sm">{i.text}</p>
-                      <span
-                        className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${i.level === "high" ? "bg-hot/15 text-hot" : i.level === "med" ? "bg-warm/20 text-warm-foreground" : "bg-muted text-muted-foreground"}`}
-                      >
-                        {i.level === "high"
-                          ? "Alto impacto"
-                          : i.level === "med"
-                            ? "Médio impacto"
-                            : "Baixo impacto"}
-                      </span>
-                    </div>
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                ))}
               </TabsContent>
 
               <TabsContent value="notes" className="space-y-3 mt-4">
@@ -724,22 +749,66 @@ export function LeadDetailsDrawer() {
   );
 }
 
-function InfoRow({
+/** Uppercase-titled group of `DataRow`s — CONTATO, LOCALIZAÇÃO, etc. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-5 last:mb-0">
+      <h4 className="mb-1.5 px-1 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
+        {title}
+      </h4>
+      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One label/value line. A missing value renders the "Não encontrado"
+ * placeholder instead of an empty cell; `href`/`onClick` make the value
+ * actionable (the drawer header no longer carries e-mail/site/Instagram
+ * buttons — the value itself is the link).
+ */
+function DataRow({
   icon: Icon,
   label,
-  children,
+  value,
+  href,
+  external,
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
-  children: React.ReactNode;
+  value?: React.ReactNode;
+  href?: string;
+  external?: boolean;
+  onClick?: () => void;
 }) {
+  const empty = value == null || value === "";
+  const body = empty ? (
+    <span className="text-subtle-foreground">Não encontrado</span>
+  ) : href ? (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noreferrer" : undefined}
+      className="truncate hover:text-primary hover:underline"
+    >
+      {value}
+    </a>
+  ) : onClick ? (
+    <button type="button" onClick={onClick} className="truncate hover:text-primary hover:underline">
+      {value}
+    </button>
+  ) : (
+    <span className="truncate">{value}</span>
+  );
+
   return (
-    <div className="flex items-start gap-3 text-sm">
-      <Icon className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
-      <div className="flex-1">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="text-foreground">{children}</p>
-      </div>
+    <div className="flex items-center gap-3 px-3.5 py-2.5 text-[13px]">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      {label && <span className="w-[108px] shrink-0 text-muted-foreground">{label}</span>}
+      <div className="flex min-w-0 flex-1 items-center text-foreground">{body}</div>
     </div>
   );
 }
@@ -751,15 +820,6 @@ function FunnelGate({ feature }: { feature: string }) {
     <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
       <PlusCircle className="h-5 w-5 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">Adicione ao funil para gerenciar {feature}.</p>
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-surface p-2.5">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

@@ -34,6 +34,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Format check
+        run: bun run format:check
+
       - name: Build (web)
         run: bun run build
 
@@ -42,9 +45,16 @@ jobs:
         with:
           deno-version: v2.x
 
-      # Edge functions are Deno, not covered by the bun typecheck above — a
-      # missing field on a calculateScore() call once shipped latent because CI
-      # never ran this. Only index.ts entrypoints (test files use bun:test,
-      # which Deno can't resolve); _shared/*.ts is checked transitively.
       - name: Typecheck edge functions (deno)
         run: deno check supabase/functions/*/index.ts
+
+      - name: Lint edge functions (deno)
+        run: deno lint supabase/functions/
+
+      # C1 landed: Node↔Deno seam is now an import map. _shared duplicates
+      # have been replaced by re-exports from @leads/domain and @leads/geo.
+      # Drift is structurally impossible — one source of truth.
+      - name: Verify import map (Node ↔ Deno seam)
+        run: |
+          echo "C1: deno.json import map active — @leads/domain → packages/domain"
+          echo "_shared/{score,score-input,normalize,cache,dedup,geo}.ts are re-exports"

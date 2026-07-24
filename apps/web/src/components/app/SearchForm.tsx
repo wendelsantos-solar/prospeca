@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { NICHES } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSearchDraftStore, useSettingsStore } from "@/stores";
+import { useSearchSession } from "@/stores/searchSession";
 import { distanceKm } from "@/lib/geo";
 import { useIsDirty } from "@/hooks/useIsDirty";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
@@ -169,54 +170,19 @@ export function SearchForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on any draft change while dirty; runSearch reads fresh state itself
   }, [draft, dirty, reason, loading]);
 
-  // Eventos globais (home page, histórico, retry, geolocalização).
+  // Register imperative search actions with the session store (C5: replaces window event bus).
+  // Components call useSearchSession().suggestSearch(...) instead of dispatching CustomEvents.
   useEffect(() => {
     // Retornante: hidrata os campos com a última localização escolhida.
     const last = useLocationStore.getState().lastLocation;
     if (last) setDraft({ location: last.label, coords: { lat: last.lat, lng: last.lng } });
 
-    const onFocusNiche = () => nicheButtonRef.current?.focus();
-    const onGeoLocated = (e: Event) => {
-      const d = (e as CustomEvent<{ label: string; lat: number; lng: number }>).detail;
-      setDraft({ location: d.label, coords: { lat: d.lat, lng: d.lng } });
-    };
-    const onSuggest = (e: Event) => {
-      const d = (e as CustomEvent<SuggestSearchDetail>).detail;
-      const radiusKm = d.radiusKm ?? draft.radiusKm;
-      setDraft({
-        niche: d.niche,
-        location: d.location,
-        coords: { lat: d.lat, lng: d.lng },
-        presence: d.presence,
-        radiusKm,
-      });
-      runSearch({
-        niche: d.niche,
-        location: d.location,
-        latitude: d.lat,
-        longitude: d.lng,
-        presence: d.presence,
-        radiusKm,
-      });
-    };
-    const onRetry = () => runSearch();
-    const onRadarSearch = () => runSearch();
-    // "Atualizar": re-run the current search bypassing the cache (paga Google).
-    const onRefresh = () => runSearch({ forceRefresh: true });
-    window.addEventListener("focus-niche", onFocusNiche);
-    window.addEventListener("suggest-search", onSuggest);
-    window.addEventListener("retry-search", onRetry);
-    window.addEventListener("radar-search", onRadarSearch);
-    window.addEventListener("refresh-search", onRefresh);
-    window.addEventListener("geo-located", onGeoLocated);
-    return () => {
-      window.removeEventListener("focus-niche", onFocusNiche);
-      window.removeEventListener("suggest-search", onSuggest);
-      window.removeEventListener("retry-search", onRetry);
-      window.removeEventListener("radar-search", onRadarSearch);
-      window.removeEventListener("refresh-search", onRefresh);
-      window.removeEventListener("geo-located", onGeoLocated);
-    };
+    const register = useSearchSession.getState().register;
+    register({
+      runSearch: (input) => runSearch(input),
+      setDraft: (patch) => setDraft(patch as Parameters<typeof setDraft>[0]),
+      focusNiche: () => nicheButtonRef.current?.focus(),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

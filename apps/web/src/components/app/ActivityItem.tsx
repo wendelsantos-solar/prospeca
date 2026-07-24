@@ -12,7 +12,8 @@ import {
 import type { ActivityType, Lead, LeadActivity } from "@/types";
 import { useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
-import { formatDate, digitsOnly } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useOutbound } from "@/hooks/useOutbound";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ const PRIORITY_LABEL: Record<"low" | "medium" | "high", string> = {
 export function ActivityItem({ lead, activity }: { lead: Lead; activity: LeadActivity }) {
   const setDetails = useLeadsStore((s) => s.setDetails);
   const completeMutation = useCompleteActivityMutation();
+  const { openWhatsApp } = useOutbound();
   const Icon = ICONS[activity.type] ?? Sparkles;
 
   function toggleDone() {
@@ -58,13 +60,12 @@ export function ActivityItem({ lead, activity }: { lead: Lead; activity: LeadAct
     toast.success(activity.done ? "Atividade reaberta" : "Atividade concluída");
   }
 
-  function openChannel() {
+  async function openChannel() {
     if (activity.type === "message") {
-      const num = digitsOnly(lead.whatsapp ?? lead.phone);
-      if (num) {
-        window.open(`https://wa.me/${num}`, "_blank");
-        return;
-      }
+      // Refused (no WhatsApp / opt-out) → fall back to the drawer, as before.
+      if (await openWhatsApp(lead)) return;
+      setDetails(lead.id);
+      return;
     }
     if (activity.type === "call" && lead.phone) {
       window.open(`tel:${lead.phone}`, "_self");

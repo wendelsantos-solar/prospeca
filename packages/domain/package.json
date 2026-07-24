@@ -9,10 +9,10 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --config ../eslint.config.js"
   },
   "dependencies": {
-    "@leads/contracts": "workspace:*",
     "@leads/geo": "workspace:*"
   },
   "devDependencies": {

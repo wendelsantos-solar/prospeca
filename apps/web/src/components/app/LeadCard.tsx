@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
-import { formatDistance, formatBRL, formatRelative, formatDate, digitsOnly } from "@/lib/format";
+import { formatDistance, formatBRL, formatRelative, formatDate } from "@/lib/format";
+import { useOutbound } from "@/hooks/useOutbound";
 import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import {
@@ -66,11 +67,10 @@ export const LeadCard = memo(function LeadCard({
   const moveMutation = useMoveLeadMutation();
   const removeLeadMut = useRemoveLeadMutation();
   const navigate = useNavigate();
+  const { openWhatsApp } = useOutbound();
 
   const openWhats = () => {
-    const num = digitsOnly(lead.whatsapp ?? lead.phone);
-    if (!num) return toast.error("Sem WhatsApp/telefone");
-    window.open(`https://wa.me/${num}`, "_blank");
+    void openWhatsApp(lead);
   };
 
   const centerOnMap = () => {
@@ -347,7 +347,8 @@ export const LeadCard = memo(function LeadCard({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         removeLeadMut.mutate(lead.id);
                         toast.success("Lead removido da lista");
                       }}

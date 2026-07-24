@@ -8,6 +8,10 @@ const base: DiscoveryResult = {
   category: "accountant",
   latitude: -22.9,
   longitude: -43.1,
+  address: null,
+  neighborhood: null,
+  city: null,
+  state: null,
   phone: "+55 21 9688 49884",
   website: null,
   hasWebsite: false,
@@ -64,6 +68,20 @@ test("maps enriched contact fields when present", () => {
   expect(lead.email).toBe("c@ex.com");
   expect(lead.instagram).toBe("@ex");
   expect(lead.whatsapp).toBe("5521999998888");
+});
+
+test("maps the Google address parts when the place carries them", () => {
+  const lead = discoveryToPreviewLead({
+    ...base,
+    address: "Rua União, 2043",
+    neighborhood: "Vila Madalena",
+    city: "São Paulo",
+    state: "SP",
+  });
+  expect(lead.address).toBe("Rua União, 2043");
+  expect(lead.neighborhood).toBe("Vila Madalena");
+  expect(lead.city).toBe("São Paulo");
+  expect(lead.state).toBe("SP");
 });
 
 test("null category and website degrade to empty/undefined", () => {

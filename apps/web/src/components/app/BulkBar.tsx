@@ -1,11 +1,6 @@
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
-import {
-  useLeadsList,
-  useDiscoveryResults,
-  useAddToFunnelMutation,
-  useSuppressionHashes,
-} from "@/hooks/useLeadsQuery";
-import { isContactSuppressed } from "@/lib/suppression";
+import { useLeadsList, useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import { useOutbound } from "@/hooks/useOutbound";
 
 interface BulkTarget {
   id: string;
@@ -31,8 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useMemo } from "react";
 import { MessageCircle, Copy, X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { toast } from "sonner";
-import { digitsOnly } from "@/lib/format";
-import { categoryLabel } from "@/lib/category";
+import { buildContactMessage } from "@/lib/message-fill";
 
 export function BulkBar({
   visibleIds,
@@ -113,10 +107,6 @@ export function BulkBar({
   );
 }
 
-function fill(template: string, ctx: Record<string, string>) {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, k) => ctx[k] ?? "");
-}
-
 export function BulkMessageDialog({
   open,
   onOpenChange,
@@ -128,8 +118,7 @@ export function BulkMessageDialog({
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const { data: leadPage } = useLeadsList({ quick: [] });
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
-  const addToFunnel = useAddToFunnelMutation();
-  const { data: suppressed } = useSuppressionHashes();
+  const { openWhatsApp } = useOutbound();
 
   // Selection can hold discovery place ids (prospecting from the sidebar/map) or
   // lead ids (kanban). Resolve each against both so the dialog works for either.
@@ -186,15 +175,17 @@ export function BulkMessageDialog({
     if (messages[id] != null) return messages[id];
     const t = targets.find((x) => x.id === id);
     if (!t) return "";
-    const base = fill(template, {
-      empresa: t.name,
-      categoria: categoryLabel(t.category).toLowerCase(),
-      cidade: t.city,
-      bairro: t.neighborhood,
-      meu_nome: senderName || userName,
-      responsavel: "",
-    });
-    return signature ? `${base}\n\n${signature}` : base;
+    return buildContactMessage(
+      template,
+      {
+        companyName: t.name,
+        category: t.category,
+        city: t.city,
+        neighborhood: t.neighborhood,
+        phone: t.phone,
+      },
+      { senderName, userName, signature },
+    );
   };
 
   const currentMsg = useMemo(
@@ -205,17 +196,15 @@ export function BulkMessageDialog({
 
   if (!current) return null;
 
-  const openWA = async () => {
-    const num = digitsOnly(current.whatsapp ?? current.phone ?? "");
-    if (!num) return toast.error("Sem telefone");
-    if (suppressed && (await isContactSuppressed(suppressed, current))) {
-      return toast.error("Contato em opt-out — não contatar (LGPD).");
-    }
-    // Contatar uma empresa descoberta materializa o lead como 'contacted'.
-    if (current.kind === "discovery" && !current.inFunnel && currentSearch) {
-      addToFunnel.mutate({ searchId: currentSearch.id, placeId: current.id, stage: "contacted" });
-    }
-    window.open(`https://wa.me/${num}?text=${encodeURIComponent(currentMsg)}`, "_blank");
+  const openWA = () => {
+    void openWhatsApp(current, {
+      message: currentMsg,
+      // Contatar uma empresa descoberta materializa o lead como 'contacted'.
+      materialize:
+        current.kind === "discovery" && !current.inFunnel && currentSearch
+          ? { searchId: currentSearch.id, placeId: current.id }
+          : undefined,
+    });
   };
 
   return (

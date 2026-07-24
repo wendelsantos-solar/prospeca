@@ -26,14 +26,19 @@ Deno.serve(async (req) => {
       throw new AppError("FORBIDDEN", "Acesso restrito ao administrador da plataforma.");
     }
     logEvent({ requestId, operation: "get-admin-overview", status: "ok" });
-    return json({
-      days,
-      overview: overview.data,
-      orgs: orgs.data ?? [],
-      timeseries: series.data ?? [],
-    });
+    return json(
+      {
+        days,
+        overview: overview.data,
+        orgs: orgs.data ?? [],
+        timeseries: series.data ?? [],
+      },
+      200,
+      {},
+      req,
+    );
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   const requestId = newRequestId();
 
   if (!(await isInternalCall(req))) {
-    return new AppError("FORBIDDEN", "Função interna.").toResponse(requestId);
+    return new AppError("FORBIDDEN", "Função interna.").toResponse(requestId, req);
   }
 
   const admin = adminClient();
@@ -72,6 +72,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  logEvent({ requestId, operation: "recover-stuck-searches", status: "ok", resultCount: redispatched });
-  return json({ scanned: stuck?.length ?? 0, redispatched });
+  logEvent({
+    requestId,
+    operation: "recover-stuck-searches",
+    status: "ok",
+    resultCount: redispatched,
+  });
+  return json({ scanned: stuck?.length ?? 0, redispatched }, 200, {}, req);
 });

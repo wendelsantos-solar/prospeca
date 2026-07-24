@@ -9,6 +9,7 @@ import type {
   DashboardPeriod,
 } from "@/types";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
+import { parseAddress } from "@leads/domain";
 import type {
   CreateSearchInput,
   DashboardOverview,
@@ -22,6 +23,7 @@ import type {
   SearchStatusSnapshot,
   UpdateLeadInput,
 } from "./types";
+import type { SortValue } from "@/lib/constants";
 
 interface LeadRow {
   id: string;
@@ -43,6 +45,7 @@ interface LeadRow {
   rating: number | null;
   review_count: number | null;
   score: number;
+  score_breakdown: Record<string, unknown> | null;
   temperature: Lead["temperature"];
   stage: Lead["stage"];
   estimated_value: number | null;
@@ -119,15 +122,19 @@ function mapActivity(row: ActivityRow): LeadActivity {
 }
 
 function mapLead(row: LeadRow): Lead {
+  // `leads.address` holds the Google formatted address; neighborhood/city/state
+  // are only populated for leads imported after the address parsing landed, so
+  // older rows fall back to deriving them from the address string.
+  const addr = parseAddress(row.address);
   return {
     id: row.id,
     companyName: row.company_name,
     category: row.category ?? "",
     description: row.description ?? undefined,
     address: row.address ?? "",
-    neighborhood: row.neighborhood ?? undefined,
-    city: row.city ?? "",
-    state: row.state ?? "",
+    neighborhood: row.neighborhood ?? addr.neighborhood ?? undefined,
+    city: row.city ?? addr.city ?? "",
+    state: row.state ?? addr.state ?? "",
     latitude: row.latitude ?? 0,
     longitude: row.longitude ?? 0,
     distanceKm: 0,
@@ -140,6 +147,7 @@ function mapLead(row: LeadRow): Lead {
     rating: row.rating ?? undefined,
     reviewCount: row.review_count ?? undefined,
     score: row.score,
+    scoreBreakdown: row.score_breakdown ?? undefined,
     temperature: row.temperature,
     stage: row.stage,
     estimatedValue: row.estimated_value ?? undefined,
@@ -156,6 +164,36 @@ function mapLead(row: LeadRow): Lead {
 }
 
 const LEAD_SELECT = "*, lead_notes(*), lead_activities(*)";
+
+/**
+ * The UI's sort vocabulary → a `leads` column ordering. It used to switch on
+ * "score" | "rating" | "name", which no caller can produce (the store speaks
+ * SORT_OPTIONS), so every sort silently fell through to created_at — on a
+ * 500-row page that meant "Maior score" ranked the newest rows, not the best.
+ *
+ * `relevance` mirrors the client ranking, which leads with score.
+ * `distance-asc` has no column here: `distanceKm` is 0 for every funnel lead,
+ * so it keeps the recency order rather than pretending to sort.
+ */
+const SORT_ORDER: Record<SortValue, { column: string; ascending: boolean } | null> = {
+  relevance: { column: "score", ascending: false },
+  "score-desc": { column: "score", ascending: false },
+  "rating-desc": { column: "rating", ascending: false },
+  "reviews-desc": { column: "review_count", ascending: false },
+  "value-desc": { column: "estimated_value", ascending: false },
+  recent: { column: "created_at", ascending: false },
+  "name-asc": { column: "company_name", ascending: true },
+  "name-desc": { column: "company_name", ascending: false },
+  "distance-asc": null,
+};
+
+function applySort<
+  Q extends { order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): Q },
+>(query: Q, sort: SortValue | undefined): Q {
+  const spec = sort ? SORT_ORDER[sort] : null;
+  if (!spec) return query.order("created_at", { ascending: false });
+  return query.order(spec.column, { ascending: spec.ascending, nullsFirst: false });
+}
 
 export class SupabaseLeadRepository implements LeadRepository {
   async list(input: ListLeadsInput): Promise<PaginatedResult<Lead>> {
@@ -192,19 +230,7 @@ export class SupabaseLeadRepository implements LeadRepository {
     if (f.valueMin != null) query = query.gte("estimated_value", f.valueMin);
     if (f.valueMax != null) query = query.lte("estimated_value", f.valueMax);
 
-    switch (input.sort) {
-      case "score":
-        query = query.order("score", { ascending: false });
-        break;
-      case "rating":
-        query = query.order("rating", { ascending: false, nullsFirst: false });
-        break;
-      case "name":
-        query = query.order("company_name", { ascending: true });
-        break;
-      default:
-        query = query.order("created_at", { ascending: false });
-    }
+    query = applySort(query, input.sort);
 
     const { data, count, error } = await query;
     if (error) throw new Error(error.message);
@@ -503,25 +529,34 @@ export class SupabaseSearchRepository implements SearchRepository {
       p_search_id: searchId,
     });
     if (error) throw new Error(error.message);
-    return (data as Record<string, unknown>[]).map((r) => ({
-      placeId: r.place_id as string,
-      name: r.name as string,
-      category: (r.category as string) ?? null,
-      latitude: r.latitude as number,
-      longitude: r.longitude as number,
-      phone: (r.national_phone_number as string) ?? null,
-      website: (r.website_uri as string) ?? null,
-      hasWebsite: r.has_website as boolean,
-      email: (r.email as string) ?? null,
-      instagram: (r.instagram as string) ?? null,
-      whatsapp: (r.whatsapp as string) ?? null,
-      rating: (r.rating as number) ?? null,
-      reviewCount: (r.review_count as number) ?? null,
-      distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
-      score: (r.score as number) ?? 0,
-      temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
-      importedLeadId: (r.imported_lead_id as string) ?? null,
-    }));
+    return (data as Record<string, unknown>[]).map((r) => {
+      // Google gives us a formatted string on the search path and structured
+      // components only after a details refresh — parseAddress handles both.
+      const addr = parseAddress(r.formatted_address as string | null, r.address_components);
+      return {
+        placeId: r.place_id as string,
+        name: r.name as string,
+        category: (r.category as string) ?? null,
+        latitude: r.latitude as number,
+        longitude: r.longitude as number,
+        address: addr.street,
+        neighborhood: addr.neighborhood,
+        city: addr.city,
+        state: addr.state,
+        phone: (r.national_phone_number as string) ?? null,
+        website: (r.website_uri as string) ?? null,
+        hasWebsite: r.has_website as boolean,
+        email: (r.email as string) ?? null,
+        instagram: (r.instagram as string) ?? null,
+        whatsapp: (r.whatsapp as string) ?? null,
+        rating: (r.rating as number) ?? null,
+        reviewCount: (r.review_count as number) ?? null,
+        distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
+        score: (r.score as number) ?? 0,
+        temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
+        importedLeadId: (r.imported_lead_id as string) ?? null,
+      };
+    });
   }
 
   async enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }> {

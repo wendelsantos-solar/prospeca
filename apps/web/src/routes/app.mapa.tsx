@@ -9,7 +9,7 @@ import { HOME_SUGGESTIONS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { MapIcon, Search, Sparkles, Loader2 } from "lucide-react";
 import { LocationPrompt } from "@/components/app/LocationPrompt";
-import type { SuggestSearchDetail } from "@/components/app/SearchForm";
+import { useSearchSession } from "@/stores/searchSession";
 
 const MapView = lazy(() =>
   import("@/components/app/MapView").then((m) => ({ default: m.MapView })),
@@ -33,14 +33,13 @@ function CenteredLoader({ label }: { label: string }) {
 
 function HomeState() {
   const suggest = (s: (typeof HOME_SUGGESTIONS)[number]) => {
-    const detail: SuggestSearchDetail = {
+    useSearchSession.getState().suggestSearch({
       niche: s.niche,
       location: s.location,
       lat: s.lat,
       lng: s.lng,
       presence: s.presence,
-    };
-    window.dispatchEvent(new CustomEvent("suggest-search", { detail }));
+    });
   };
   return (
     <div className="flex h-full items-center justify-center p-8 overflow-y-auto">
@@ -83,10 +82,7 @@ function HomeState() {
             ))}
           </div>
         </div>
-        <Button
-          className="gap-2"
-          onClick={() => window.dispatchEvent(new CustomEvent("focus-niche"))}
-        >
+        <Button className="gap-2" onClick={() => useSearchSession.getState().focusNiche()}>
           <Search className="h-4 w-4" />
           Começar uma busca
         </Button>
@@ -153,7 +149,7 @@ function MapaPage() {
         <ErrorState
           title="Falha na busca"
           description={searchError}
-          onRetry={() => window.dispatchEvent(new CustomEvent("retry-search"))}
+          onRetry={() => useSearchSession.getState().retrySearch()}
           onBack={() => setSearchError(null)}
         />
       </div>
@@ -173,7 +169,7 @@ function MapaPage() {
               onDismiss={() => setPromptDismissed(true)}
               onPickCity={() => {
                 setPromptDismissed(true);
-                window.dispatchEvent(new CustomEvent("focus-niche"));
+                useSearchSession.getState().focusNiche();
               }}
             />
           )}

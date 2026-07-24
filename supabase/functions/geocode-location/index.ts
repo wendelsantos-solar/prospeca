@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         provider: "google_geocoding",
       });
       logEvent({ requestId, operation: "geocode-location", status: "ok" });
-      return json({ ...geo, cached: false });
+      return json({ ...geo, cached: false }, 200, {}, req);
     }
 
     const normalized = parsed.data.query.trim().toLowerCase();
@@ -48,7 +48,12 @@ Deno.serve(async (req) => {
 
     if (cached?.location?.coordinates) {
       const [lng, lat] = cached.location.coordinates as [number, number];
-      return json({ label: cached.label, latitude: lat, longitude: lng, cached: true });
+      return json(
+        { label: cached.label, latitude: lat, longitude: lng, cached: true },
+        200,
+        {},
+        req,
+      );
     }
 
     const geo = await geocode(parsed.data.query);
@@ -70,9 +75,9 @@ Deno.serve(async (req) => {
     );
 
     logEvent({ requestId, operation: "geocode-location", status: "ok" });
-    return json({ ...geo, cached: false });
+    return json({ ...geo, cached: false }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

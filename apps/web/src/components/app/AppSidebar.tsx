@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
+import { useSearchSession } from "@/stores/searchSession";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { RADIUS_OPTIONS } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
@@ -259,12 +260,12 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
             <ErrorState
               title="Falha na busca"
               description={searchError}
-              onRetry={() => window.dispatchEvent(new CustomEvent("retry-search"))}
+              onRetry={() => useSearchSession.getState().retrySearch()}
               onSecondary={
                 isAreaTooLargeError && smallerRadius
                   ? () => {
                       setDraft({ radiusKm: smallerRadius });
-                      window.dispatchEvent(new CustomEvent("retry-search"));
+                      useSearchSession.getState().retrySearch();
                     }
                   : undefined
               }

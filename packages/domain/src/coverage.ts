@@ -11,12 +11,7 @@ export interface Circle {
 }
 
 /** Great-circle distance in meters (spherical earth, R=6371km). */
-export function haversineMeters(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
+export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -34,12 +29,7 @@ export function haversineMeters(
  * radius_meters`), so a covering entry's payload can serve the inner request.
  */
 export function circleContains(outer: Circle, inner: Circle): boolean {
-  const d = haversineMeters(
-    outer.latitude,
-    outer.longitude,
-    inner.latitude,
-    inner.longitude,
-  );
+  const d = haversineMeters(outer.latitude, outer.longitude, inner.latitude, inner.longitude);
   return d + inner.radiusMeters <= outer.radiusMeters;
 }
 

@@ -6,9 +6,10 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
+import { useSearchSession } from "@/stores/searchSession";
 import { RadarPill } from "./RadarPill";
-import { useAddToFunnelMutation, discoveryKeys, useSuppressionHashes } from "@/hooks/useLeadsQuery";
-import { isContactSuppressed } from "@/lib/suppression";
+import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
+import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const searching = useLeadsStore((s) => s.searching);
   const addToFunnel = useAddToFunnelMutation();
   const queryClient = useQueryClient();
-  const { data: suppressed } = useSuppressionHashes();
+  const { openWhatsApp } = useOutbound();
   // Persisted so a marked circle / dark map survives a page refresh.
   const showCircle = useUIStore((s) => s.mapShowCircle);
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
@@ -247,16 +248,10 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
           const result = results.find((x) => x.placeId === placeId);
           if (!result || !searchId) return;
           if (action === "whatsapp") {
-            const num = (result.phone ?? "").replace(/\D/g, "");
-            if (!num) return toast.error("Sem telefone");
-            if (suppressed && (await isContactSuppressed(suppressed, result))) {
-              return toast.error("Contato em opt-out — não contatar (LGPD).");
-            }
             // Contatar = entra no funil como 'contacted'.
-            if (result.importedLeadId == null) {
-              addToFunnel.mutate({ searchId, placeId, stage: "contacted" });
-            }
-            window.open(`https://wa.me/${num}`, "_blank");
+            await openWhatsApp(result, {
+              materialize: result.importedLeadId == null ? { searchId, placeId } : undefined,
+            });
           }
           if (action === "funnel") {
             addToFunnel.mutate(
@@ -302,7 +297,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     setPreview,
     addToFunnel,
     queryClient,
-    suppressed,
+    openWhatsApp,
     currentSearch?.id,
   ]);
 
@@ -349,7 +344,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         aria-label="Mapa de leads"
       />
 
-      <RadarPill onSearch={() => window.dispatchEvent(new CustomEvent("radar-search"))} />
+      <RadarPill onSearch={() => useSearchSession.getState().radarSearch()} />
 
       {(searching || !mapReady) && !mapError && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-background/60 backdrop-blur-sm">
@@ -388,7 +383,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
             variant="secondary"
             className="h-8 w-8 shadow-elevated"
             onClick={() => {
-              window.dispatchEvent(new CustomEvent("refresh-search"));
+              useSearchSession.getState().refreshSearch();
               toast.info("Atualizando resultados direto do Google…");
             }}
             aria-label="Atualizar resultados (busca nova no Google)"

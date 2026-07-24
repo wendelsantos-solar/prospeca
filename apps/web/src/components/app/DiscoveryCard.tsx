@@ -13,12 +13,9 @@ import {
   Flame,
 } from "lucide-react";
 import { useLeadsStore } from "@/stores";
-import {
-  useAddToFunnelMutation,
-  useEnrichDiscoveryMutation,
-  useSuppressionHashes,
-} from "@/hooks/useLeadsQuery";
-import { isContactSuppressed } from "@/lib/suppression";
+import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
+import { useOutbound } from "@/hooks/useOutbound";
+import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
@@ -94,7 +91,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
   const setPreview = useLeadsStore((s) => s.setPreview);
   const addToFunnel = useAddToFunnelMutation();
   const enrichDiscovery = useEnrichDiscoveryMutation();
-  const { data: suppressed } = useSuppressionHashes();
+  const { openWhatsApp } = useOutbound();
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
   const missingContact = !result.email && !result.instagram && !result.whatsapp;
@@ -112,14 +109,11 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     }
   };
 
-  const openWhats = async () => {
-    const num = (result.phone ?? "").replace(/\D/g, "");
-    if (!num) return toast.error("Sem telefone");
-    if (suppressed && (await isContactSuppressed(suppressed, result))) {
-      return toast.error("Contato em opt-out — não contatar (LGPD).");
-    }
-    if (!inFunnel) addToFunnel.mutate({ searchId, placeId: result.placeId, stage: "contacted" });
-    window.open(`https://wa.me/${num}`, "_blank");
+  const openWhats = () => {
+    void openWhatsApp(result, {
+      // Contacting a discovered business materializes it as 'contacted'.
+      materialize: inFunnel ? undefined : { searchId, placeId: result.placeId },
+    });
   };
 
   const addFunnel = () =>
@@ -128,7 +122,8 @@ export const DiscoveryCard = memo(function DiscoveryCard({
       { onSuccess: () => toast.success("Adicionado ao funil") },
     );
 
-  const hasContact = !!result.phone;
+  // Only offer WhatsApp when one can actually be resolved (landline → no button).
+  const hasContact = hasWhatsAppTarget(result);
 
   return (
     <Card

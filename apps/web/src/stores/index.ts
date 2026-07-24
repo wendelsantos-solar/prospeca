@@ -484,9 +484,9 @@ interface SearchDraftState {
   resetDraftTo: (search: Search) => void;
 }
 const initialDraft: SearchDraft = {
-  niche: "Clínica médica",
-  location: "Porto Alegre, Rio Grande do Sul",
-  coords: { lat: -30.0346, lng: -51.2177 },
+  niche: "",
+  location: "",
+  coords: { lat: 0, lng: 0 },
   radiusKm: 10,
   presence: "all",
 };

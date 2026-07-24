@@ -3369,6 +3369,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:bun-types@^1.3.14",
         "npm:prettier@^3.7.3",
         "npm:turbo@^2.10.5"
       ]
@@ -3441,14 +3442,6 @@
           ]
         }
       },
-      "packages/contracts": {
-        "packageJson": {
-          "dependencies": [
-            "npm:typescript@^5.8.3",
-            "npm:zod@^3.24.2"
-          ]
-        }
-      },
       "packages/domain": {
         "packageJson": {
           "dependencies": [
@@ -3457,13 +3450,6 @@
         }
       },
       "packages/geo": {
-        "packageJson": {
-          "dependencies": [
-            "npm:typescript@^5.8.3"
-          ]
-        }
-      },
-      "packages/providers": {
         "packageJson": {
           "dependencies": [
             "npm:typescript@^5.8.3"

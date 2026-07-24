@@ -7,9 +7,10 @@ import type { DiscoveryResult } from "@/repositories/types";
  * mode. This object is NEVER persisted — it exists only for display while the
  * drawer is open with `readOnly = true`.
  *
- * Discovery carries less than a materialized lead: address, neighborhood, email,
- * instagram, whatsapp, notes/activities/timeline don't exist yet. Those degrade
- * to "" / undefined / [] here, and the drawer shows "—" for them in readOnly.
+ * Discovery carries less than a materialized lead: notes/activities/timeline
+ * don't exist yet and degrade to [] here. Address/city come from the Google
+ * place (`get_search_discovery` returns them, parsed in the repository), so the
+ * preview shows the same location the map pin does.
  * `stage`/`discoveredAt` are placeholders the readOnly branch never reads.
  */
 export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
@@ -17,9 +18,10 @@ export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
     id: r.placeId,
     companyName: r.name,
     category: r.category ?? "",
-    address: "",
-    city: "",
-    state: "",
+    address: r.address ?? "",
+    neighborhood: r.neighborhood ?? undefined,
+    city: r.city ?? "",
+    state: r.state ?? "",
     latitude: r.latitude,
     longitude: r.longitude,
     distanceKm: r.distanceKm,

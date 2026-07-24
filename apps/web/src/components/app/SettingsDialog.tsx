@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useSearchSession } from "@/stores/searchSession";
 import {
   Dialog,
   DialogContent,
@@ -101,7 +102,7 @@ export function SettingsDialog() {
 
   const restoreDemo = () => {
     resetLeads();
-    window.dispatchEvent(new CustomEvent("retry-search"));
+    useSearchSession.getState().retrySearch();
     toast.success("Dados de demonstração sendo restaurados...");
   };
 

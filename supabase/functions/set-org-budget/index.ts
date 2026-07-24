@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
     });
     if (error) throw new AppError("FORBIDDEN", "Acesso restrito ao administrador da plataforma.");
     logEvent({ requestId, operation: "set-org-budget", status: "ok" });
-    return json({ ok: true });
+    return json({ ok: true }, 200, {}, req);
   } catch (err) {
-    if (err instanceof AppError) return err.toResponse(requestId);
-    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId);
+    if (err instanceof AppError) return err.toResponse(requestId, req);
+    return new AppError("INTERNAL_ERROR", "Erro interno.").toResponse(requestId, req);
   }
 });

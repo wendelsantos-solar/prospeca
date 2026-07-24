@@ -2,7 +2,7 @@
 // Never merges on name alone; low-confidence pairs are flagged for review,
 // not silently merged.
 import { haversineMeters, isValidLatLng } from "@leads/geo";
-import { normalizeCompanyName, normalizeDomain, normalizePhone } from "./normalize";
+import { normalizeCompanyName, normalizeDomain, normalizePhone } from "./normalize.ts";
 
 export interface DedupRecord {
   id: string;

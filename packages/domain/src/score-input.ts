@@ -1,6 +1,10 @@
-import type { ScoreInput } from "./score";
-import { normalizePhone, hasRealWebsite } from "./normalize";
+import type { ScoreInput } from "./score.ts";
+import { normalizePhone, hasRealWebsite } from "./normalize.ts";
 
+// Structural, provider-agnostic shape — a Google place satisfies it without the
+// vendor DTO appearing in this interface. Enrichment fields (email/instagram/
+// whatsapp) live on the places row, filled by enrich-discovery. A freshly-mapped
+// search-time place lacks them (→ absent).
 export interface PlaceLike {
   websiteUri?: string | null;
   nationalPhoneNumber?: string | null;
@@ -13,6 +17,21 @@ export interface PlaceLike {
   rating?: number | null;
   userRatingCount?: number | null;
   businessStatus?: string | null;
+}
+
+// A persisted `places` row as PostgREST returns it (snake_case), enrichment included.
+export interface PlaceRow {
+  website_uri?: string | null;
+  national_phone_number?: string | null;
+  international_phone_number?: string | null;
+  primary_type?: string | null;
+  types?: string[] | null;
+  email?: string | null;
+  instagram?: string | null;
+  whatsapp?: string | null;
+  rating?: number | null;
+  user_rating_count?: number | null;
+  business_status?: string | null;
 }
 
 /**
@@ -36,4 +55,29 @@ export function scoreInputFromPlace(place: PlaceLike, distanceMeters: number | n
     distanceMeters,
     businessStatus: place.businessStatus ?? null,
   };
+}
+
+/**
+ * Same signals, read from a persisted row. Every path that scores a stored place
+ * goes through here — import and enrichment each rebuilt the input by hand, and
+ * the import copy hardcoded hasEmail/hasInstagram to false, so an enriched
+ * business scored lower entering the funnel than it had in discovery.
+ */
+export function scoreInputFromRow(row: PlaceRow, distanceMeters: number | null): ScoreInput {
+  return scoreInputFromPlace(
+    {
+      websiteUri: row.website_uri ?? null,
+      nationalPhoneNumber: row.national_phone_number ?? null,
+      internationalPhoneNumber: row.international_phone_number ?? null,
+      primaryType: row.primary_type ?? null,
+      types: row.types ?? null,
+      email: row.email ?? null,
+      instagram: row.instagram ?? null,
+      whatsapp: row.whatsapp ?? null,
+      rating: row.rating ?? null,
+      userRatingCount: row.user_rating_count ?? null,
+      businessStatus: row.business_status ?? null,
+    },
+    distanceMeters,
+  );
 }

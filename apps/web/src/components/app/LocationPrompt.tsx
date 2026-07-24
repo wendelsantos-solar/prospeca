@@ -3,6 +3,7 @@ import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useLeadsStore, useLocationStore, useSettingsStore } from "@/stores";
+import { useSearchSession } from "@/stores/searchSession";
 import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
 import { toast } from "sonner";
 
@@ -34,11 +35,7 @@ export function LocationPrompt({ onDismiss, onPickCity }: LocationPromptProps) {
         label: finalLabel,
       });
       setLastLocation({ label: finalLabel, lat: coords.lat, lng: coords.lng });
-      window.dispatchEvent(
-        new CustomEvent("geo-located", {
-          detail: { label: finalLabel, lat: coords.lat, lng: coords.lng },
-        }),
-      );
+      useSearchSession.getState().geoLocated(finalLabel, coords.lat, coords.lng);
     });
   });
 

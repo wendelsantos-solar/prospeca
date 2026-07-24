@@ -1,7 +1,7 @@
 import { MessageCircle, PhoneCall, Mail, Sparkles, Clock, ArrowRight } from "lucide-react";
 import type { Lead } from "@/types";
 import { computeNba, type NbaChannel, type NbaPriority } from "@/lib/nba";
-import { digitsOnly } from "@/lib/format";
+import { useOutbound } from "@/hooks/useOutbound";
 import { useLeadsStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
@@ -26,15 +26,13 @@ const PRIORITY_LABEL: Record<NbaPriority, string> = {
 
 export function NbaCard({ lead }: { lead: Lead }) {
   const setDetails = useLeadsStore((s) => s.setDetails);
+  const { openWhatsApp } = useOutbound();
   const nba = computeNba(lead);
   const Icon = CHANNEL_ICON[nba.channel];
 
-  function handleCta() {
-    const num = digitsOnly(lead.whatsapp ?? lead.phone);
-    if (nba.channel === "whatsapp" && num) {
-      window.open(`https://wa.me/${num}`, "_blank");
-      return;
-    }
+  async function handleCta() {
+    // Refused (no WhatsApp / opt-out) → fall back to the drawer, as before.
+    if (nba.channel === "whatsapp" && (await openWhatsApp(lead))) return;
     setDetails(lead.id);
   }
 
