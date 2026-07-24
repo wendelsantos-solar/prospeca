@@ -100,7 +100,7 @@ export const useSettingsStore = create<SettingsState>()(
       userName: "",
       companyName: "",
       bulkLimit: BULK_SELECTION_LIMIT,
-      defaultPresence: "no-website",
+      defaultPresence: "all",
       defaultRadius: 10,
       defaultSort: "relevance",
       signature: "",
@@ -488,7 +488,7 @@ const initialDraft: SearchDraft = {
   location: "Porto Alegre, Rio Grande do Sul",
   coords: { lat: -30.0346, lng: -51.2177 },
   radiusKm: 10,
-  presence: "no-website",
+  presence: "all",
 };
 export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
   draft: initialDraft,

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { NICHES } from "@/lib/constants";
 import { historyService, type SearchInput } from "@/services";
-import { useLeadsStore, useLocationStore, useSearchDraftStore } from "@/stores";
+import { useLeadsStore, useLocationStore, useSearchDraftStore, useSettingsStore } from "@/stores";
 import { distanceKm } from "@/lib/geo";
 import { useIsDirty } from "@/hooks/useIsDirty";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
@@ -100,6 +100,15 @@ export function SearchForm() {
 
   const { dirty, reason } = useIsDirty();
   const hasResults = useLeadsStore((s) => s.currentSearch) != null;
+
+  // Filtro de presença padrão (Configurações → Prospecção) inicializa o draft.
+  // Só aplica quando não há busca ativa, para não sobrescrever uma busca em
+  // andamento. Assim a config passa a valer de fato (default = "Todos").
+  const defaultPresence = useSettingsStore((s) => s.defaultPresence);
+  useEffect(() => {
+    if (!hasResults) setDraft({ presence: defaultPresence });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setDraft is stable
+  }, [defaultPresence, hasResults]);
 
   const [nicheOpen, setNicheOpen] = useState(false);
   const [locOpen, setLocOpen] = useState(false);
