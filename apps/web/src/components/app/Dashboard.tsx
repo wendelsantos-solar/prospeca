@@ -1,11 +1,9 @@
 import { useMemo, useState, Fragment } from "react";
 import { useLeadsStore, usePeriodStore } from "@/stores";
-import { MetricCard } from "@/components/shared/MetricCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { formatBRL, formatNumber, formatPercent, formatDecimal } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, PERIOD_OPTIONS } from "@/lib/constants";
 import { resolvePeriod, previousWindow, leadsInWindow, deltaPct, inWindow } from "@/lib/period";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,23 +32,35 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { ArrowUpDown, ChevronDown, ChevronRight, BarChart3, Search } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronDown,
+  ChevronRight,
+  BarChart3,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  Info,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { categoryLabel } from "@/lib/category";
+import {
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const CHART_COLORS = [
-  "oklch(0.58 0.14 155)",
-  "oklch(0.62 0.16 245)",
-  "oklch(0.72 0.17 55)",
-  "oklch(0.83 0.15 90)",
-  "oklch(0.60 0.20 305)",
-];
+const PRIMARY = "var(--color-primary)";
+const INFO = "var(--color-info)";
+const NEUTRAL = "var(--color-muted-foreground)";
 const TOOLTIP_STYLE = {
   fontSize: 12,
-  background: "var(--popover)",
-  border: "1px solid var(--border)",
-  color: "var(--popover-foreground)",
+  borderRadius: 8,
+  border: "1px solid var(--color-border)",
 } as const;
+const AXIS_PROPS = { fontSize: 11, stroke: "var(--color-muted-foreground)" } as const;
 
 interface StageAgg {
   total: number;
@@ -178,19 +188,22 @@ function SortableHead({
 
 function ChartCard({
   title,
+  subtitle,
   empty,
   children,
 }: {
   title: string;
+  subtitle?: string;
   empty?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-border/70 shadow-elegant">
-      <CardHeader>
-        <CardTitle className="text-sm">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="h-64">
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="mb-3">
+        <div className="text-[13px] font-semibold">{title}</div>
+        {subtitle && <div className="text-[11.5px] text-muted-foreground">{subtitle}</div>}
+      </div>
+      <div className="h-64">
         {empty ? (
           <EmptyState
             icon={BarChart3}
@@ -201,8 +214,76 @@ function ChartCard({
         ) : (
           children
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
+  );
+}
+
+/** LocalMetricCard estilizado conforme referência visual (radar-elevate/analises).
+ *  Local a este arquivo — não altera o componente compartilhado usado em outras telas. */
+function LocalMetricCard({
+  label,
+  value,
+  delta,
+  tooltip,
+  accent,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  delta?: number | null;
+  tooltip?: string;
+  accent?: "primary" | "hot" | "warm" | "cold" | "success" | "info";
+  highlight?: boolean;
+}) {
+  const trend = delta == null ? "flat" : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-3.5",
+        highlight ? "border-primary/30 bg-primary-subtle" : "border-border bg-surface",
+      )}
+    >
+      <div className="flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground">
+        {label}
+        {tooltip && (
+          <TooltipProvider>
+            <UiTooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3 w-3 text-muted-foreground/70" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">{tooltip}</TooltipContent>
+            </UiTooltip>
+          </TooltipProvider>
+        )}
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <div
+          className={cn(
+            "text-[20px] font-semibold leading-none tabular-nums",
+            accent === "hot" && "text-hot",
+            accent === "success" && "text-success",
+          )}
+        >
+          {value}
+        </div>
+        {delta != null && (
+          <div
+            className={cn(
+              "inline-flex items-center gap-0.5 text-[11px] font-medium",
+              trend === "up" && "text-primary",
+              trend === "down" && "text-muted-foreground",
+              trend === "flat" && "text-muted-foreground",
+            )}
+          >
+            {trend === "up" && <TrendingUp className="h-3 w-3" />}
+            {trend === "down" && <TrendingDown className="h-3 w-3" />}
+            {trend === "flat" && <ArrowRight className="h-3 w-3" />}
+            {Math.abs(delta).toFixed(1)}%
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -353,156 +434,161 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
   const empty = current.length === 0;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Painel de conversão</h1>
-          <p className="text-sm text-muted-foreground">
-            Acompanhe métricas de leads, funil e receita no período.
-          </p>
+    <div className="min-h-full bg-surface-2 p-4 md:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[18px] font-semibold">Painel de conversão</h1>
+            <p className="text-[12.5px] text-muted-foreground">
+              Acompanhe métricas de leads, funil e receita no período.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
+              <TabsList className="h-auto flex-wrap rounded-md border border-border bg-surface p-0.5">
+                {PERIOD_OPTIONS.map((o) => (
+                  <TabsTrigger
+                    key={o.value}
+                    value={o.value}
+                    className="rounded px-2.5 py-1 text-[12px] font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                  >
+                    {o.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            {period === "custom" && (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  className="h-8 w-36 text-xs"
+                  value={customFrom}
+                  onChange={(e) => setCustomRange(e.target.value, customTo)}
+                  aria-label="Data inicial"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  className="h-8 w-36 text-xs"
+                  value={customTo}
+                  onChange={(e) => setCustomRange(customFrom, e.target.value)}
+                  aria-label="Data final"
+                />
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
-            <TabsList className="h-8 flex-wrap">
-              {PERIOD_OPTIONS.map((o) => (
-                <TabsTrigger key={o.value} value={o.value} className="text-xs">
-                  {o.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          {period === "custom" && (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                className="h-8 w-36 text-xs"
-                value={customFrom}
-                onChange={(e) => setCustomRange(e.target.value, customTo)}
-                aria-label="Data inicial"
-              />
-              <span className="text-xs text-muted-foreground">até</span>
-              <Input
-                type="date"
-                className="h-8 w-36 text-xs"
-                value={customTo}
-                onChange={(e) => setCustomRange(customFrom, e.target.value)}
-                aria-label="Data final"
-              />
-            </div>
-          )}
-        </div>
-      </div>
 
-      {empty ? (
-        <Card className="border-border/70 shadow-elegant">
-          <CardContent>
+        {empty ? (
+          <div className="rounded-xl border border-border bg-surface p-4">
             <EmptyState
               icon={BarChart3}
               title="Nenhum dado no período selecionado"
               description="Amplie o período ou realize novas buscas para alimentar o painel."
             />
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-            <MetricCard
-              label="Total de leads"
-              value={formatNumber(a.total)}
-              delta={deltaPct(a.total, p.total)}
-              tooltip="Leads descobertos dentro do período selecionado."
-            />
-            <MetricCard
-              label="Enriquecidos"
-              value={formatNumber(a.enriched)}
-              delta={deltaPct(a.enriched, p.enriched)}
-              tooltip="Leads com pelo menos um canal de contato encontrado."
-            />
-            <MetricCard
-              label="Qualificados"
-              value={formatNumber(a.byStage.qualified.length)}
-              delta={deltaPct(a.byStage.qualified.length, p.byStage.qualified.length)}
-              tooltip="Leads no estágio Qualificado."
-            />
-            <MetricCard
-              label="Contatados"
-              value={formatNumber(a.byStage.contacted.length)}
-              delta={deltaPct(a.byStage.contacted.length, p.byStage.contacted.length)}
-              tooltip="Leads no estágio Contatado."
-            />
-            <MetricCard
-              label="Ganhos"
-              value={formatNumber(a.byStage.won.length)}
-              delta={deltaPct(a.byStage.won.length, p.byStage.won.length)}
-              accent="success"
-              tooltip="Negócios fechados."
-            />
-            <MetricCard
-              label="Descartados"
-              value={formatNumber(a.byStage.discarded.length)}
-              delta={deltaPct(a.byStage.discarded.length, p.byStage.discarded.length)}
-              tooltip="Leads descartados no período."
-            />
-            <MetricCard
-              label="Conversão"
-              value={formatPercent(a.conv / 100)}
-              delta={deltaPct(a.conv, p.conv)}
-              tooltip="Ganhos sobre o total de leads do período."
-            />
-            <MetricCard
-              label="Buscas"
-              value={formatNumber(searchesInWin)}
-              delta={deltaPct(searchesInWin, searchesInPrev)}
-              tooltip="Buscas realizadas no período."
-            />
-            <MetricCard
-              label="Leads no funil"
-              value={formatNumber(a.pipelineCount)}
-              delta={deltaPct(a.pipelineCount, p.pipelineCount)}
-              tooltip="Leads ativos (fora de Ganho e Descartado)."
-            />
-            <MetricCard
-              label="Valor em negociação"
-              value={formatBRL(a.pipelineValue)}
-              delta={deltaPct(a.pipelineValue, p.pipelineValue)}
-              tooltip="Soma dos valores estimados dos leads ativos."
-            />
-            <MetricCard
-              label="Receita fechada"
-              value={formatBRL(a.revenue)}
-              delta={deltaPct(a.revenue, p.revenue)}
-              accent="success"
-              tooltip="Soma dos valores fechados no período."
-            />
-            <MetricCard
-              label="Ticket médio"
-              value={formatBRL(a.avgTicket)}
-              delta={deltaPct(a.avgTicket, p.avgTicket)}
-              tooltip="Receita fechada dividida pelos negócios ganhos."
-            />
-            <MetricCard
-              label="Tempo médio conv."
-              value={a.avgConvDays != null ? `${formatDecimal(a.avgConvDays)} dias` : "—"}
-              delta={
-                a.avgConvDays != null && p.avgConvDays != null
-                  ? deltaPct(a.avgConvDays, p.avgConvDays)
-                  : undefined
-              }
-              tooltip="Média de dias entre a descoberta e o fechamento."
-            />
-            <MetricCard
-              label="Taxa de resposta"
-              value={formatPercent(responseRate / 100)}
-              delta={deltaPct(responseRate, prevResponseRate)}
-              tooltip="Taxa simulada de resposta às mensagens enviadas."
-            />
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+              <LocalMetricCard
+                label="Total de leads"
+                value={formatNumber(a.total)}
+                delta={deltaPct(a.total, p.total)}
+                tooltip="Leads descobertos dentro do período selecionado."
+              />
+              <LocalMetricCard
+                label="Enriquecidos"
+                value={formatNumber(a.enriched)}
+                delta={deltaPct(a.enriched, p.enriched)}
+                tooltip="Leads com pelo menos um canal de contato encontrado."
+              />
+              <LocalMetricCard
+                label="Qualificados"
+                value={formatNumber(a.byStage.qualified.length)}
+                delta={deltaPct(a.byStage.qualified.length, p.byStage.qualified.length)}
+                tooltip="Leads no estágio Qualificado."
+              />
+              <LocalMetricCard
+                label="Contatados"
+                value={formatNumber(a.byStage.contacted.length)}
+                delta={deltaPct(a.byStage.contacted.length, p.byStage.contacted.length)}
+                tooltip="Leads no estágio Contatado."
+              />
+              <LocalMetricCard
+                label="Ganhos"
+                value={formatNumber(a.byStage.won.length)}
+                delta={deltaPct(a.byStage.won.length, p.byStage.won.length)}
+                accent="success"
+                highlight
+                tooltip="Negócios fechados."
+              />
+              <LocalMetricCard
+                label="Descartados"
+                value={formatNumber(a.byStage.discarded.length)}
+                delta={deltaPct(a.byStage.discarded.length, p.byStage.discarded.length)}
+                tooltip="Leads descartados no período."
+              />
+              <LocalMetricCard
+                label="Conversão"
+                value={formatPercent(a.conv / 100)}
+                delta={deltaPct(a.conv, p.conv)}
+                tooltip="Ganhos sobre o total de leads do período."
+              />
+              <LocalMetricCard
+                label="Buscas"
+                value={formatNumber(searchesInWin)}
+                delta={deltaPct(searchesInWin, searchesInPrev)}
+                tooltip="Buscas realizadas no período."
+              />
+              <LocalMetricCard
+                label="Leads no funil"
+                value={formatNumber(a.pipelineCount)}
+                delta={deltaPct(a.pipelineCount, p.pipelineCount)}
+                tooltip="Leads ativos (fora de Ganho e Descartado)."
+              />
+              <LocalMetricCard
+                label="Valor em negociação"
+                value={formatBRL(a.pipelineValue)}
+                delta={deltaPct(a.pipelineValue, p.pipelineValue)}
+                tooltip="Soma dos valores estimados dos leads ativos."
+              />
+              <LocalMetricCard
+                label="Receita fechada"
+                value={formatBRL(a.revenue)}
+                delta={deltaPct(a.revenue, p.revenue)}
+                accent="success"
+                highlight
+                tooltip="Soma dos valores fechados no período."
+              />
+              <LocalMetricCard
+                label="Ticket médio"
+                value={formatBRL(a.avgTicket)}
+                delta={deltaPct(a.avgTicket, p.avgTicket)}
+                tooltip="Receita fechada dividida pelos negócios ganhos."
+              />
+              <LocalMetricCard
+                label="Tempo médio conv."
+                value={a.avgConvDays != null ? `${formatDecimal(a.avgConvDays)} dias` : "—"}
+                delta={
+                  a.avgConvDays != null && p.avgConvDays != null
+                    ? deltaPct(a.avgConvDays, p.avgConvDays)
+                    : undefined
+                }
+                tooltip="Média de dias entre a descoberta e o fechamento."
+              />
+              <LocalMetricCard
+                label="Taxa de resposta"
+                value={formatPercent(responseRate / 100)}
+                delta={deltaPct(responseRate, prevResponseRate)}
+                tooltip="Taxa simulada de resposta às mensagens enviadas."
+              />
+            </div>
 
-          <Card className="border-border/70 shadow-elegant">
-            <CardHeader>
-              <CardTitle className="text-sm">Funil comercial</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-3">
+                <div className="text-[13px] font-semibold">Funil comercial</div>
+                <div className="text-[11.5px] text-muted-foreground">Etapas até o fechamento</div>
+              </div>
               <div className="space-y-2">
                 {STAGE_ORDER.map((s, i) => {
                   const count = a.byStage[s].length;
@@ -530,447 +616,469 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartCard title="Leads encontrados por dia" empty={daySeries.length === 0}>
-              <ResponsiveContainer>
-                <LineChart data={daySeries}>
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line
-                    type="monotone"
-                    dataKey="leads"
-                    name="Leads"
-                    stroke={CHART_COLORS[0]}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <ChartCard
+                title="Leads encontrados por dia"
+                subtitle="Novos leads capturados ao longo do tempo"
+                empty={daySeries.length === 0}
+              >
+                <ResponsiveContainer>
+                  <LineChart data={daySeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="date" {...AXIS_PROPS} />
+                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Line
+                      type="monotone"
+                      dataKey="leads"
+                      name="Leads"
+                      stroke={PRIMARY}
+                      strokeWidth={2.5}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-            <ChartCard title="Leads por estágio" empty={a.total === 0}>
-              <ResponsiveContainer>
-                <BarChart
-                  data={STAGE_ORDER.map((s) => ({
-                    name: STAGE_LABELS[s],
-                    value: a.byStage[s].length,
-                  }))}
-                >
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="value" name="Leads" fill={CHART_COLORS[0]} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="Conversão por período (%)" empty={daySeries.length === 0}>
-              <ResponsiveContainer>
-                <LineChart data={daySeries}>
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} unit="%" />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(v: number) => [`${v}%`, "Conversão"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="conv"
-                    name="Conversão"
-                    stroke={CHART_COLORS[1]}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="Leads por temperatura" empty={a.total === 0}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={tempSeries}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={80}
-                    paddingAngle={2}
+              <ChartCard
+                title="Leads por estágio"
+                subtitle="Volume em cada etapa do funil"
+                empty={a.total === 0}
+              >
+                <ResponsiveContainer>
+                  <BarChart
+                    data={STAGE_ORDER.map((s) => ({
+                      name: STAGE_LABELS[s],
+                      value: a.byStage[s].length,
+                    }))}
                   >
-                    {tempSeries.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={[CHART_COLORS[2], CHART_COLORS[3], "oklch(0.72 0.04 250)"][i]}
-                      />
-                    ))}
-                  </Pie>
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="name" {...AXIS_PROPS} />
+                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar dataKey="value" name="Leads" fill={PRIMARY} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-            <ChartCard title="Distribuição por canal encontrado" empty={a.total === 0}>
-              <ResponsiveContainer>
-                <BarChart data={channelSeries}>
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="value" name="Leads" fill={CHART_COLORS[1]} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+              <ChartCard
+                title="Conversão por período (%)"
+                subtitle="Evolução da taxa de fechamento"
+                empty={daySeries.length === 0}
+              >
+                <ResponsiveContainer>
+                  <LineChart data={daySeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="date" {...AXIS_PROPS} />
+                    <YAxis {...AXIS_PROPS} unit="%" />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(v: number) => [`${v}%`, "Conversão"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="conv"
+                      name="Conversão"
+                      stroke={INFO}
+                      strokeWidth={2.5}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-            <ChartCard
-              title="Receita fechada por período"
-              empty={daySeries.every((d) => d.revenue === 0)}
-            >
-              <ResponsiveContainer>
-                <BarChart data={daySeries.filter((d) => d.revenue > 0)}>
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v: number) => formatBRL(v).replace(",00", "")}
-                    width={80}
-                  />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(v: number) => [formatBRL(v), "Receita"]}
-                  />
-                  <Bar
-                    dataKey="revenue"
-                    name="Receita"
-                    fill={CHART_COLORS[0]}
-                    radius={[6, 6, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+              <ChartCard
+                title="Leads por temperatura"
+                subtitle="Onde estão suas melhores oportunidades"
+                empty={a.total === 0}
+              >
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={tempSeries}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={80}
+                      paddingAngle={2}
+                    >
+                      {tempSeries.map((_, i) => (
+                        <Cell key={i} fill={[PRIMARY, INFO, NEUTRAL][i]} />
+                      ))}
+                    </Pie>
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-            <ChartCard title="Taxa de conversão por nicho (%)" empty={nicheConvSeries.length === 0}>
-              <ResponsiveContainer>
-                <BarChart data={nicheConvSeries} layout="vertical">
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fontSize: 10 }} unit="%" />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(v: number) => [`${v}%`, "Conversão"]}
-                  />
-                  <Bar
-                    dataKey="conv"
-                    name="Conversão"
-                    fill={CHART_COLORS[4]}
-                    radius={[0, 6, 6, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+              <ChartCard
+                title="Distribuição por canal encontrado"
+                subtitle="Canais de contato disponíveis"
+                empty={a.total === 0}
+              >
+                <ResponsiveContainer>
+                  <BarChart data={channelSeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="name" {...AXIS_PROPS} />
+                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar dataKey="value" name="Leads" fill={INFO} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-            <ChartCard title="Taxa de conversão por cidade (%)" empty={cityConvSeries.length === 0}>
-              <ResponsiveContainer>
-                <BarChart data={cityConvSeries} layout="vertical">
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fontSize: 10 }} unit="%" />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(v: number) => [`${v}%`, "Conversão"]}
-                  />
-                  <Bar
-                    dataKey="conv"
-                    name="Conversão"
-                    fill={CHART_COLORS[2]}
-                    radius={[0, 6, 6, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
+              <ChartCard
+                title="Receita fechada por período"
+                subtitle="Faturamento gerado ao longo do tempo"
+                empty={daySeries.every((d) => d.revenue === 0)}
+              >
+                <ResponsiveContainer>
+                  <BarChart data={daySeries.filter((d) => d.revenue > 0)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="date" {...AXIS_PROPS} />
+                    <YAxis
+                      {...AXIS_PROPS}
+                      tickFormatter={(v: number) => formatBRL(v).replace(",00", "")}
+                      width={80}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(v: number) => [formatBRL(v), "Receita"]}
+                    />
+                    <Bar dataKey="revenue" name="Receita" fill={PRIMARY} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-          <Card className="border-border/70 shadow-elegant">
-            <CardHeader>
-              <CardTitle className="text-sm">Desempenho por nicho</CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableHead label="Nicho" k="name" sort={nicheSort} setSort={setNicheSort} />
-                    <SortableHead
-                      label="Leads"
-                      k="total"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
+              <ChartCard
+                title="Taxa de conversão por nicho (%)"
+                subtitle="Ranking por desempenho"
+                empty={nicheConvSeries.length === 0}
+              >
+                <ResponsiveContainer>
+                  <BarChart data={nicheConvSeries} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
+                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(v: number) => [`${v}%`, "Conversão"]}
                     />
-                    <SortableHead
-                      label="Qualificados"
-                      k="qualified"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Contatados"
-                      k="contacted"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Ganhos"
-                      k="won"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Conversão"
-                      k="conv"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Receita"
-                      k="revenue"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Ticket médio"
-                      k="ticket"
-                      sort={nicheSort}
-                      setSort={setNicheSort}
-                      className="text-right"
-                    />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {nicheRows.map(([niche, v]) => {
-                    const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
-                    return (
-                      <TableRow key={niche}>
-                        <TableCell className="font-medium">{categoryLabel(niche)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="tabular-nums">{v.total}</span>
-                            <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full bg-primary"
-                                style={{ width: `${(v.total / max) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.won}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatBRL(v.revenue)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {v.won ? formatBRL(v.revenue / v.won) : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                    <Bar dataKey="conv" name="Conversão" fill={INFO} radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-          <Card className="border-border/70 shadow-elegant">
-            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-              <CardTitle className="text-sm">Desempenho por cidade</CardTitle>
-              <div className="relative w-56">
-                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={citySearch}
-                  onChange={(e) => {
-                    setCitySearch(e.target.value);
-                    setCityPage(0);
-                  }}
-                  placeholder="Buscar cidade..."
-                  className="h-8 pl-7 text-xs"
-                  aria-label="Buscar cidade"
-                />
+              <ChartCard
+                title="Taxa de conversão por cidade (%)"
+                subtitle="Onde você tem mais tração"
+                empty={cityConvSeries.length === 0}
+              >
+                <ResponsiveContainer>
+                  <BarChart data={cityConvSeries} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
+                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(v: number) => [`${v}%`, "Conversão"]}
+                    />
+                    <Bar dataKey="conv" name="Conversão" fill={PRIMARY} radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-3">
+                <div className="text-[13px] font-semibold">Desempenho por nicho</div>
+                <div className="text-[11.5px] text-muted-foreground">Ranking por desempenho</div>
               </div>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8" />
-                    <SortableHead label="Cidade" k="name" sort={citySort} setSort={setCitySort} />
-                    <SortableHead
-                      label="Leads"
-                      k="total"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Qualificados"
-                      k="qualified"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Contatados"
-                      k="contacted"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Ganhos"
-                      k="won"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Conversão"
-                      k="conv"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Receita"
-                      k="revenue"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                    <SortableHead
-                      label="Dist. média"
-                      k="dist"
-                      sort={citySort}
-                      setSort={setCitySort}
-                      className="text-right"
-                    />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cityRows.length === 0 && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={9}
-                        className="text-center text-sm text-muted-foreground py-6"
-                      >
-                        Nenhuma cidade encontrada.
-                      </TableCell>
+                      <SortableHead
+                        label="Nicho"
+                        k="name"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                      />
+                      <SortableHead
+                        label="Leads"
+                        k="total"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Qualificados"
+                        k="qualified"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Contatados"
+                        k="contacted"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Ganhos"
+                        k="won"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Conversão"
+                        k="conv"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Receita"
+                        k="revenue"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Ticket médio"
+                        k="ticket"
+                        sort={nicheSort}
+                        setSort={setNicheSort}
+                        className="text-right"
+                      />
                     </TableRow>
-                  )}
-                  {cityRows.map(([city, v]) => (
-                    <Fragment key={city}>
-                      <TableRow
-                        className="cursor-pointer"
-                        onClick={() => setExpandedCity(expandedCity === city ? null : city)}
-                      >
-                        <TableCell>
-                          {expandedCity === city ? (
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{city}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.total}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
-                        <TableCell className="text-right tabular-nums">{v.won}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatBRL(v.revenue)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {v.total ? `${formatDecimal(v.distSum / v.total)} km` : "—"}
+                  </TableHeader>
+                  <TableBody>
+                    {nicheRows.map(([niche, v]) => {
+                      const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
+                      return (
+                        <TableRow key={niche}>
+                          <TableCell className="font-medium">{categoryLabel(niche)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="tabular-nums">{v.total}</span>
+                              <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full bg-primary"
+                                  style={{ width: `${(v.total / max) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.won}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatBRL(v.revenue)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {v.won ? formatBRL(v.revenue / v.won) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-3 flex flex-row items-center justify-between gap-3">
+                <div>
+                  <div className="text-[13px] font-semibold">Desempenho por cidade</div>
+                  <div className="text-[11.5px] text-muted-foreground">
+                    Onde você tem mais tração
+                  </div>
+                </div>
+                <div className="relative w-56">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={citySearch}
+                    onChange={(e) => {
+                      setCitySearch(e.target.value);
+                      setCityPage(0);
+                    }}
+                    placeholder="Buscar cidade..."
+                    className="h-8 pl-7 text-xs"
+                    aria-label="Buscar cidade"
+                  />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8" />
+                      <SortableHead label="Cidade" k="name" sort={citySort} setSort={setCitySort} />
+                      <SortableHead
+                        label="Leads"
+                        k="total"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Qualificados"
+                        k="qualified"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Contatados"
+                        k="contacted"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Ganhos"
+                        k="won"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Conversão"
+                        k="conv"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Receita"
+                        k="revenue"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                      <SortableHead
+                        label="Dist. média"
+                        k="dist"
+                        sort={citySort}
+                        setSort={setCitySort}
+                        className="text-right"
+                      />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cityRows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={9}
+                          className="text-center text-sm text-muted-foreground py-6"
+                        >
+                          Nenhuma cidade encontrada.
                         </TableCell>
                       </TableRow>
-                      {expandedCity === city &&
-                        neighborhoodsOf(city).map(([nb, nv]) => (
-                          <TableRow key={`${city}-${nb}`} className="bg-muted/30">
-                            <TableCell />
-                            <TableCell className="pl-8 text-xs text-muted-foreground">
-                              {nb}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.total}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.qualified}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.contacted}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.won}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.total ? ((nv.won / nv.total) * 100).toFixed(1) : "0"}%
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {formatBRL(nv.revenue)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-xs">
-                              {nv.total ? `${formatDecimal(nv.distSum / nv.total)} km` : "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-              {cityPages > 1 && (
-                <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                  <span>
-                    Página {cityPage + 1} de {cityPages}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={cityPage === 0}
-                    onClick={() => setCityPage((p2) => p2 - 1)}
-                  >
-                    Anterior
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={cityPage >= cityPages - 1}
-                    onClick={() => setCityPage((p2) => p2 + 1)}
-                  >
-                    Próxima
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
+                    )}
+                    {cityRows.map(([city, v]) => (
+                      <Fragment key={city}>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => setExpandedCity(expandedCity === city ? null : city)}
+                        >
+                          <TableCell>
+                            {expandedCity === city ? (
+                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">{city}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.total}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
+                          <TableCell className="text-right tabular-nums">{v.won}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatBRL(v.revenue)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {v.total ? `${formatDecimal(v.distSum / v.total)} km` : "—"}
+                          </TableCell>
+                        </TableRow>
+                        {expandedCity === city &&
+                          neighborhoodsOf(city).map(([nb, nv]) => (
+                            <TableRow key={`${city}-${nb}`} className="bg-muted/30">
+                              <TableCell />
+                              <TableCell className="pl-8 text-xs text-muted-foreground">
+                                {nb}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.total}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.qualified}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.contacted}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.won}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.total ? ((nv.won / nv.total) * 100).toFixed(1) : "0"}%
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {formatBRL(nv.revenue)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {nv.total ? `${formatDecimal(nv.distSum / nv.total)} km` : "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+                {cityPages > 1 && (
+                  <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                    <span>
+                      Página {cityPage + 1} de {cityPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      disabled={cityPage === 0}
+                      onClick={() => setCityPage((p2) => p2 - 1)}
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      disabled={cityPage >= cityPages - 1}
+                      onClick={() => setCityPage((p2) => p2 + 1)}
+                    >
+                      Próxima
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
