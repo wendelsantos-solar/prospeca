@@ -1,6 +1,11 @@
 import type { Lead } from "@/types";
 
-export type NotificationKind = "overdue_activity" | "stalled_lead" | "unanswered_proposal" | "deal_won" | "info";
+export type NotificationKind =
+  | "overdue_activity"
+  | "stalled_lead"
+  | "unanswered_proposal"
+  | "deal_won"
+  | "info";
 
 export interface AppNotification {
   id: string;

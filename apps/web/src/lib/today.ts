@@ -88,11 +88,31 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
   }
 
   const groups: TodayGroup[] = [
-    { id: "overdue", title: "Atrasadas", description: "Atividades vencidas que precisam de ação.", items: overdue },
+    {
+      id: "overdue",
+      title: "Atrasadas",
+      description: "Atividades vencidas que precisam de ação.",
+      items: overdue,
+    },
     { id: "today", title: "Hoje", description: "Programado para hoje.", items: today },
-    { id: "first_reach", title: "Primeiras abordagens", description: "Leads novos ainda não contatados.", items: firstReach },
-    { id: "upcoming", title: "Próximos 7 dias", description: "Compromissos no radar.", items: upcoming },
-    { id: "no_next", title: "Sem próxima ação", description: "Leads ativos parados sem próximo passo.", items: noNext },
+    {
+      id: "first_reach",
+      title: "Primeiras abordagens",
+      description: "Leads novos ainda não contatados.",
+      items: firstReach,
+    },
+    {
+      id: "upcoming",
+      title: "Próximos 7 dias",
+      description: "Compromissos no radar.",
+      items: upcoming,
+    },
+    {
+      id: "no_next",
+      title: "Sem próxima ação",
+      description: "Leads ativos parados sem próximo passo.",
+      items: noNext,
+    },
   ];
 
   return groups;
