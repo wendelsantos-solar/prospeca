@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
-import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import { useDiscoveryResults, useLeadsList } from "@/hooks/useLeadsQuery";
 import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { APP_NAME, APP_TAGLINE, RADIUS_OPTIONS } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
@@ -65,6 +65,12 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   // NOT the org's accumulated leads. A lead only exists once added to the funnel.
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const results = useMemo(() => discovery ?? [], [discovery]);
+
+  // Funnel size for the Kanban nav badge — leads (materialized funnel), NOT
+  // discovery. Distinct from the Mapa badge, which counts search results.
+  const leadFilters = useLeadsStore((s) => s.filters);
+  const leadSort = useLeadsStore((s) => s.sort);
+  const { data: funnelLeads } = useLeadsList(leadFilters, leadSort);
 
   // A map marker click focuses a result but the list has no reason to react on
   // its own — without this the selected card can be scrolled off-screen with
@@ -116,7 +122,7 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const isPlatformAdmin = useIsPlatformAdmin();
   const tabs = [
     { to: "/app/mapa", icon: MapIcon, label: "Mapa", count: resultsInRadius.length },
-    { to: "/app/kanban", icon: LayoutGrid, label: "Kanban", count: undefined },
+    { to: "/app/kanban", icon: LayoutGrid, label: "Kanban", count: funnelLeads?.total },
     { to: "/app/painel", icon: BarChart3, label: "Painel", count: undefined },
     ...(isPlatformAdmin
       ? [{ to: "/app/admin", icon: Shield, label: "Admin", count: undefined }]
