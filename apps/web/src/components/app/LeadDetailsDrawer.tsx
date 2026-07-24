@@ -28,6 +28,7 @@ import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { whatsappDisplay } from "@/lib/whatsapp";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calculateScore, scoreInputFromLead } from "@/lib/score";
+import { NbaCard } from "@/components/app/NbaCard";
 import {
   MessageCircle,
   Phone,
@@ -45,6 +46,7 @@ import {
   PlusCircle,
   Ban,
   Search as SearchIcon,
+  TrendingUp,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Loader2 } from "lucide-react";
@@ -59,7 +61,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { ActivityType } from "@/types";
+import type { ActivityType, Lead } from "@/types";
 
 export function LeadDetailsDrawer() {
   const detailsId = useLeadsStore((s) => s.detailsId);
@@ -192,12 +194,20 @@ export function LeadDetailsDrawer() {
             <div className="border-b p-5">
               <SheetHeader className="p-0">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <SheetTitle className="text-lg">{lead.companyName}</SheetTitle>
-                    <SheetDescription className="text-sm text-muted-foreground">
-                      {categoryLabel(lead.category)} • {lead.neighborhood ?? ""} • {lead.city},{" "}
-                      {lead.state}
-                    </SheetDescription>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-[13px] font-bold text-primary"
+                      aria-hidden
+                    >
+                      {leadInitials(lead.companyName)}
+                    </div>
+                    <div className="min-w-0">
+                      <SheetTitle className="text-lg">{lead.companyName}</SheetTitle>
+                      <SheetDescription className="text-sm text-muted-foreground">
+                        {categoryLabel(lead.category)} • {lead.neighborhood ?? ""} • {lead.city},{" "}
+                        {lead.state}
+                      </SheetDescription>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <TemperatureBadge temperature={lead.temperature} />
@@ -231,10 +241,10 @@ export function LeadDetailsDrawer() {
                   </div>
                 </div>
               </SheetHeader>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {readOnly && (
-                  <Button
-                    size="sm"
+                  <ActionBtn
+                    primary
                     onClick={() => {
                       if (!currentSearch || !preview) return;
                       addToFunnel.mutate(
@@ -248,61 +258,40 @@ export function LeadDetailsDrawer() {
                       );
                     }}
                     disabled={addToFunnel.isPending}
-                    className="gap-1.5"
                   >
                     <PlusCircle className="h-3.5 w-3.5" />
-                    Funil
-                  </Button>
+                    Adicionar ao funil
+                  </ActionBtn>
                 )}
-                <Button
-                  size="sm"
-                  onClick={openWhats}
-                  variant={readOnly ? "outline" : "default"}
-                  className="gap-1.5"
-                >
+                <ActionBtn primary={!readOnly} onClick={openWhats}>
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
-                </Button>
+                </ActionBtn>
                 {(lead.phone || lead.email) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
+                  <ActionBtn
+                    tone="danger"
                     onClick={handleSuppress}
                     disabled={suppressMut.isPending}
                     title="Marcar como não contatar (LGPD opt-out)"
                   >
                     <Ban className="h-3.5 w-3.5" />
                     Não contatar
-                  </Button>
+                  </ActionBtn>
                 )}
                 {lead.phone && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() => window.open(`tel:${lead.phone}`)}
-                  >
+                  <ActionBtn onClick={() => window.open(`tel:${lead.phone}`)}>
                     <Phone className="h-3.5 w-3.5" />
                     Ligar
-                  </Button>
+                  </ActionBtn>
                 )}
                 {lead.email && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() => window.open(`mailto:${lead.email}`)}
-                  >
+                  <ActionBtn onClick={() => window.open(`mailto:${lead.email}`)}>
                     <Mail className="h-3.5 w-3.5" />
                     E-mail
-                  </Button>
+                  </ActionBtn>
                 )}
                 {lead.instagram && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
+                  <ActionBtn
                     onClick={() =>
                       window.open(
                         `https://instagram.com/${lead.instagram!.replace("@", "")}`,
@@ -312,23 +301,23 @@ export function LeadDetailsDrawer() {
                   >
                     <Instagram className="h-3.5 w-3.5" />
                     Instagram
-                  </Button>
+                  </ActionBtn>
                 )}
                 {lead.website && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() => window.open(lead.website, "_blank")}
-                  >
+                  <ActionBtn onClick={() => window.open(lead.website, "_blank")}>
                     <Globe className="h-3.5 w-3.5" />
                     Site
-                  </Button>
+                  </ActionBtn>
                 )}
               </div>
             </div>
 
-            <Tabs defaultValue="info" className="p-5">
+            <div className="p-5 pb-0">
+              {!readOnly && <NbaCard lead={lead} />}
+              <OpportunitySummaryCard lead={lead} />
+            </div>
+
+            <Tabs defaultValue="info" className="p-5 pt-0">
               <TabsList>
                 <TabsTrigger value="info">Informações</TabsTrigger>
                 <TabsTrigger value="insights">Oportunidade</TabsTrigger>
@@ -771,6 +760,128 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-md border bg-surface p-2.5">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-0.5 font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+/** Initials avatar for the drawer header — first letters of the first two
+ * words of the company name (e.g. "Padaria São José" → "PS"). */
+function leadInitials(companyName: string): string {
+  return companyName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/** Styled action button matching the reference design. Purely presentational
+ * — every button keeps its own onClick/disabled/title passed through. */
+function ActionBtn({
+  children,
+  onClick,
+  primary,
+  tone,
+  disabled,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  primary?: boolean;
+  tone?: "danger";
+  disabled?: boolean;
+  title?: string;
+}) {
+  const cls = primary
+    ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+    : tone === "danger"
+      ? "border border-border bg-surface text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+      : "border border-border bg-surface text-foreground hover:border-border-strong";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50 ${cls}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** "Resumo da oportunidade" card — shown in both funnel and readOnly preview
+ * modes, derived purely from lead fields (no mutations). */
+function OpportunitySummaryCard({ lead }: { lead: Lead }) {
+  const reviewCount = lead.reviewCount ?? 0;
+  const rating = lead.rating;
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-primary-subtle p-4">
+      <div className="mb-2 flex items-center gap-1.5">
+        <TrendingUp className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+          Resumo da oportunidade
+        </span>
+      </div>
+      <p className="text-[13px] text-foreground">
+        Score <b>{lead.score}</b>. Empresa {lead.hasWebsite ? "com" : "sem"} presença online,{" "}
+        {reviewCount > 100 ? "alta" : "baixa"} visibilidade em avaliações (
+        {rating?.toFixed(1) ?? "—"}★ · {reviewCount} reviews) e localização em{" "}
+        {lead.neighborhood ?? lead.city}.
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
+        <StrengthBlock
+          title="Pontos fortes"
+          items={[
+            rating != null
+              ? rating >= 4.5
+                ? "Reputação excelente"
+                : rating >= 4
+                  ? "Boa reputação"
+                  : "Reputação em construção"
+              : "Reputação ainda sem avaliações",
+            lead.whatsapp ? "Contato via WhatsApp disponível" : "Telefone comercial ativo",
+            reviewCount > 100 ? "Volume relevante de reviews" : "Base emergente",
+          ]}
+        />
+        <StrengthBlock
+          title="Oportunidades"
+          negative
+          items={[
+            !lead.hasWebsite ? "Não tem site (alta oportunidade)" : null,
+            !lead.email ? "E-mail não localizado" : null,
+            !lead.instagram ? "Sem Instagram mapeado" : null,
+          ].filter((v): v is string => !!v)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StrengthBlock({
+  title,
+  items,
+  negative,
+}: {
+  title: string;
+  items: string[];
+  negative?: boolean;
+}) {
+  return (
+    <div className="rounded-md bg-surface p-2.5">
+      <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </div>
+      <ul className="space-y-0.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-1 text-[11.5px] text-foreground">
+            <span
+              className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${negative ? "bg-warning" : "bg-primary"}`}
+            />
+            {it}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
