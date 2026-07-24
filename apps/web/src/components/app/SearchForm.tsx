@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Loader2, MapPin, X } from "lucide-react";
+import { Search, Loader2, MapPin, X, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { NICHES, RADIUS_OPTIONS } from "@/lib/constants";
@@ -63,14 +63,15 @@ function GpsButton({
     <button
       type="button"
       onClick={request}
-      className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline"
+      aria-label="Usar minha localização"
+      title="Usar minha localização"
+      className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       {status === "prompting" ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
-        <MapPin className="h-3 w-3" />
+        <Locate className="h-3.5 w-3.5" />
       )}
-      Usar minha localização
     </button>
   );
 }
@@ -229,7 +230,9 @@ export function SearchForm() {
                   Nicho
                 </span>
                 <span className="block truncate text-[13px] text-foreground">
-                  {niche || "Selecione um nicho"}
+                  {niche || (
+                    <span className="text-muted-foreground/70">ex: barbearia, restaurante</span>
+                  )}
                 </span>
               </span>
             </Button>
@@ -277,21 +280,25 @@ export function SearchForm() {
         </Popover>
       </div>
 
-      <div>
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-surface pr-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
         <Popover open={locOpen} onOpenChange={setLocOpen}>
           <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-auto w-full items-center justify-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-2 font-normal shadow-none hover:bg-surface focus-visible:ring-2 focus-visible:ring-primary/15"
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
             >
               <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 text-left">
+              <span className="min-w-0 flex-1">
                 <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Localização
                 </span>
-                <span className="block truncate text-[13px] text-foreground">{location}</span>
+                <span className="block truncate text-[13px] text-foreground">
+                  {location || (
+                    <span className="text-muted-foreground/70">Cidade, bairro ou endereço</span>
+                  )}
+                </span>
               </span>
-            </Button>
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
             <Command>

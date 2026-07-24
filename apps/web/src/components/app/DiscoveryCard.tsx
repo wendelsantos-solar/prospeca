@@ -200,7 +200,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
         <div className="ml-auto">
           {inFunnel ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-1.5 py-1 text-[10.5px] font-semibold text-primary">
-              <Flame className="h-3 w-3" /> No funil
+              <Flame className="h-3 w-3" /> No pipeline
             </span>
           ) : (
             <MiniBtn
@@ -210,7 +210,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
                 addFunnel();
               }}
             >
-              <Plus className="h-3 w-3" /> Funil
+              <Plus className="h-3 w-3" /> Adicionar
             </MiniBtn>
           )}
         </div>
