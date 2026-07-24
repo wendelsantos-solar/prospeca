@@ -221,35 +221,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
           <SearchForm />
         </div>
 
-        <nav className="border-b p-2" aria-label="Navegação principal">
-          <div className="grid grid-cols-3 gap-1">
-            {tabs.map((t) => {
-              const active = pathname === t.to;
-              return (
-                <Link
-                  key={t.to}
-                  to={t.to}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "relative flex flex-col items-center gap-0.5 rounded-md py-2 text-[11px] font-medium transition-colors",
-                    active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <t.icon className="h-4 w-4" />
-                  {t.label}
-                  {t.count != null && t.count > 0 && (
-                    <span className="absolute right-1.5 top-1 rounded-full bg-muted px-1 text-[9px] font-semibold tabular-nums text-muted-foreground">
-                      {t.count}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-
         <div className="border-b p-3 space-y-2">
           <MessageTemplateDialog />
           <HistoryDrawer />
