@@ -9,7 +9,6 @@ import {
   Globe,
   MessageCircle,
   PanelLeftClose,
-  PanelLeftOpen,
   ArrowUpDown,
   Filter,
   Download,
@@ -136,17 +135,9 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     }
   };
 
-  if (collapsed && !mobile) {
-    return (
-      <aside className="hidden md:flex w-14 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex h-14 items-center justify-center border-b border-sidebar-border">
-          <IconBtn onClick={() => setCollapsed(false)} label="Expandir painel lateral">
-            <PanelLeftOpen className="h-4 w-4" />
-          </IconBtn>
-        </div>
-      </aside>
-    );
-  }
+  // Colapsada = some por completo (igual ao reference). O botão de expandir
+  // vive no TopNav (PanelLeftOpen) quando sidebarCollapsed.
+  if (collapsed && !mobile) return null;
 
   return (
     <aside
