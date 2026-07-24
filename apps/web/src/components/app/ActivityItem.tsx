@@ -12,7 +12,7 @@ import {
 import type { ActivityType, Lead, LeadActivity } from "@/types";
 import { useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
-import { formatDate, formatDateTime, digitsOnly } from "@/lib/format";
+import { formatDate, digitsOnly } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -115,9 +115,7 @@ export function ActivityItem({ lead, activity }: { lead: Lead; activity: LeadAct
         </div>
         <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {activity.time
-            ? formatDateTime(`${activity.date}T${activity.time}`)
-            : formatDate(activity.date)}
+          {formatDate(activity.date)}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">

@@ -1,4 +1,5 @@
 import type { Lead } from "@/types";
+import { STAGE_LABELS } from "@/lib/constants";
 
 export type NotificationKind =
   | "overdue_activity"
@@ -51,7 +52,7 @@ export function generateNotifications(pipeline: Lead[]): AppNotification[] {
         id: `gen-stalled-${lead.id}`,
         kind: "stalled_lead",
         title: `Lead parado — ${lead.companyName}`,
-        description: `${daysSince} dias sem interação em ${lead.stage}.`,
+        description: `${daysSince} dias sem interação em ${STAGE_LABELS[lead.stage]}.`,
         leadId: lead.id,
         createdAt: new Date(lastTs).toISOString(),
       });

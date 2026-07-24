@@ -53,6 +53,7 @@ function AgendaPage() {
     return rows.filter(({ activity }) => {
       if (tab === "completed") return !!activity.done;
       if (activity.done) return false;
+      if (!activity.date) return false;
       const due = new Date(activity.date);
       if (tab === "overdue") return due < startOfDay(now);
       if (tab === "today") return due >= startOfDay(now) && due <= endOfDay(now);
@@ -71,6 +72,7 @@ function AgendaPage() {
         completed++;
         continue;
       }
+      if (!activity.date) continue;
       const due = new Date(activity.date);
       if (due < startOfDay(now)) overdue++;
       else if (due <= endOfDay(now)) today++;
