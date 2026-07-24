@@ -88,6 +88,44 @@ export class DemoLeadRepository implements LeadRepository {
     return activity;
   }
 
+  async completeActivity(leadId: string, activityId: string, done: boolean): Promise<LeadActivity> {
+    let updated: LeadActivity | undefined;
+    demoLeads = demoLeads.map((l) => {
+      if (l.id !== leadId) return l;
+      const activities = l.activities.map((a) => {
+        if (a.id === activityId) {
+          updated = { ...a, done, completedAt: done ? new Date().toISOString() : undefined };
+          return updated;
+        }
+        return a;
+      });
+      return { ...l, activities };
+    });
+    if (!updated) throw new Error("Atividade não encontrada.");
+    return updated;
+  }
+
+  async updateActivity(
+    leadId: string,
+    activityId: string,
+    input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>,
+  ): Promise<LeadActivity> {
+    let updated: LeadActivity | undefined;
+    demoLeads = demoLeads.map((l) => {
+      if (l.id !== leadId) return l;
+      const activities = l.activities.map((a) => {
+        if (a.id === activityId) {
+          updated = { ...a, ...input };
+          return updated;
+        }
+        return a;
+      });
+      return { ...l, activities };
+    });
+    if (!updated) throw new Error("Atividade não encontrada.");
+    return updated;
+  }
+
   async updateNote(leadId: string, noteId: string, content: string): Promise<LeadNote> {
     let updated: LeadNote | undefined;
     demoLeads = demoLeads.map((l) => {

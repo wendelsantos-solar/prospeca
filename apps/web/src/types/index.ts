@@ -28,6 +28,7 @@ export interface LeadActivity {
   note?: string;
   priority?: "low" | "medium" | "high";
   done?: boolean;
+  completedAt?: string;
 }
 
 export interface TimelineEvent {

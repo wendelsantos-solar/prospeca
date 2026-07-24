@@ -72,6 +72,7 @@ interface ActivityRow {
   priority: "low" | "medium" | "high";
   status: string;
   scheduled_at: string | null;
+  completed_at: string | null;
 }
 
 const ACTIVITY_TYPE_TO_UI: Record<string, LeadActivity["type"]> = {
@@ -113,6 +114,7 @@ function mapActivity(row: ActivityRow): LeadActivity {
     priority: row.priority,
     done: row.status === "completed",
     date: row.scheduled_at ?? "",
+    completedAt: row.completed_at ?? undefined,
   };
 }
 
@@ -308,6 +310,45 @@ export class SupabaseLeadRepository implements LeadRepository {
         priority: input.priority ?? "medium",
         scheduled_at: input.date || null,
       })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return mapActivity(data as ActivityRow);
+  }
+
+  async completeActivity(leadId: string, activityId: string, done: boolean): Promise<LeadActivity> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("lead_activities")
+      .update({
+        status: done ? "completed" : "pending",
+        completed_at: done ? new Date().toISOString() : null,
+      })
+      .eq("id", activityId)
+      .eq("lead_id", leadId)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return mapActivity(data as ActivityRow);
+  }
+
+  async updateActivity(
+    leadId: string,
+    activityId: string,
+    input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>,
+  ): Promise<LeadActivity> {
+    const supabase = getSupabase();
+    const patch: Record<string, unknown> = {};
+    if (input.title !== undefined) patch.title = input.title;
+    if (input.note !== undefined) patch.description = input.note ?? null;
+    if (input.date !== undefined) patch.scheduled_at = input.date || null;
+    if (input.priority !== undefined) patch.priority = input.priority;
+    if (input.type !== undefined) patch.type = ACTIVITY_TYPE_TO_DB[input.type] ?? "other";
+    const { data, error } = await supabase
+      .from("lead_activities")
+      .update(patch)
+      .eq("id", activityId)
+      .eq("lead_id", leadId)
       .select("*")
       .single();
     if (error) throw new Error(error.message);

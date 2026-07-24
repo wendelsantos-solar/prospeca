@@ -99,6 +99,12 @@ export interface LeadRepository {
   removeNote(leadId: string, noteId: string): Promise<void>;
   toggleNotePin(leadId: string, noteId: string): Promise<LeadNote>;
   createActivity(leadId: string, input: CreateLeadActivityInput): Promise<LeadActivity>;
+  completeActivity(leadId: string, activityId: string, done: boolean): Promise<LeadActivity>;
+  updateActivity(
+    leadId: string,
+    activityId: string,
+    input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>,
+  ): Promise<LeadActivity>;
   removeLead(id: string): Promise<void>;
   /** LGPD opt-out: value_hash set of suppressed contacts for the org. */
   listSuppressionHashes(): Promise<string[]>;

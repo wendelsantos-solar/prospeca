@@ -6,7 +6,13 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLeadRepository, getSearchRepository } from "@/repositories";
-import type { Lead, LeadFilters, CreateLeadNoteInput, CreateLeadActivityInput } from "@/types";
+import type {
+  Lead,
+  LeadActivity,
+  LeadFilters,
+  CreateLeadNoteInput,
+  CreateLeadActivityInput,
+} from "@/types";
 import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
 
 // ── Query keys ──────────────────────────────────────────────
@@ -159,6 +165,44 @@ export function useAddActivityMutation() {
   return useMutation({
     mutationFn: ({ leadId, input }: { leadId: string; input: CreateLeadActivityInput }) =>
       getLeadRepository().createActivity(leadId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
+export function useCompleteActivityMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      leadId,
+      activityId,
+      done,
+    }: {
+      leadId: string;
+      activityId: string;
+      done: boolean;
+    }) => getLeadRepository().completeActivity(leadId, activityId, done),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
+export function useUpdateActivityMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      leadId,
+      activityId,
+      input,
+    }: {
+      leadId: string;
+      activityId: string;
+      input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>;
+    }) => getLeadRepository().updateActivity(leadId, activityId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: leadKeys.all });
     },
