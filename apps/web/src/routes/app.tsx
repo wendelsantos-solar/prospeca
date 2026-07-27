@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app/AppSidebar";
+import { NavRail } from "@/components/app/NavRail";
 import { TopNav } from "@/components/app/TopNav";
 import { useLeadsStore } from "@/stores";
 import { LeadDetailsDrawer } from "@/components/app/LeadDetailsDrawer";
@@ -156,6 +157,7 @@ function AppLayout() {
   return (
     <AuthGate>
       <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+        <NavRail />
         <AppSidebar />
         <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
           <TopNav />

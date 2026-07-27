@@ -1,14 +1,10 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import {
-  Radar,
-  Moon,
-  Sun,
   Search,
   Phone,
   Globe,
   MessageCircle,
-  PanelLeftClose,
   ArrowUpDown,
   Filter,
   Download,
@@ -28,7 +24,6 @@ import { RADIUS_OPTIONS } from "@/lib/constants";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
 import { HistoryDrawer } from "./HistoryDrawer";
-import { SettingsDialog } from "./SettingsDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { LeadListSkeleton, SummarySkeleton } from "@/components/shared/Skeletons";
@@ -40,10 +35,7 @@ import { cn } from "@/lib/utils";
 type SortBy = "score" | "distance" | "rating";
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
-  const theme = useUIStore((s) => s.theme);
-  const toggleTheme = useUIStore((s) => s.toggleTheme);
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
-  const setCollapsed = useUIStore((s) => s.setSidebarCollapsed);
 
   const searching = useLeadsStore((s) => s.searching);
   const searchError = useLeadsStore((s) => s.searchError);
@@ -150,38 +142,21 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       )}
     >
       {/* Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-card">
-            <Radar className="h-4 w-4" strokeWidth={2.4} />
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-semibold leading-tight tracking-tight">
+            Buscar empresas
           </div>
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold leading-tight">Radar Local</div>
-            <div className="truncate text-[11px] text-muted-foreground">Prospecção comercial</div>
+          <div className="truncate text-[11.5px] text-muted-foreground">
+            Encontre quem tem pouca presença digital
           </div>
         </div>
-        <div className="flex items-center gap-0.5">
-          <IconBtn onClick={toggleTheme} label="Alternar tema">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </IconBtn>
-          <SettingsDialog />
-          {!mobile && (
-            <IconBtn onClick={() => setCollapsed(true)} label="Recolher painel lateral">
-              <PanelLeftClose className="h-4 w-4" />
-            </IconBtn>
-          )}
-        </div>
+        <HistoryDrawer />
       </div>
 
       <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto">
         {/* Search block */}
         <div className="border-b border-sidebar-border p-4">
-          <div className="mb-3">
-            <div className="text-[13px] font-semibold text-foreground">Descobrir empresas</div>
-            <div className="text-[11.5px] text-muted-foreground">
-              Encontre oportunidades comerciais em uma região.
-            </div>
-          </div>
           <SearchForm />
         </div>
 
@@ -194,7 +169,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
               <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Resumo da pesquisa
               </span>
-              <HistoryDrawer />
             </div>
             <div className="grid grid-cols-5 gap-1">
               <SummaryPill label="Encontradas" value={summary.total} />
@@ -299,27 +273,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       </div>
       {/* fecha o scroll wrapper */}
     </aside>
-  );
-}
-
-function IconBtn({
-  children,
-  onClick,
-  label,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {children}
-    </button>
   );
 }
 
