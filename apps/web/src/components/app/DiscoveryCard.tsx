@@ -27,7 +27,9 @@ function ScoreRing({ score, temperature }: { score: number; temperature: Tempera
   return (
     <div
       className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"
-      style={{ background: `conic-gradient(${color} ${Math.max(0, Math.min(100, score))}%, var(--color-border) 0)` }}
+      style={{
+        background: `conic-gradient(${color} ${Math.max(0, Math.min(100, score))}%, var(--color-border) 0)`,
+      }}
       aria-hidden
     >
       <div className="absolute inset-[3px] rounded-full bg-surface" />
@@ -188,7 +190,11 @@ export const DiscoveryCard = memo(function DiscoveryCard({
               <Phone className="h-3 w-3" />
             </ChannelChip>
             <ChannelChip has={result.hasWebsite} title="Site">
-              {result.hasWebsite ? <Globe className="h-3 w-3" /> : <GlobeLock className="h-3 w-3" />}
+              {result.hasWebsite ? (
+                <Globe className="h-3 w-3" />
+              ) : (
+                <GlobeLock className="h-3 w-3" />
+              )}
             </ChannelChip>
             <ChannelChip has={!!result.whatsapp} title="WhatsApp">
               <MessageCircle className="h-3 w-3" />

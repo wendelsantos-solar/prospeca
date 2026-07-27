@@ -61,7 +61,10 @@ export function NavRail() {
   const countFor = (to: string) => {
     if (to === "/app/kanban") return { count: pipelineCount, tone: "default" as const };
     if (to === "/app/hoje")
-      return { count: todayCount, tone: overdueCount > 0 ? ("danger" as const) : ("default" as const) };
+      return {
+        count: todayCount,
+        tone: overdueCount > 0 ? ("danger" as const) : ("default" as const),
+      };
     return { count: 0, tone: "default" as const };
   };
 
@@ -123,7 +126,11 @@ export function NavRail() {
           title={theme === "dark" ? "Tema claro" : "Tema escuro"}
           className="grid h-11 w-11 place-items-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
         >
-          {theme === "dark" ? <Sun className="h-[19px] w-[19px]" /> : <Moon className="h-[19px] w-[19px]" />}
+          {theme === "dark" ? (
+            <Sun className="h-[19px] w-[19px]" />
+          ) : (
+            <Moon className="h-[19px] w-[19px]" />
+          )}
         </button>
         <SettingsDialog />
         <div

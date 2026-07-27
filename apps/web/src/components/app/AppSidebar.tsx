@@ -1,14 +1,6 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import {
-  Search,
-  Phone,
-  Globe,
-  MessageCircle,
-  ArrowUpDown,
-  Filter,
-  Download,
-} from "lucide-react";
+import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Filter, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
