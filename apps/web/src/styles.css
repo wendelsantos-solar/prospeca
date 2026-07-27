@@ -24,6 +24,7 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -42,22 +43,31 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-hot: var(--hot);
   --color-hot-foreground: var(--hot-foreground);
+  --color-hot-soft: var(--hot-soft);
   --color-warm: var(--warm);
   --color-warm-foreground: var(--warm-foreground);
+  --color-warm-soft: var(--warm-soft);
   --color-cold: var(--cold);
   --color-cold-foreground: var(--cold-foreground);
+  --color-cold-soft: var(--cold-soft);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-sel: var(--sel);
+  --color-sel-foreground: var(--sel-foreground);
+  --color-sel-soft: var(--sel-soft);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -76,6 +86,11 @@
   --shadow-elegant: 0 1px 2px 0 rgb(23 33 28 / 0.04), 0 1px 3px 0 rgb(23 33 28 / 0.03);
   --shadow-elevated: 0 4px 16px -4px rgb(23 33 28 / 0.08), 0 2px 6px -2px rgb(23 33 28 / 0.04);
   --shadow-popover: 0 12px 32px -8px rgb(23 33 28 / 0.12), 0 4px 12px -4px rgb(23 33 28 / 0.06);
+
+  /* Motion — easings expostos como utilitários ease-* */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 :root {
@@ -85,6 +100,7 @@
   --foreground: oklch(0.22 0.008 160);
   --surface: oklch(1 0 0);
   --surface-2: oklch(0.982 0.003 160);
+  --surface-hover: oklch(0.965 0.005 160);
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.008 160);
@@ -107,12 +123,20 @@
 
   --destructive: oklch(0.62 0.19 25);
   --destructive-foreground: oklch(0.99 0.003 160);
+  --destructive-soft: oklch(0.95 0.03 25);
   --warning: oklch(0.76 0.14 75);
   --warning-foreground: oklch(0.28 0.09 55);
+  --warning-soft: oklch(0.96 0.045 85);
   --info: oklch(0.62 0.14 240);
   --info-foreground: oklch(0.99 0.003 160);
+  --info-soft: oklch(0.95 0.03 240);
   --success: oklch(0.586 0.117 158);
   --success-foreground: oklch(0.99 0.003 160);
+
+  /* Seleção (cards/linhas/marcadores) — azul, distinto do primário verde */
+  --sel: oklch(0.62 0.14 240);
+  --sel-foreground: oklch(0.99 0.003 160);
+  --sel-soft: oklch(0.95 0.03 240);
 
   --border: oklch(0.918 0.006 160);
   --border-strong: oklch(0.867 0.007 160);
@@ -122,10 +146,27 @@
   /* Temperatura (marcadores do mapa) — mantidos do projeto atual */
   --hot: oklch(0.72 0.17 55);
   --hot-foreground: oklch(0.99 0 0);
+  --hot-soft: oklch(0.95 0.045 55);
   --warm: oklch(0.83 0.15 90);
   --warm-foreground: oklch(0.3 0.08 80);
+  --warm-soft: oklch(0.96 0.055 90);
   --cold: oklch(0.72 0.04 250);
   --cold-foreground: oklch(0.99 0 0);
+  --cold-soft: oklch(0.95 0.02 250);
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+
+  /* Z-index — escala única (evita valores soltos) */
+  --z-sticky: 20;
+  --z-dropdown: 30;
+  --z-popover: 40;
+  --z-drawer: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
 
   --chart-1: oklch(0.586 0.117 158);
   --chart-2: oklch(0.62 0.14 240);
@@ -148,6 +189,7 @@
   --foreground: oklch(0.96 0.003 160);
   --surface: oklch(0.22 0.01 160);
   --surface-2: oklch(0.24 0.01 160);
+  --surface-hover: oklch(0.26 0.01 160);
   --card: oklch(0.22 0.01 160);
   --card-foreground: oklch(0.96 0.003 160);
   --popover: oklch(0.22 0.01 160);
@@ -167,12 +209,20 @@
 
   --destructive: oklch(0.68 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
+  --destructive-soft: oklch(0.29 0.06 27);
   --warning: oklch(0.76 0.14 75);
   --warning-foreground: oklch(0.96 0.05 80);
+  --warning-soft: oklch(0.3 0.05 80);
   --info: oklch(0.7 0.15 240);
   --info-foreground: oklch(0.99 0 0);
+  --info-soft: oklch(0.29 0.05 240);
   --success: oklch(0.68 0.13 158);
   --success-foreground: oklch(0.15 0.02 155);
+
+  /* Seleção */
+  --sel: oklch(0.7 0.15 240);
+  --sel-foreground: oklch(0.99 0 0);
+  --sel-soft: oklch(0.29 0.05 240);
 
   --border: oklch(0.3 0.01 160);
   --border-strong: oklch(0.4 0.01 160);
@@ -182,10 +232,13 @@
   /* Temperatura (marcadores do mapa) — mantidos do projeto atual */
   --hot: oklch(0.75 0.17 55);
   --hot-foreground: oklch(0.15 0.05 55);
+  --hot-soft: oklch(0.3 0.06 55);
   --warm: oklch(0.83 0.15 90);
   --warm-foreground: oklch(0.2 0.06 80);
+  --warm-soft: oklch(0.3 0.05 85);
   --cold: oklch(0.55 0.05 250);
   --cold-foreground: oklch(0.99 0 0);
+  --cold-soft: oklch(0.29 0.03 250);
 
   --chart-1: oklch(0.68 0.13 158);
   --chart-2: oklch(0.7 0.15 240);
