@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MarkerClusterer, type Renderer } from "@googlemaps/markerclusterer";
 import type { DiscoveryResult } from "@/repositories/types";
@@ -107,6 +107,29 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
       }
     }
   };
+
+  // Latest results, read by the focus effect without re-subscribing to them.
+  const resultsRef = useRef(results);
+  resultsRef.current = results;
+
+  // Build the info-window content + wire its action buttons, then open it on the
+  // given marker. Shared by the marker click and the list→map focus effect so a
+  // card click and a marker click open the exact same popup.
+  const openInfo = useCallback((marker: google.maps.Marker, r: DiscoveryResult) => {
+    const info = infoRef.current;
+    const map = mapRef.current;
+    if (!info || !map) return;
+    const node = document.createElement("div");
+    node.innerHTML = popupHtml(r);
+    node.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-action][data-id]");
+      if (!btn) return;
+      e.preventDefault();
+      actionRef.current(btn.dataset.action!, btn.dataset.id!);
+    });
+    info.setContent(node);
+    info.open({ map, anchor: marker });
+  }, []);
 
   // ── Init map (once) ──
   useEffect(() => {
@@ -286,39 +309,28 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
       m.addListener("click", () => {
         setFocused(r.placeId);
         window.dispatchEvent(new CustomEvent("lead-focused-from-map", { detail: r.placeId }));
-        const info = infoRef.current;
-        if (info) {
-          const node = document.createElement("div");
-          node.innerHTML = popupHtml(r);
-          node.addEventListener("click", (e) => {
-            const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(
-              "[data-action][data-id]",
-            );
-            if (!btn) return;
-            e.preventDefault();
-            actionRef.current(btn.dataset.action!, btn.dataset.id!);
-          });
-          info.setContent(node);
-          info.open({ map, anchor: m });
-        }
+        openInfo(m, r);
       });
       markers.push(m);
       markersRef.current.set(r.placeId, m);
     });
     cluster.addMarkers(markers);
     setVisibleCount(results.length);
-  }, [results, focusedId, setFocused, mapReady]);
+  }, [results, focusedId, setFocused, mapReady, openInfo]);
 
-  // Pan to + open the focused marker.
+  // Focus (from a card click or a marker click): pan to the marker and open its
+  // popup, so selecting a card in the list surfaces the same balloon on the map.
   useEffect(() => {
     if (!focusedId || !mapReady) return;
     const map = mapRef.current;
     const marker = markersRef.current.get(focusedId);
+    const r = resultsRef.current.find((x) => x.placeId === focusedId);
     if (map && marker) {
       const pos = marker.getPosition();
       if (pos) map.panTo(pos);
+      if (r) openInfo(marker, r);
     }
-  }, [focusedId, mapReady]);
+  }, [focusedId, mapReady, openInfo]);
 
   const fitAll = () => {
     const map = mapRef.current;
