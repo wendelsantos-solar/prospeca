@@ -1,17 +1,7 @@
 import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
 import { Card } from "@/components/ui/card";
-import {
-  MessageCircle,
-  Globe,
-  GlobeLock,
-  Star,
-  MapPin,
-  Plus,
-  Check,
-  Eye,
-  Flame,
-} from "lucide-react";
+import { MessageCircle, Globe, GlobeLock, Phone, Star, Plus, Eye, Flame } from "lucide-react";
 import { useLeadsStore } from "@/stores";
 import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
@@ -21,28 +11,68 @@ import { categoryLabel } from "@/lib/category";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const tempBadgeClass: Record<DiscoveryResult["temperature"], string> = {
-  hot: "bg-primary text-primary-foreground",
-  warm: "bg-warning/15 text-warning-foreground",
-  cold: "bg-muted text-muted-foreground",
+type Temperature = DiscoveryResult["temperature"];
+
+const TEMP_META: Record<Temperature, { label: string; ring: string; badge: string }> = {
+  hot: { label: "Quente", ring: "var(--color-hot)", badge: "bg-hot-soft text-hot" },
+  warm: { label: "Morno", ring: "var(--color-warm)", badge: "bg-warm-soft text-warm" },
+  cold: { label: "Frio", ring: "var(--color-cold)", badge: "bg-cold-soft text-cold" },
 };
 
-function ScoreBadge({
-  score,
-  temperature,
-}: {
-  score: number;
-  temperature: DiscoveryResult["temperature"];
-}) {
+/** Score dial: a conic ring filled to `score`%, tinted by lead temperature.
+ * Temperature is never carried by color alone — the TemperatureBadge repeats it
+ * as text + dot, and the number is always legible in the center. */
+function ScoreRing({ score, temperature }: { score: number; temperature: Temperature }) {
+  const color = TEMP_META[temperature].ring;
+  return (
+    <div
+      className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"
+      style={{ background: `conic-gradient(${color} ${Math.max(0, Math.min(100, score))}%, var(--color-border) 0)` }}
+      aria-hidden
+    >
+      <div className="absolute inset-[3px] rounded-full bg-surface" />
+      <span className="relative z-10 font-mono text-[13px] font-bold tabular-nums text-foreground">
+        {score}
+      </span>
+    </div>
+  );
+}
+
+function TemperatureBadge({ temperature }: { temperature: Temperature }) {
+  const meta = TEMP_META[temperature];
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold",
-        tempBadgeClass[temperature],
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        meta.badge,
       )}
     >
-      {temperature === "hot" && <Flame className="h-3 w-3" />}
-      {score}
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {meta.label}
+    </span>
+  );
+}
+
+function ChannelChip({
+  has,
+  title,
+  children,
+}: {
+  has: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      title={has ? title : `${title} — indisponível`}
+      className={cn(
+        "grid h-[22px] w-[22px] place-items-center rounded-md border",
+        has
+          ? "border-transparent bg-primary-subtle text-primary"
+          : "border-border bg-surface-2 text-muted-foreground opacity-45",
+      )}
+    >
+      {children}
     </span>
   );
 }
@@ -65,7 +95,7 @@ function MiniBtn({
         (e.key === "Enter" || e.key === " ") && onClick(e as unknown as React.MouseEvent)
       }
       className={cn(
-        "inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] font-medium transition-colors",
+        "inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
         tone === "primary"
           ? "bg-primary text-primary-foreground hover:bg-primary-hover"
           : "border border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
@@ -129,46 +159,49 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     <Card
       onClick={() => setFocused(result.placeId)}
       className={cn(
-        "group relative cursor-pointer rounded-xl border-border p-3 shadow-none transition-all hover:border-border-strong hover:shadow-card",
-        isFocused && "border-info ring-1 ring-info/40 bg-info/5",
+        "group relative cursor-pointer overflow-hidden rounded-xl border-border p-3 shadow-none transition-all hover:border-border-strong hover:shadow-card",
+        isFocused && "border-sel bg-sel-soft/40 ring-2 ring-sel/25",
       )}
     >
-      {/* line 1 */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[13.5px] font-semibold text-foreground">
-              {result.name}
-            </span>
-            {result.hasWebsite ? (
-              <Globe className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-label="Com site" />
-            ) : null}
-          </div>
-          <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
-            {categoryLabel(result.category)}
-          </p>
-        </div>
-        <ScoreBadge score={result.score} temperature={result.temperature} />
-      </div>
+      {isFocused && (
+        <span className="absolute inset-y-3 left-0 w-[3px] rounded-r-full bg-sel" aria-hidden />
+      )}
 
-      {/* line 3 */}
-      <div className="mt-2.5 flex items-center gap-3 text-[11.5px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MapPin className="h-3 w-3" />
-          {formatDistance(result.distanceKm)}
-        </span>
-        {result.rating != null && (
-          <span className="inline-flex items-center gap-1">
-            <Star className="h-3 w-3 fill-warning text-warning" />
-            {result.rating.toFixed(1)}{" "}
-            <span className="text-subtle-foreground">({result.reviewCount ?? 0})</span>
-          </span>
-        )}
-        {!result.hasWebsite && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-warning/12 px-1.5 py-0.5 text-[10.5px] font-medium text-warning-foreground">
-            <GlobeLock className="h-3 w-3" /> Sem site
-          </span>
-        )}
+      <div className="flex items-start gap-3">
+        <ScoreRing score={result.score} temperature={result.temperature} />
+
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+            {result.name}
+          </h3>
+          <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+            <span className="truncate">{categoryLabel(result.category)}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="shrink-0 font-mono tabular-nums text-subtle-foreground">
+              {formatDistance(result.distanceKm)}
+            </span>
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <TemperatureBadge temperature={result.temperature} />
+            <ChannelChip has={!!result.phone} title="Telefone">
+              <Phone className="h-3 w-3" />
+            </ChannelChip>
+            <ChannelChip has={result.hasWebsite} title="Site">
+              {result.hasWebsite ? <Globe className="h-3 w-3" /> : <GlobeLock className="h-3 w-3" />}
+            </ChannelChip>
+            <ChannelChip has={!!result.whatsapp} title="WhatsApp">
+              <MessageCircle className="h-3 w-3" />
+            </ChannelChip>
+            {result.rating != null && (
+              <span className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-secondary-foreground">
+                <Star className="h-3 w-3 fill-warning text-warning" />
+                <span className="font-mono tabular-nums">{result.rating.toFixed(1)}</span>
+                <span className="text-subtle-foreground">({result.reviewCount ?? 0})</span>
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* actions */}
@@ -194,7 +227,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
         </MiniBtn>
         <div className="ml-auto">
           {inFunnel ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-1.5 py-1 text-[10.5px] font-semibold text-primary">
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-2 py-1 text-[11px] font-semibold text-primary">
               <Flame className="h-3 w-3" /> No pipeline
             </span>
           ) : (
