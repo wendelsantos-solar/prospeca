@@ -181,7 +181,13 @@ export function SearchForm() {
     register({
       runSearch: (input) => runSearch(input),
       setDraft: (patch) => setDraft(patch as Parameters<typeof setDraft>[0]),
-      focusNiche: () => nicheButtonRef.current?.focus(),
+      // Open the niche combobox (not just focus it) so the global ⌘K search and
+      // the "start a search" affordances land the user straight in a typeable
+      // field — focusing the trigger alone opened nothing visible.
+      focusNiche: () => {
+        nicheButtonRef.current?.focus();
+        setNicheOpen(true);
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
