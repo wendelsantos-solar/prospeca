@@ -97,7 +97,10 @@ const Row = memo(function Row({ result, searchId }: { result: DiscoveryResult; s
 
   return (
     <tr
-      onClick={() => setFocused(result.placeId)}
+      onClick={() => {
+        setFocused(result.placeId);
+        openDetails();
+      }}
       className={cn(
         "cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-surface-hover",
         isFocused && "bg-sel-soft/40",
