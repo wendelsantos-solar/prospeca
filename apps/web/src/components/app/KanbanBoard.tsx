@@ -105,7 +105,7 @@ const KanbanCard = memo(function KanbanCard({
       {...(overlay ? {} : listeners)}
       onClick={() => setDetails(lead.id)}
       className={cn(
-        "cursor-grab active:cursor-grabbing border-border/70 shadow-elegant hover:border-primary/50 transition-all",
+        "cursor-grab active:cursor-grabbing border-border/70 shadow-none transition-all hover:border-border-strong hover:shadow-card",
         density === "compact" ? "p-2" : "p-2.5",
         isDragging && "opacity-40",
         overlay && "shadow-elevated rotate-2",
@@ -674,7 +674,7 @@ export function KanbanTopBar({
               className={cn(
                 "rounded px-2 py-1 text-[10px] font-medium",
                 density === d
-                  ? "bg-surface text-foreground shadow-elegant"
+                  ? "bg-surface text-foreground shadow-card"
                   : "text-muted-foreground",
               )}
             >

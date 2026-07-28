@@ -92,7 +92,7 @@ export const LeadCard = memo(function LeadCard({
     <Card
       onClick={() => setFocused(lead.id)}
       className={cn(
-        "lead-list-item group relative cursor-pointer border-border/70 shadow-elegant transition-all hover:border-primary/50 hover:shadow-elevated",
+        "lead-list-item group relative cursor-pointer border-border/70 shadow-card transition-all hover:border-primary/50 hover:shadow-elevated",
         isFocused && "border-info ring-1 ring-info/40 bg-info/5",
         compact ? "p-2.5" : "p-3",
       )}

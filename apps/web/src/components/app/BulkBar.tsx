@@ -48,7 +48,7 @@ export function BulkBar({
         <Button
           size="sm"
           onClick={() => setBulkMode(true)}
-          className="gap-1.5 h-8 text-xs shadow-elegant"
+          className="gap-1.5 h-8 text-xs shadow-card"
         >
           <Check className="h-3.5 w-3.5" />
           Iniciar prospecção em massa

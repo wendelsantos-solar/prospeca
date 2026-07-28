@@ -72,7 +72,7 @@ export function HistoryDrawer() {
             />
           ) : (
             history.map((h) => (
-              <div key={h.id} className="rounded-lg border bg-surface p-3 shadow-elegant">
+              <div key={h.id} className="rounded-lg border bg-surface p-3 shadow-card">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{h.niche}</p>

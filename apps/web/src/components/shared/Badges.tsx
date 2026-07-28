@@ -4,9 +4,9 @@ import { TEMPERATURE_LABELS } from "@/lib/constants";
 import { Flame, Thermometer, Snowflake } from "lucide-react";
 
 const map: Record<LeadTemperature, { cls: string; icon: React.ElementType }> = {
-  hot: { cls: "bg-hot text-hot-foreground", icon: Flame },
-  warm: { cls: "bg-warm text-warm-foreground", icon: Thermometer },
-  cold: { cls: "bg-cold text-cold-foreground", icon: Snowflake },
+  hot: { cls: "bg-hot-soft text-hot", icon: Flame },
+  warm: { cls: "bg-warm-soft text-warm", icon: Thermometer },
+  cold: { cls: "bg-cold-soft text-cold", icon: Snowflake },
 };
 
 export function TemperatureBadge({

@@ -448,7 +448,7 @@ export function AdvancedFilters() {
                   className={cn(
                     "text-xs font-medium rounded-md px-2 py-1.5",
                     draft.hasWebsite === o.v || (o.v === null && draft.hasWebsite == null)
-                      ? "bg-surface text-foreground shadow-elegant"
+                      ? "bg-surface text-foreground shadow-card"
                       : "text-muted-foreground",
                   )}
                 >
