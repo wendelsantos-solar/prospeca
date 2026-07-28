@@ -79,6 +79,20 @@ export function hasRealWebsite(websiteUri: string | null | undefined): boolean {
   return !SOCIAL_DOMAINS.some((s) => domain === s || domain.endsWith(`.${s}`));
 }
 
+const INSTAGRAM_NON_HANDLES = new Set(["p", "reel", "reels", "explore", "stories", "tv"]);
+
+/** Google (and site scrapes) sometimes hand back the business's Instagram
+ *  profile as its "website" — extract the @handle directly instead of
+ *  treating it as a dead-end social domain. */
+export function instagramHandleFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const domain = normalizeDomain(url);
+  if (!domain || (domain !== "instagram.com" && !domain.endsWith(".instagram.com"))) return null;
+  const handle = url.match(/instagram\.com\/([A-Za-z0-9_.]+)/)?.[1];
+  if (!handle || INSTAGRAM_NON_HANDLES.has(handle)) return null;
+  return `@${handle}`;
+}
+
 export function normalizeCompanyName(name: string): string {
   return name
     .toLowerCase()

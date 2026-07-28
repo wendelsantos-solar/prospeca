@@ -2,7 +2,7 @@
 // No search-engine scraping, no third-party crawling. SSRF-guarded, timed out,
 // single page. Returns explicit not_found signals rather than fabricating data.
 import { assertSafeUrl, SsrfBlockedError } from "./ssrf.ts";
-import { normalizeDomain } from "./normalize.ts";
+import { instagramHandleFromUrl, normalizeDomain } from "./normalize.ts";
 
 export type EnrichmentField = "website" | "phone" | "whatsapp" | "email" | "instagram" | "address";
 
@@ -51,6 +51,25 @@ export async function enrichFromWebsite(input: {
 }): Promise<{ fields: EnrichedField[]; status: "ok" | "not_found" | "blocked" }> {
   const domain = normalizeDomain(input.website);
   if (!input.website || !domain) return { fields: [], status: "not_found" };
+
+  // The "website" IS the Instagram profile — pull the handle from the URL
+  // itself rather than fetching (Instagram blocks unauthenticated scraping).
+  const directInstagram = instagramHandleFromUrl(input.website);
+  if (directInstagram) {
+    return {
+      fields: [
+        {
+          field: "instagram",
+          value: directInstagram,
+          confidence: 0.9,
+          verification: "unverified",
+          sourceUrl: input.website,
+          provider: PROVIDER,
+        },
+      ],
+      status: "ok",
+    };
+  }
 
   let safeUrl: URL;
   try {

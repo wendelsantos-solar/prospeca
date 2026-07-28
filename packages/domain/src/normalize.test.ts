@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   hasRealWebsite,
+  instagramHandleFromUrl,
   normalizeCompanyName,
   normalizeDomain,
   normalizePhone,
@@ -74,6 +75,28 @@ describe("hasRealWebsite", () => {
   );
   test("empty", () => {
     expect(hasRealWebsite(null)).toBe(false);
+  });
+});
+
+describe("instagramHandleFromUrl", () => {
+  test.each([
+    ["https://instagram.com/bonapartebarbearia", "@bonapartebarbearia"],
+    ["https://www.instagram.com/bonapartebarbearia/", "@bonapartebarbearia"],
+    ["http://instagram.com/foo.bar_baz", "@foo.bar_baz"],
+  ])("%s -> %s", (url, expected) => {
+    expect(instagramHandleFromUrl(url)).toBe(expected);
+  });
+  test("not an instagram url", () => {
+    expect(instagramHandleFromUrl("https://clinicasaojose.com.br")).toBeNull();
+  });
+  test.each(["https://instagram.com/p/abc123", "https://instagram.com/explore"])(
+    "%s is not a handle",
+    (url) => {
+      expect(instagramHandleFromUrl(url)).toBeNull();
+    },
+  );
+  test("empty", () => {
+    expect(instagramHandleFromUrl(null)).toBeNull();
   });
 });
 

@@ -10,6 +10,7 @@ import { withIdempotency } from "../_shared/idempotency.ts";
 import { scoreInputFromRow, type PlaceRow } from "../_shared/score-input.ts";
 import {
   hasRealWebsite,
+  instagramHandleFromUrl,
   normalizeCompanyName,
   normalizeDomain,
   normalizePhone,
@@ -219,7 +220,12 @@ Deno.serve(async (req) => {
           if (error || !lead) continue;
 
           imported++;
-          if (websiteReal && place.website_uri) {
+          // Also enqueue instagram-as-website leads: not a "real" site, but
+          // enrichFromWebsite pulls the handle straight from that URL.
+          if (
+            place.website_uri &&
+            (websiteReal || instagramHandleFromUrl(place.website_uri as string))
+          ) {
             enrichable.push({ leadId: lead.id as string, website: place.website_uri as string });
           }
           await ctx.adminClient

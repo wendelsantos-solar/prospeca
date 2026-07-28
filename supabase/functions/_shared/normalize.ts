@@ -4,6 +4,7 @@ export {
   normalizeDomain,
   normalizeCompanyName,
   hasRealWebsite,
+  instagramHandleFromUrl,
   whatsappStatusFor,
   waMeLink,
   type NormalizedPhone,
