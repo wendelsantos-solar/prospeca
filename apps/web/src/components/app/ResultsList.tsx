@@ -36,7 +36,15 @@ function ScoreRing({ score, temperature }: { score: number; temperature: Tempera
   );
 }
 
-function ChannelChip({ has, title, children }: { has: boolean; title: string; children: React.ReactNode }) {
+function ChannelChip({
+  has,
+  title,
+  children,
+}: {
+  has: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <span
       title={has ? title : `${title} — indisponível`}
@@ -223,7 +231,11 @@ export function ResultsList({
                 key={h || i}
                 className={cn(
                   "py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
-                  i === 0 ? "pl-4 pr-3" : i === HEADERS.length - 1 ? "pl-3 pr-4 text-right" : "px-3",
+                  i === 0
+                    ? "pl-4 pr-3"
+                    : i === HEADERS.length - 1
+                      ? "pl-3 pr-4 text-right"
+                      : "px-3",
                 )}
               >
                 {h}

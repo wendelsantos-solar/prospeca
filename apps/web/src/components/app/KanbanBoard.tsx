@@ -673,9 +673,7 @@ export function KanbanTopBar({
               aria-pressed={density === d}
               className={cn(
                 "rounded px-2 py-1 text-[10px] font-medium",
-                density === d
-                  ? "bg-surface text-foreground shadow-card"
-                  : "text-muted-foreground",
+                density === d ? "bg-surface text-foreground shadow-card" : "text-muted-foreground",
               )}
             >
               {d === "compact" ? "Compacto" : "Confortável"}
