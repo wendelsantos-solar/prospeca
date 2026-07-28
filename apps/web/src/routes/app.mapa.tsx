@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useLeadsStore, useLocationStore, useSettingsStore, useSearchDraftStore } from "@/stores";
+import {
+  useLeadsStore,
+  useLocationStore,
+  useSettingsStore,
+  useSearchDraftStore,
+  useUIStore,
+} from "@/stores";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { filterByRadius } from "@/lib/filters";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -10,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { MapIcon, Search, Sparkles, Loader2 } from "lucide-react";
 import { LocationPrompt } from "@/components/app/LocationPrompt";
 import { useSearchSession } from "@/stores/searchSession";
+import { ResultsList } from "@/components/app/ResultsList";
 
 const MapView = lazy(() =>
   import("@/components/app/MapView").then((m) => ({ default: m.MapView })),
@@ -102,6 +109,7 @@ function MapaPage() {
   const setPreviewLocation = useLeadsStore((s) => s.setPreviewLocation);
   const clearFilters = useLeadsStore((s) => s.clearFilters);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const discoveryView = useUIStore((s) => s.discoveryView);
   const lastLocation = useLocationStore((s) => s.lastLocation);
   const defaultRadius = useSettingsStore((s) => s.defaultRadius);
   const [promptDismissed, setPromptDismissed] = useState(false);
@@ -201,6 +209,10 @@ function MapaPage() {
         />
       </div>
     );
+  }
+
+  if (discoveryView === "list" && currentSearch) {
+    return <ResultsList results={resultsInRadius} searchId={currentSearch.id} />;
   }
 
   return (

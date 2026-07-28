@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { PanelLeftOpen, PanelLeftClose, MapPin, Search } from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose, MapPin, Search, Map as MapIcon, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore, useSearchDraftStore, useLeadsStore } from "@/stores";
 import { NotificationsPopover } from "./NotificationsPopover";
@@ -24,6 +24,8 @@ export function TopNav() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
+  const discoveryView = useUIStore((s) => s.discoveryView);
+  const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
 
   const niche = useSearchDraftStore((s) => s.draft.niche);
   const location = useSearchDraftStore((s) => s.draft.location);
@@ -104,6 +106,41 @@ export function TopNav() {
       >
         <Search className="h-[18px] w-[18px]" />
       </button>
+
+      {/* Map / List view toggle (discovery workspace only) */}
+      {onMapa && (
+        <div
+          className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+          role="group"
+          aria-label="Alternar visualização"
+        >
+          {(
+            [
+              { v: "map", label: "Mapa", icon: MapIcon },
+              { v: "list", label: "Lista", icon: List },
+            ] as const
+          ).map((o) => {
+            const active = discoveryView === o.v;
+            const Icon = o.icon;
+            return (
+              <button
+                key={o.v}
+                onClick={() => setDiscoveryView(o.v)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                  active
+                    ? "bg-surface text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-[14px] w-[14px]" />
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex items-center gap-1">
         <NotificationsPopover />
