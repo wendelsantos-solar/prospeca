@@ -27,6 +27,7 @@ import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
 import { whatsappDisplay } from "@/lib/whatsapp";
+import { hasRealWebsite } from "@leads/domain";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NbaCard } from "@/components/app/NbaCard";
 import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
@@ -360,8 +361,8 @@ export function LeadDetailsDrawer() {
                   <DataRow
                     icon={Globe}
                     label="Site"
-                    value={lead.website}
-                    href={lead.website}
+                    value={hasRealWebsite(lead.website) ? lead.website : undefined}
+                    href={hasRealWebsite(lead.website) ? lead.website : undefined}
                     external
                   />
                   <DataRow
@@ -378,11 +379,30 @@ export function LeadDetailsDrawer() {
                 </Section>
 
                 <Section title="Localização">
-                  <DataRow
-                    icon={MapPin}
-                    label="Endereço"
-                    value={[lead.address, lead.neighborhood].filter(Boolean).join(", ")}
-                  />
+                  {(() => {
+                    const addressText = [lead.address, lead.neighborhood]
+                      .filter(Boolean)
+                      .join(", ");
+                    if (addressText) {
+                      return <DataRow icon={MapPin} label="Endereço" value={addressText} />;
+                    }
+                    // No formatted address from Google — fall back to the pin
+                    // location we do have, rather than a bare "Não encontrado".
+                    const hasCoords = Boolean(lead.latitude && lead.longitude);
+                    return (
+                      <DataRow
+                        icon={MapPin}
+                        label="Endereço"
+                        value={hasCoords ? "Ver no mapa" : undefined}
+                        href={
+                          hasCoords
+                            ? `https://www.google.com/maps?q=${lead.latitude},${lead.longitude}`
+                            : undefined
+                        }
+                        external
+                      />
+                    );
+                  })()}
                   <DataRow
                     icon={Navigation}
                     label="Distância"

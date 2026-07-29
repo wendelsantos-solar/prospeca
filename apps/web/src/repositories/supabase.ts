@@ -533,6 +533,15 @@ export class SupabaseSearchRepository implements SearchRepository {
       // Google gives us a formatted string on the search path and structured
       // components only after a details refresh — parseAddress handles both.
       const addr = parseAddress(r.formatted_address as string | null, r.address_components);
+      // The place itself may have no address at all (Google returned none, or
+      // it was matched via Instagram rather than Places details). Fall back to
+      // the location the search was run from — it's already fetched, free.
+      // That label isn't a street address (it's "Bairro, Cidade" from reverse
+      // geocoding, or a geocoded query like "Cidade - UF, Brasil"), so show it
+      // as-is rather than running it through parseAddress's street-address rules.
+      const searchLabel = ((r.search_location_label as string | null) ?? "")
+        .replace(/,\s*(brazil|brasil)\s*$/i, "")
+        .trim();
       return {
         placeId: r.place_id as string,
         name: r.name as string,
@@ -541,7 +550,7 @@ export class SupabaseSearchRepository implements SearchRepository {
         longitude: r.longitude as number,
         address: addr.street,
         neighborhood: addr.neighborhood,
-        city: addr.city,
+        city: addr.city ?? (searchLabel || null),
         state: addr.state,
         phone: (r.national_phone_number as string) ?? null,
         website: (r.website_uri as string) ?? null,

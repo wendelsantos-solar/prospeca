@@ -107,9 +107,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.008 160);
 
-  --primary: oklch(0.586 0.117 158);
+  --primary: oklch(0.586 0.145 158);
   --primary-foreground: oklch(0.99 0.003 160);
-  --primary-hover: oklch(0.478 0.098 158);
+  --primary-hover: oklch(0.478 0.122 158);
   --primary-soft: oklch(0.96 0.028 156);
   --primary-subtle: oklch(0.98 0.014 156);
 
@@ -130,7 +130,7 @@
   --info: oklch(0.62 0.14 240);
   --info-foreground: oklch(0.99 0.003 160);
   --info-soft: oklch(0.95 0.03 240);
-  --success: oklch(0.586 0.117 158);
+  --success: oklch(0.586 0.145 158);
   --success-foreground: oklch(0.99 0.003 160);
 
   /* Seleção (cards/linhas/marcadores) — azul, distinto do primário verde */
@@ -141,7 +141,7 @@
   --border: oklch(0.918 0.006 160);
   --border-strong: oklch(0.867 0.007 160);
   --input: oklch(0.918 0.006 160);
-  --ring: oklch(0.586 0.117 158);
+  --ring: oklch(0.586 0.145 158);
 
   /* Temperatura (marcadores do mapa) — mantidos do projeto atual */
   --hot: oklch(0.72 0.17 55);
@@ -168,7 +168,7 @@
   --z-toast: 70;
   --z-tooltip: 80;
 
-  --chart-1: oklch(0.586 0.117 158);
+  --chart-1: oklch(0.586 0.145 158);
   --chart-2: oklch(0.62 0.14 240);
   --chart-3: oklch(0.76 0.14 75);
   --chart-4: oklch(0.62 0.19 25);
@@ -176,12 +176,12 @@
 
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.22 0.008 160);
-  --sidebar-primary: oklch(0.586 0.117 158);
+  --sidebar-primary: oklch(0.586 0.145 158);
   --sidebar-primary-foreground: oklch(0.99 0.003 160);
   --sidebar-accent: oklch(0.96 0.028 156);
   --sidebar-accent-foreground: oklch(0.35 0.09 158);
   --sidebar-border: oklch(0.918 0.006 160);
-  --sidebar-ring: oklch(0.586 0.117 158);
+  --sidebar-ring: oklch(0.586 0.145 158);
 }
 
 .dark {
@@ -194,9 +194,9 @@
   --card-foreground: oklch(0.96 0.003 160);
   --popover: oklch(0.22 0.01 160);
   --popover-foreground: oklch(0.96 0.003 160);
-  --primary: oklch(0.68 0.13 158);
+  --primary: oklch(0.68 0.155 158);
   --primary-foreground: oklch(0.15 0.01 160);
-  --primary-hover: oklch(0.75 0.13 158);
+  --primary-hover: oklch(0.75 0.155 158);
   --primary-soft: oklch(0.32 0.06 158);
   --primary-subtle: oklch(0.26 0.03 158);
   --secondary: oklch(0.28 0.01 160);
@@ -216,7 +216,7 @@
   --info: oklch(0.7 0.15 240);
   --info-foreground: oklch(0.99 0 0);
   --info-soft: oklch(0.29 0.05 240);
-  --success: oklch(0.68 0.13 158);
+  --success: oklch(0.68 0.155 158);
   --success-foreground: oklch(0.15 0.02 155);
 
   /* Seleção */
@@ -227,7 +227,7 @@
   --border: oklch(0.3 0.01 160);
   --border-strong: oklch(0.4 0.01 160);
   --input: oklch(0.3 0.01 160);
-  --ring: oklch(0.68 0.13 158);
+  --ring: oklch(0.68 0.155 158);
 
   /* Temperatura (marcadores do mapa) — mantidos do projeto atual */
   --hot: oklch(0.75 0.17 55);
@@ -240,7 +240,7 @@
   --cold-foreground: oklch(0.99 0 0);
   --cold-soft: oklch(0.29 0.03 250);
 
-  --chart-1: oklch(0.68 0.13 158);
+  --chart-1: oklch(0.68 0.155 158);
   --chart-2: oklch(0.7 0.15 240);
   --chart-3: oklch(0.76 0.14 75);
   --chart-4: oklch(0.68 0.22 27);
@@ -248,12 +248,12 @@
 
   --sidebar: oklch(0.22 0.01 160);
   --sidebar-foreground: oklch(0.96 0.003 160);
-  --sidebar-primary: oklch(0.68 0.13 158);
+  --sidebar-primary: oklch(0.68 0.155 158);
   --sidebar-primary-foreground: oklch(0.15 0.01 160);
   --sidebar-accent: oklch(0.32 0.06 158);
   --sidebar-accent-foreground: oklch(0.88 0.05 158);
   --sidebar-border: oklch(0.3 0.01 160);
-  --sidebar-ring: oklch(0.68 0.13 158);
+  --sidebar-ring: oklch(0.68 0.155 158);
 }
 
 @layer base {
