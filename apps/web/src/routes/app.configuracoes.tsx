@@ -95,7 +95,7 @@ function SettingsPage() {
               <div key={s.name} className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {s.configured ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                   ) : (
                     <XCircle className="h-4 w-4 text-destructive" />
                   )}
@@ -126,7 +126,7 @@ function SettingsPage() {
               <div key={r.name} className="flex items-center justify-between gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   {r.ok ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                   ) : (
                     <XCircle className="h-4 w-4 text-destructive" />
                   )}
