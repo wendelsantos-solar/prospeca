@@ -6,10 +6,10 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30_000, // dados considerados frescos por 30s → evita refetch em cada mount
-        gcTime: 5 * 60_000, // mantém cache 5min após o último uso
+        staleTime: 5 * 60_000, // 5min — Realtime subscriptions mantêm dados frescos sem polling
+        gcTime: 15 * 60_000, // mantém cache 15min após o último uso
         refetchOnWindowFocus: false, // CRM não precisa refetch a cada foco de janela
-        retry: 1,
+        retry: 2,
       },
     },
   });

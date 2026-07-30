@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   Table,
   TableHeader,
@@ -13,6 +13,23 @@ import { useUIStore } from "@/stores";
 import { cn } from "@/lib/utils";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
+
+/** SSR-safe media query hook — only renders the appropriate layout (desktop
+ * table vs mobile cards) instead of rendering both and hiding one via CSS.
+ * Cuts per-row DOM work in half on either device. */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 640,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
 
 export interface DataTableColumn<T> {
   key: string;
@@ -58,6 +75,7 @@ export function DataTable<T>({
 }) {
   const density = useUIStore((s) => s.density);
   const compact = density === "compact";
+  const isMobile = useIsMobile();
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null);
   const [page, setPage] = useState(0);
 
@@ -90,73 +108,77 @@ export function DataTable<T>({
 
   return (
     <div className={className}>
-      {/* Desktop/tablet: real table */}
-      <div className="hidden overflow-x-auto sm:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
+      {isMobile ? (
+        /* Mobile: stacked label:value cards */
+        <div className="space-y-2">
+          {paged.map((row) => (
+            <div key={rowKey(row)} className="rounded-lg border border-border bg-surface p-3">
               {columns.map((col) => (
-                <TableHead key={col.key} className={cn(alignClass(col.align), col.headerClassName)}>
-                  {col.sortValue ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      onClick={() => toggleSort(col.key)}
-                      aria-label={`Ordenar por ${col.label}`}
-                    >
-                      {col.label}
-                      <AppIcon
-                        icon={icons.directional.sort}
-                        size="xs"
-                        tone={sort?.key === col.key ? "default" : "muted"}
-                        decorative
-                      />
-                    </button>
-                  ) : (
-                    col.label
-                  )}
-                </TableHead>
+                <div
+                  key={col.key}
+                  className="flex items-center justify-between gap-3 py-1 text-sm first:pt-0 last:pb-0"
+                >
+                  <span className="text-xs text-muted-foreground">{col.label}</span>
+                  <span className="text-right">{col.render(row)}</span>
+                </div>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paged.map((row) => (
-              <TableRow key={rowKey(row)}>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Desktop/tablet: real table */
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {columns.map((col) => (
-                  <TableCell
+                  <TableHead
                     key={col.key}
-                    className={cn(
-                      alignClass(col.align),
-                      compact ? "py-1.5 text-[12.5px]" : "py-2",
-                      col.cellClassName,
-                    )}
+                    className={cn(alignClass(col.align), col.headerClassName)}
                   >
-                    {col.render(row)}
-                  </TableCell>
+                    {col.sortValue ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        onClick={() => toggleSort(col.key)}
+                        aria-label={`Ordenar por ${col.label}`}
+                      >
+                        {col.label}
+                        <AppIcon
+                          icon={icons.directional.sort}
+                          size="xs"
+                          tone={sort?.key === col.key ? "default" : "muted"}
+                          decorative
+                        />
+                      </button>
+                    ) : (
+                      col.label
+                    )}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Mobile: stacked label:value cards — no custom render needed per
-       * consumer, these tables have too many columns to fit a phone anyway. */}
-      <div className="space-y-2 sm:hidden">
-        {paged.map((row) => (
-          <div key={rowKey(row)} className="rounded-lg border border-border bg-surface p-3">
-            {columns.map((col) => (
-              <div
-                key={col.key}
-                className="flex items-center justify-between gap-3 py-1 text-sm first:pt-0 last:pb-0"
-              >
-                <span className="text-xs text-muted-foreground">{col.label}</span>
-                <span className="text-right">{col.render(row)}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+            </TableHeader>
+            <TableBody>
+              {paged.map((row) => (
+                <TableRow key={rowKey(row)}>
+                  {columns.map((col) => (
+                    <TableCell
+                      key={col.key}
+                      className={cn(
+                        alignClass(col.align),
+                        compact ? "py-1.5 text-[12.5px]" : "py-2",
+                        col.cellClassName,
+                      )}
+                    >
+                      {col.render(row)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {pageSize && pageCount > 1 && (
         <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">

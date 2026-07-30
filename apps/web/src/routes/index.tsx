@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { LandingPage } from "@/components/marketing/LandingPage";
+
+const LandingPage = lazy(() =>
+  import("@/components/marketing/LandingPage").then((m) => ({ default: m.LandingPage })),
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,5 +40,9 @@ function IndexRoute() {
   }, [loading, isAuthenticated, navigate]);
 
   if (loading || isAuthenticated) return null;
-  return <LandingPage />;
+  return (
+    <Suspense fallback={null}>
+      <LandingPage />
+    </Suspense>
+  );
 }

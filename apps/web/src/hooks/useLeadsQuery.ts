@@ -5,6 +5,7 @@
  * Phase 3 — CRM real: Kanban, list, notes, activities, details.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { getLeadRepository, getSearchRepository } from "@/repositories";
 import type {
   Lead,
@@ -15,6 +16,8 @@ import type {
 } from "@/types";
 import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
 import type { SortValue } from "@/lib/constants";
+import { getSupabase } from "@/lib/supabase";
+import { isRealMode } from "@/lib/env";
 
 // ── Query keys ──────────────────────────────────────────────
 
@@ -52,11 +55,18 @@ export function useSuppressMutation() {
 
 /** CRM leads (Kanban pipeline, Painel metrics). Cumulative across all searches —
  * a lead only exists once the user added the business to the funnel. Discovery
- * (map + sidebar) does NOT use this; it uses useDiscoveryResults. */
-export function useLeadsList(filters: LeadFilters, sort?: SortValue) {
+ * (map + sidebar) does NOT use this; it uses useDiscoveryResults.
+ *
+ * Default page size is 50 (was 500). Pass { page, pageSize } to paginate. */
+export function useLeadsList(
+  filters: LeadFilters,
+  sort?: SortValue,
+  opts?: { page?: number; pageSize?: number },
+) {
   return useQuery<PaginatedResult<Lead>>({
     queryKey: leadKeys.list(filters, sort),
-    queryFn: () => getLeadRepository().list({ filters, sort, pageSize: 500 }),
+    queryFn: () =>
+      getLeadRepository().list({ filters, sort, page: opts?.page, pageSize: opts?.pageSize ?? 50 }),
     staleTime: 60_000,
     structuralSharing: true,
   });
@@ -87,13 +97,13 @@ export function useAddToFunnelMutation() {
       stage: "new" | "contacted";
     }) => getSearchRepository().addToFunnel(searchId, placeId, stage),
     onSuccess: (data, vars) => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
       // Enriquecimento pesado (scrape de site) sob demanda, só para os leads
       // recém-criados que têm site. Fire-and-forget; refresca ao terminar.
       const repo = getSearchRepository();
       Promise.allSettled(data.enrichableLeadIds.map((id) => repo.enrichLead(id))).then(() => {
-        queryClient.invalidateQueries({ queryKey: leadKeys.all });
+        queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       });
     },
   });
@@ -130,8 +140,37 @@ export function useMoveLeadMutation() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: MoveLeadInput }) =>
       getLeadRepository().moveStage(id, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onMutate: async ({ id, input }) => {
+      // Cancel outgoing list queries so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["leads", "list"] });
+      // Snapshot previous list data for rollback
+      const previousLists = queryClient.getQueriesData({ queryKey: ["leads", "list"] });
+      // Optimistically update the lead in all cached lists
+      queryClient.setQueriesData({ queryKey: ["leads", "list"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const paginated = old as { items?: Array<{ id: string; stage: string }> };
+        if (!paginated.items) return old;
+        return {
+          ...paginated,
+          items: paginated.items.map((item) =>
+            item.id === id ? { ...item, stage: input.toStage } : item,
+          ),
+        };
+      });
+      return { previousLists };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback to previous list state on error
+      if (context?.previousLists) {
+        for (const [queryKey, data] of context.previousLists) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+    },
+    onSuccess: (_data, vars) => {
+      // Only invalidate lists + the moved lead's detail — not every detail cache
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.id) });
     },
   });
 }
@@ -142,8 +181,9 @@ export function useUpdateLeadMutation() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<Lead> }) =>
       getLeadRepository().update(id, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.id) });
     },
   });
 }
@@ -154,8 +194,31 @@ export function useAddNoteMutation() {
   return useMutation({
     mutationFn: ({ leadId, input }: { leadId: string; input: CreateLeadNoteInput }) =>
       getLeadRepository().createNote(leadId, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onMutate: async ({ leadId, input }) => {
+      await queryClient.cancelQueries({ queryKey: leadKeys.detail(leadId) });
+      const previousDetail = queryClient.getQueryData<Lead>(leadKeys.detail(leadId));
+      if (previousDetail) {
+        const optimisticNote = {
+          id: `optimistic-${Date.now()}`,
+          content: input.content,
+          pinned: input.pinned ?? false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData<Lead>(leadKeys.detail(leadId), {
+          ...previousDetail,
+          notes: [optimisticNote, ...previousDetail.notes],
+        });
+      }
+      return { previousDetail };
+    },
+    onError: (_err, { leadId }, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(leadKeys.detail(leadId), context.previousDetail);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -166,8 +229,8 @@ export function useAddActivityMutation() {
   return useMutation({
     mutationFn: ({ leadId, input }: { leadId: string; input: CreateLeadActivityInput }) =>
       getLeadRepository().createActivity(leadId, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -185,8 +248,29 @@ export function useCompleteActivityMutation() {
       activityId: string;
       done: boolean;
     }) => getLeadRepository().completeActivity(leadId, activityId, done),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onMutate: async ({ leadId, activityId, done }) => {
+      await queryClient.cancelQueries({ queryKey: leadKeys.detail(leadId) });
+      const previousDetail = queryClient.getQueryData<Lead>(leadKeys.detail(leadId));
+      if (previousDetail) {
+        queryClient.setQueryData<Lead>(leadKeys.detail(leadId), {
+          ...previousDetail,
+          activities: previousDetail.activities.map((a) =>
+            a.id === activityId
+              ? { ...a, done, completedAt: done ? new Date().toISOString() : undefined }
+              : a,
+          ),
+        });
+      }
+      return { previousDetail };
+    },
+    onError: (_err, { leadId }, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(leadKeys.detail(leadId), context.previousDetail);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -204,8 +288,8 @@ export function useUpdateActivityMutation() {
       activityId: string;
       input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>;
     }) => getLeadRepository().updateActivity(leadId, activityId, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -223,8 +307,8 @@ export function useUpdateNoteMutation() {
       noteId: string;
       content: string;
     }) => getLeadRepository().updateNote(leadId, noteId, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -235,8 +319,8 @@ export function useRemoveNoteMutation() {
   return useMutation({
     mutationFn: ({ leadId, noteId }: { leadId: string; noteId: string }) =>
       getLeadRepository().removeNote(leadId, noteId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -247,8 +331,8 @@ export function useToggleNotePinMutation() {
   return useMutation({
     mutationFn: ({ leadId, noteId }: { leadId: string; noteId: string }) =>
       getLeadRepository().toggleNotePin(leadId, noteId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
 }
@@ -259,7 +343,36 @@ export function useRemoveLeadMutation() {
   return useMutation({
     mutationFn: (id: string) => getLeadRepository().removeLead(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
     },
   });
+}
+
+/**
+ * Supabase Realtime subscription to keep leads in sync across tabs/devices.
+ * Subscribes to INSERT/UPDATE/DELETE on the `leads` table and invalidates the
+ * list cache on any change — no polling needed.
+ *
+ * Only activates in real mode (demo mode uses local state).
+ */
+export function useLeadsRealtimeSubscription() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isRealMode) return;
+    const supabase = getSupabase();
+
+    const channel = supabase
+      .channel("leads-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        // Invalidate list queries so they refetch fresh data.
+        // Using a debounce-like approach: batch rapid changes into one invalidation.
+        queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 }

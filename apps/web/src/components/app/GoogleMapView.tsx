@@ -298,7 +298,10 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     mapReady,
   ]);
 
-  // Rebuild markers on results/focus change.
+  // Previous focusedId ref for delta updates (avoids full marker rebuild on focus change).
+  const prevFocusedRef = useRef<string | null>(null);
+
+  // Rebuild markers only when results change (not on focus change).
   useEffect(() => {
     const map = mapRef.current;
     const cluster = clusterRef.current;
@@ -307,8 +310,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     markersRef.current.clear();
     const markers: google.maps.Marker[] = [];
     results.forEach((r) => {
-      const selected = r.placeId === focusedId;
-      const visual = markerVisual(r, selected);
+      const visual = markerVisual(r, false); // never selected on build — focus effect handles it
       const m = new google.maps.Marker({
         position: { lat: r.latitude, lng: r.longitude },
         icon: {
@@ -328,7 +330,46 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     });
     cluster.addMarkers(markers);
     setVisibleCount(results.length);
-  }, [results, focusedId, setFocused, mapReady, openInfo]);
+    // Reset focused styling on results change (focus effect will re-apply).
+    prevFocusedRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, mapReady, openInfo]);
+
+  // Delta update: just toggle the focused/unfocused marker icons without rebuilding all.
+  useEffect(() => {
+    if (!mapReady) return;
+    const prev = prevFocusedRef.current;
+    const next = focusedId;
+    // Update previously focused marker back to normal
+    if (prev && prev !== next) {
+      const oldMarker = markersRef.current.get(prev);
+      const oldResult = resultsRef.current.find((r) => r.placeId === prev);
+      if (oldMarker && oldResult) {
+        const visual = markerVisual(oldResult, false);
+        oldMarker.setIcon({
+          url: svgIcon(visual.color, visual.ring, String(oldResult.score), visual.size),
+          scaledSize: new google.maps.Size(visual.size, visual.size),
+          anchor: new google.maps.Point(visual.size / 2, visual.size / 2),
+        });
+        oldMarker.setZIndex(visual.zIndex);
+      }
+    }
+    // Update newly focused marker
+    if (next && next !== prev) {
+      const newMarker = markersRef.current.get(next);
+      const newResult = resultsRef.current.find((r) => r.placeId === next);
+      if (newMarker && newResult) {
+        const visual = markerVisual(newResult, true);
+        newMarker.setIcon({
+          url: svgIcon(visual.color, visual.ring, String(newResult.score), visual.size),
+          scaledSize: new google.maps.Size(visual.size, visual.size),
+          anchor: new google.maps.Point(visual.size / 2, visual.size / 2),
+        });
+        newMarker.setZIndex(visual.zIndex);
+      }
+    }
+    prevFocusedRef.current = next;
+  }, [focusedId, mapReady]);
 
   // Focus (from a card click or a marker click): pan to the marker and open its
   // popup, so selecting a card in the list surfaces the same balloon on the map.

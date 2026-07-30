@@ -1,12 +1,24 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { NavRail } from "@/components/app/NavRail";
 import { TopNav } from "@/components/app/TopNav";
 import { useLeadsStore } from "@/stores";
-import { LeadDetailsDrawer } from "@/components/app/LeadDetailsDrawer";
 import { BulkMessageDialog } from "@/components/app/BulkBar";
-import { WonDialog, DiscardDialog } from "@/components/app/StageDialogs";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
+
+// Lazy-load heavy dialogs — only download when user actually opens a lead or
+// moves a card. LeadDetailsDrawer alone is ~970 lines with notes, activities,
+// and opportunity tabs. Stage dialogs are lighter but only used on drag-to-won/discard.
+const LeadDetailsDrawer = lazy(() =>
+  import("@/components/app/LeadDetailsDrawer").then((m) => ({ default: m.LeadDetailsDrawer })),
+);
+const WonDialog = lazy(() =>
+  import("@/components/app/StageDialogs").then((m) => ({ default: m.WonDialog })),
+);
+const DiscardDialog = lazy(() =>
+  import("@/components/app/StageDialogs").then((m) => ({ default: m.DiscardDialog })),
+);
 import {
   Sheet,
   SheetContent,
@@ -21,6 +33,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
+import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { usePendingInvitation } from "@/hooks/usePendingInvitation";
@@ -142,6 +155,8 @@ function MobileNav() {
 
 function AppLayout() {
   useThemeSync();
+  // Supabase Realtime: keeps leads in sync across tabs/devices without polling
+  useLeadsRealtimeSubscription();
   const [bulkOpen, setBulkOpen] = useState(false);
   const onboarding = useOnboarding();
   const [showOnboarding, setShowOnboarding] = useState(!onboarding.isCompleted);
@@ -207,10 +222,16 @@ function AppLayout() {
             </div>
           </main>
           <MobileNav />
-          <LeadDetailsDrawer />
+          <Suspense fallback={null}>
+            <LeadDetailsDrawer />
+          </Suspense>
           <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
-          <WonDialog />
-          <DiscardDialog />
+          <Suspense fallback={null}>
+            <WonDialog />
+          </Suspense>
+          <Suspense fallback={null}>
+            <DiscardDialog />
+          </Suspense>
           <DemoModeBanner />
         </div>
       </ErrorBoundary>

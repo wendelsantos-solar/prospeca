@@ -26,7 +26,8 @@ export function supabaseAvailable(): boolean {
   return isRealMode && !!env.supabaseUrl && !!env.supabaseAnonKey;
 }
 
-/** Calls an Edge Function with the user's JWT. Parses ApiError shape. */
+/** Calls an Edge Function with the user's JWT. Parses ApiError shape.
+ * Retries transient network errors up to 2 times with exponential backoff. */
 export async function invokeFunction<T>(
   name: string,
   body: unknown,
@@ -36,21 +37,63 @@ export async function invokeFunction<T>(
   const headers: Record<string, string> = {};
   if (opts?.idempotencyKey) headers["x-idempotency-key"] = opts.idempotencyKey;
 
-  const { data, error } = await supabase.functions.invoke(name, {
-    body: body as Record<string, unknown>,
-    headers,
-  });
-  if (error) {
-    let parsed: { code?: string; message?: string } | null = null;
-    try {
-      const ctx = (error as { context?: Response }).context;
-      if (ctx) parsed = await ctx.json();
-    } catch {
-      // response body not JSON — fall through to generic message
+  const MAX_RETRIES = 2;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 400ms, 1600ms
+      await new Promise((r) => setTimeout(r, 400 * Math.pow(2, attempt)));
     }
-    const err = new Error(parsed?.message ?? "Falha na comunicação com o servidor.");
-    (err as Error & { code?: string }).code = parsed?.code ?? "INTERNAL_ERROR";
-    throw err;
+
+    try {
+      const { data, error } = await supabase.functions.invoke(name, {
+        body: body as Record<string, unknown>,
+        headers,
+      });
+
+      if (error) {
+        let parsed: { code?: string; message?: string } | null = null;
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx) parsed = await ctx.json();
+        } catch {
+          // response body not JSON — fall through to generic message
+        }
+        // Don't retry client errors (4xx) — only server/network errors
+        if (parsed?.code && !["INTERNAL_ERROR", "TIMEOUT"].includes(parsed.code)) {
+          const err = new Error(parsed.message ?? "Falha na comunicação com o servidor.");
+          (err as Error & { code?: string }).code = parsed.code;
+          throw err;
+        }
+        if (attempt < MAX_RETRIES) {
+          lastError = error;
+          continue;
+        }
+        const err = new Error(parsed?.message ?? "Falha na comunicação com o servidor.");
+        (err as Error & { code?: string }).code = parsed?.code ?? "INTERNAL_ERROR";
+        throw err;
+      }
+
+      return data as T;
+    } catch (err) {
+      // Network errors (TypeError, etc.) are retried
+      if (attempt < MAX_RETRIES && err instanceof TypeError) {
+        lastError = err;
+        continue;
+      }
+      // If it's already an AppError (from parsed.code above), re-throw
+      if ((err as Error & { code?: string }).code) throw err;
+      if (attempt >= MAX_RETRIES) {
+        const fallback = new Error(
+          err instanceof Error ? err.message : "Falha na comunicação com o servidor.",
+        );
+        (fallback as Error & { code?: string }).code = "NETWORK_ERROR";
+        throw fallback;
+      }
+      lastError = err;
+    }
   }
-  return data as T;
+
+  throw lastError ?? new Error("Falha na comunicação com o servidor.");
 }

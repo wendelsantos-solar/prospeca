@@ -221,6 +221,9 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     showCircle,
   ]);
 
+  // Previous focusedId ref for delta updates (avoids full marker rebuild on focus change).
+  const prevFocusedRef = useRef<string | null>(null);
+
   useEffect(() => {
     const map = mapRef.current;
     const cluster = clusterRef.current;
@@ -229,10 +232,9 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     markersRef.current.clear();
     const searchId = currentSearch?.id;
     results.forEach((r) => {
-      const selected = r.placeId === focusedId;
       const m = L.marker([r.latitude, r.longitude], {
-        icon: markerIcon(r, selected),
-        zIndexOffset: selected ? 1000 : 0,
+        icon: markerIcon(r, false), // never selected on build — focus effect handles it
+        zIndexOffset: 0,
       }).on("click", () => {
         setFocused(r.placeId);
         // Lets AppSidebar scroll the matching card into view — the list has no
@@ -298,17 +300,35 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
       markersRef.current.set(r.placeId, m);
     });
     setVisibleCount(results.length);
-  }, [
-    results,
-    focusedId,
-    setFocused,
-    setDetails,
-    setPreview,
-    addToFunnel,
-    queryClient,
-    openWhatsApp,
-    currentSearch?.id,
-  ]);
+    // Reset focused styling on results change (focus effect will re-apply).
+    prevFocusedRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
+
+  // Delta update: just toggle the focused/unfocused marker icons without rebuilding all.
+  useEffect(() => {
+    const prev = prevFocusedRef.current;
+    const next = focusedId;
+    // Update previously focused marker back to normal
+    if (prev && prev !== next) {
+      const oldMarker = markersRef.current.get(prev);
+      const oldResult = results.find((r) => r.placeId === prev);
+      if (oldMarker && oldResult) {
+        oldMarker.setIcon(markerIcon(oldResult, false));
+        oldMarker.setZIndexOffset(0);
+      }
+    }
+    // Update newly focused marker
+    if (next && next !== prev) {
+      const newMarker = markersRef.current.get(next);
+      const newResult = results.find((r) => r.placeId === next);
+      if (newMarker && newResult) {
+        newMarker.setIcon(markerIcon(newResult, true));
+        newMarker.setZIndexOffset(1000);
+      }
+    }
+    prevFocusedRef.current = next;
+  }, [focusedId, results]);
 
   useEffect(() => {
     if (!focusedId) return;

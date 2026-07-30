@@ -37,7 +37,7 @@ export function popupHtml(r: DiscoveryResult): string {
     </div>`;
 
   const funnelBtn = inFunnel
-    ? `<span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary-soft);color:var(--color-primary);font-size:12.5px;font-weight:600;">No funil <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg></span>`
+    ? `<span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary-soft);color:var(--color-primary);font-size:12.5px;font-weight:600;">No funil ${CHECK_SVG}</span>`
     : `<button data-action="funnel" data-id="${r.placeId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary);color:var(--color-primary-foreground);font-size:12.5px;font-weight:600;border:none;cursor:pointer;">+ Adicionar ao funil</button>`;
 
   return `
@@ -64,14 +64,23 @@ export function popupHtml(r: DiscoveryResult): string {
       <div style="display:flex;gap:7px;">
         ${funnelBtn}
         <button data-action="whatsapp" data-id="${r.placeId}" title="Preparar WhatsApp" aria-label="Preparar WhatsApp" style="flex:0 0 34px;width:34px;height:34px;border-radius:8px;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-secondary-foreground);cursor:pointer;display:grid;place-items:center;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l1.5-4A8 8 0 1 1 9 19z"/></svg>
+          ${WHATSAPP_SVG}
         </button>
         <button data-action="details" data-id="${r.placeId}" title="Ver detalhes" aria-label="Ver detalhes" style="flex:0 0 34px;width:34px;height:34px;border-radius:8px;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-secondary-foreground);cursor:pointer;display:grid;place-items:center;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          ${DETAILS_SVG}
         </button>
       </div>
     </div>`;
 }
+
+// Static SVG icons reused across every popup — extracting avoids recreating
+// the same markup string on each of the 60+ popups per search.
+const CHECK_SVG =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+const WHATSAPP_SVG =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l1.5-4A8 8 0 1 1 9 19z"/></svg>';
+const DETAILS_SVG =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 
 /** Marker/cluster fill colors as hex (SVG data-URI icons can't rely on oklch). */
 export const MARKER_HEX = {

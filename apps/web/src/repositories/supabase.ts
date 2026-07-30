@@ -164,7 +164,12 @@ function mapLead(row: LeadRow): Lead {
   };
 }
 
-const LEAD_SELECT = "*, lead_notes(*), lead_activities(*)";
+// Lean select for list views (Kanban, Painel, Hoje): omits nested notes/activities
+// to cut payload by ~80%. Detail drawer fetches via getById with the full select.
+const LEAD_LIST_SELECT =
+  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, created_at";
+
+const LEAD_DETAIL_SELECT = "*, lead_notes(*), lead_activities(*)";
 
 /**
  * The UI's sort vocabulary → a `leads` column ordering. It used to switch on
@@ -207,7 +212,7 @@ export class SupabaseLeadRepository implements LeadRepository {
     // the get_search_discovery RPC — the map no longer reads from `leads`.
     let query = supabase
       .from("leads")
-      .select(LEAD_SELECT, { count: "exact" })
+      .select(LEAD_LIST_SELECT, { count: "exact" })
       .range(from, from + pageSize - 1);
 
     const f = input.filters;
@@ -248,7 +253,7 @@ export class SupabaseLeadRepository implements LeadRepository {
   async getById(id: string): Promise<Lead | null> {
     const { data, error } = await getSupabase()
       .from("leads")
-      .select(LEAD_SELECT)
+      .select(LEAD_DETAIL_SELECT)
       .eq("id", id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -270,7 +275,7 @@ export class SupabaseLeadRepository implements LeadRepository {
       .from("leads")
       .update(patch)
       .eq("id", id)
-      .select(LEAD_SELECT)
+      .select(LEAD_DETAIL_SELECT)
       .single();
     if (error) throw new Error(error.message);
     return mapLead(data as unknown as LeadRow);

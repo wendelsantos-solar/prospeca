@@ -12,6 +12,25 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 
+// Preconnect origins extracted from env — speeds up TLS + DNS for every request.
+const PRECONNECT_ORIGINS: string[] = (() => {
+  const origins: string[] = [];
+  // Supabase REST + Realtime
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  if (supabaseUrl) {
+    try {
+      origins.push(new URL(supabaseUrl).origin);
+    } catch {
+      // invalid URL — skip
+    }
+  }
+  // Google Maps (browser key present → Maps JS API will be loaded)
+  if (import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY) {
+    origins.push("https://maps.googleapis.com");
+  }
+  return origins;
+})();
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -92,6 +111,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      ...PRECONNECT_ORIGINS.map((href) => ({ rel: "preconnect" as const, href })),
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",

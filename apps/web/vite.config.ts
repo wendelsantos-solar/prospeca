@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { defineConfig } from "vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const leafletStubId = "\0leaflet-ssr-stub";
 
@@ -40,6 +41,13 @@ export default defineConfig({
     }),
     tailwindcss(),
     react(),
+    // Bundle size analyzer — open stats.html after build. Only runs in build mode.
+    visualizer({
+      filename: "stats.html",
+      gzipSize: true,
+      brotliSize: true,
+      open: false,
+    }),
   ],
   resolve: {
     alias: { "@": `${import.meta.dirname}/src` },

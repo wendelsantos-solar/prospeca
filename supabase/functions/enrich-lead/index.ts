@@ -17,12 +17,26 @@ const InputSchema = z.union([
 ]);
 
 const PROVIDER = "website_scraper";
+const CONCURRENCY = 5;
 // Fill these lead columns from enrichment ONLY when currently empty (additive).
 const FILLABLE: Record<string, string> = {
   email: "email",
   instagram: "instagram",
   whatsapp: "whatsapp",
 };
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    out.push(...(await Promise.all(chunk.map(fn))));
+  }
+  return out;
+}
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);
@@ -37,9 +51,7 @@ Deno.serve(async (req) => {
     const ids = "leadId" in parsed.data ? [parsed.data.leadId] : parsed.data.leadIds;
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "enrich_request", 20);
 
-    const results: Array<{ leadId: string; found: number; status: string }> = [];
-
-    for (const leadId of ids) {
+    const results = await mapWithConcurrency(ids, CONCURRENCY, async (leadId) => {
       const { data: lead } = await ctx.adminClient
         .from("leads")
         .select("id, organization_id, website, email, instagram, whatsapp")
@@ -47,8 +59,7 @@ Deno.serve(async (req) => {
         .eq("organization_id", ctx.organizationId)
         .maybeSingle();
       if (!lead) {
-        results.push({ leadId, found: 0, status: "lead_not_found" });
-        continue;
+        return { leadId, found: 0, status: "lead_not_found" as const };
       }
 
       const { fields, status } = await enrichFromWebsite({ website: lead.website });
@@ -85,8 +96,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      results.push({ leadId, found: fields.length, status });
-    }
+      return { leadId, found: fields.length, status };
+    });
 
     logEvent({
       requestId,

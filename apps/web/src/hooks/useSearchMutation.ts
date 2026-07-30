@@ -8,12 +8,14 @@ import { useState, useRef, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { getSupabase } from "@/lib/supabase";
-import { searchService, type SearchInput } from "@/services";
 import { isRealMode } from "@/lib/env";
 import type { Lead, Search } from "@/types";
 import type { CreateSearchInput, SearchStatusSnapshot } from "@/repositories/types";
 import { SEARCH_STEPS } from "@/lib/constants";
-import { leadKeys } from "./useLeadsQuery";
+
+// SearchInput type is shared between demo/real — lightweight, no runtime cost.
+export type { SearchInput } from "@/services";
+import type { SearchInput } from "@/services";
 
 export interface SearchProgress {
   step: number;
@@ -32,9 +34,12 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
   const cancelRef = useRef(false);
   const queryClient = useQueryClient();
 
-  // ── Demo mode: existing mock flow with progress animation ──
+  // ── Demo mode: mock flow with progress animation ──
   const demoMutation = useMutation({
-    mutationFn: (input: SearchInput) => searchService.run(input),
+    mutationFn: async (input: SearchInput) => {
+      const { searchService } = await import("@/services");
+      return searchService.run(input);
+    },
     onSuccess: ({ leads, search }) => {
       setProgress(null);
       onSuccess(leads, search);
@@ -185,8 +190,8 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
 
       setProgress(null);
 
-      // Refresh discovery + any CRM views.
-      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+      // Refresh discovery + CRM list views.
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
 
       // Phase 2: discovery contact enrichment (top-N by score, best-effort).

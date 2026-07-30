@@ -216,7 +216,10 @@ const Row = memo(function Row({ result, searchId }: { result: DiscoveryResult; s
 const HEADERS = ["Empresa", "Temperatura", "Presença", "Distância", "Avaliação", "Canais", ""];
 
 /** Full-width results table — the "Lista" view of the discovery workspace, an
- * alternative to the map. Denser and wider than the pinned sidebar list. */
+ * alternative to the map. Denser and wider than the pinned sidebar list.
+ *
+ * Google Places API limits results to ~60, so DOM size is bounded and a plain
+ * table is appropriate — no virtualization overhead needed. */
 export function ResultsList({
   results,
   searchId,
