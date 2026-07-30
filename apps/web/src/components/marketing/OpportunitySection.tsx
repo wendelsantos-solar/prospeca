@@ -3,13 +3,10 @@ import { Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "./Section";
 
-const SIGNALS = [
-  "não possui site",
-  "avaliação 4,9",
-  "telefone encontrado",
-  "fica a 7,9 km",
-  "ainda não foi contatada",
-];
+// Mesmos critérios de packages/domain/src/score.ts — avaliação/reviews não
+// entram como razão aqui porque só pontuam quando são fracas (oportunidade),
+// não quando são boas.
+const SIGNALS = ["não possui site", "telefone válido", "WhatsApp encontrado", "fica a 7,9 km"];
 
 export function OpportunitySection() {
   return (

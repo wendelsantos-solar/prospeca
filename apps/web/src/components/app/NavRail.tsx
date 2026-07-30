@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Moon,
   Sun,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,6 @@ import { useUIStore } from "@/stores";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { buildTodayGroups } from "@/lib/today";
-import { SettingsDialog } from "./SettingsDialog";
 
 interface NavItem {
   to: string;
@@ -132,7 +132,14 @@ export function NavRail() {
             <Moon className="h-[19px] w-[19px]" />
           )}
         </button>
-        <SettingsDialog />
+        <Link
+          to="/app/configuracoes"
+          aria-label="Configurações"
+          title="Configurações"
+          className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+        >
+          <Settings className="h-4 w-4" />
+        </Link>
         <div
           aria-hidden
           className="mt-1 grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-info-soft text-[13px] font-semibold text-info"

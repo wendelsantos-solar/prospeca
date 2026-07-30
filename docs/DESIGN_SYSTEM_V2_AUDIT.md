@@ -91,11 +91,36 @@ Corrigido na rodada seguinte (mapa):
 
 Não corrigido — mapeado pra sessões futuras:
 
-8. **Configurações**: página única e plana, só cobre "Integrações" — o
-   pedido de central com abas (Geral/Perfil/Prospecção/Score/Mensagens/
-   Dados/Plano/Integrações) precisa de reconstrução completa, e boa
-   parte do conteúdo ainda não existe no produto (ex: "Plano" depende da
-   Fase 3 do billing, que ainda não tem UI).
+8. **Configurações — resolvido (6ª rodada).** Achado antes de codar:
+   já existiam **duas** telas fragmentadas — `SettingsDialog.tsx` (modal
+   pelo gear do `NavRail`, 4 abas: Geral/Prospecção/Mensagens/Dados,
+   todas já funcionais) e `app.configuracoes.tsx` (rota separada, só
+   Integrações). Consolidadas numa central única (`/app/configuracoes`,
+   nav lateral no desktop, lista→página no mobile) com as 8 seções do
+   spec. `SettingsDialog.tsx` removido de propósito (não é achado de
+   código morto, é o objetivo da fatia — eliminar a duplicação); gear do
+   `NavRail` agora linka pra página em vez de abrir modal.
+   - **Perfil** (novo de verdade): zero UI de edição de conta existia —
+     `profiles.full_name`/`organizations.name` só eram gravados uma vez,
+     no cadastro. `lib/account.ts` novo faz o CRUD real (RLS já permitia:
+     `profiles_update` dono da linha, `organizations` update só owner/
+     admin). Distinto do "nome do usuário/empresa" que já existia em
+     Geral — aquilo é identidade de assinatura de mensagem local
+     (`useSettingsStore`, usado em `message-fill.ts`), não a conta.
+   - **Score**: só-leitura (decisão do usuário — pesos são fixos, aba
+     editável seria fake).
+   - **Plano**: lê `subscriptions`+`billing_plans` reais (billing Fase 1
+     já tinha o dado, só faltava UI) + link honesto pra `/precos`.
+   - **Dados**: "Restaurar demonstração" virou condicional a
+     `isDemoMode` (não fazia sentido pra cliente real). Nova ação
+     "Excluir minha conta" liga na edge function `delete-account-data`,
+     que já existia deployada e nunca tinha UI nenhuma.
+   - Achado à parte, corrigido junto: a cópia de score da landing
+     (`ScoreSection.tsx`/`OpportunitySection.tsx`) usava pesos de uma
+     regra antiga (v1) que não batem com o `score.ts` real (v3.0.0) —
+     corrigidos pros valores reais. `docs/COST_CONTROL.md` também tem a
+     regra antiga documentada — não corrigido (doc separado, fora desta
+     fatia).
 9. **Análises/Admin — resolvido (5ª rodada).** `LocalMetricCard`/
    `AdminCard` ganharam `size="lg"|"default"` — 4 indicadores principais
    maiores (Análises: Total de leads/Ganhos/Conversão/Receita fechada;
@@ -149,7 +174,6 @@ Não corrigido — mapeado pra sessões futuras:
 1. ~~Mapa (marcadores + consolidar controles)~~ — feito (rodada 3).
 2. ~~`DataTable` genérico~~ — feito (rodada 4), ver item 10 acima.
 3. ~~Análises/Admin~~ — feito (rodada 5), ver item 9 acima.
-4. Configurações — maior escopo, mais decisões de produto em aberto
-   (o que cada aba realmente contém).
+4. ~~Configurações~~ — feito (rodada 6), ver item 8 acima.
 5. Drawer/editor de mensagem — ajustes finos (largura, aba Oportunidade,
    split do editor, tokens dos chips).

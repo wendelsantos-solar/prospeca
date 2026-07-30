@@ -35,13 +35,20 @@ abordagem → Acompanhe até a conversão.
 ## Oportunidades (`OpportunitySection.tsx`)
 
 Título: "Uma lista de empresas não é suficiente." Card de exemplo:
-Rústica Barbearia, Score 89, 5 sinais de oportunidade.
+Rústica Barbearia, Score 89, 4 sinais de oportunidade (não possui site,
+telefone válido, WhatsApp encontrado, fica a 7,9 km) — avaliação não
+entra como razão porque só pontua quando é fraca, não quando é boa.
 
 ## Score (`ScoreSection.tsx`)
 
-Título: "Saiba por que cada empresa foi priorizada." Exemplo com 82/100 e
-7 fatores com pontuação (+25 a +5) — mesmos pesos documentados em
-`docs/COST_CONTROL.md` (regra v3.0.0).
+Título: "Saiba por que cada empresa foi priorizada." Exemplo com 78/100 e
+6 fatores com pontuação (+30 a +3) — pesos reais de
+`packages/domain/src/score.ts` (regra v3.0.0). **Corrigido** nesta rodada
+— a versão anterior desta seção usava pesos de uma regra antiga (v1,
++25 sem site / +15 telefone / +10 boa avaliação...), que não batiam com
+o comportamento real do produto. `docs/COST_CONTROL.md` também referencia
+a regra antiga — não corrigido (fora do escopo desta fatia, doc
+separado).
 
 ## Mapa (`MapSection.tsx`)
 
