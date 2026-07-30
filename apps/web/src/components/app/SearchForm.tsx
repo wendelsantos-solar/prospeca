@@ -10,7 +10,7 @@ import { distanceKm } from "@/lib/geo";
 import { useIsDirty } from "@/hooks/useIsDirty";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { reverseGeocodeCoords } from "@/lib/reverse-geocode";
+import { reverseGeocodeCoords, geocodeLocationText } from "@/lib/reverse-geocode";
 import { toast } from "sonner";
 import type { PresenceFilter } from "@/types";
 import { isRealMode } from "@/lib/env";
@@ -113,9 +113,26 @@ export function SearchForm() {
 
   const [nicheOpen, setNicheOpen] = useState(false);
   const [locOpen, setLocOpen] = useState(false);
+  const [locGeocoding, setLocGeocoding] = useState(false);
   const nicheButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const suggestions = historyService.suggestLocation(location);
+
+  // Nenhuma sugestão bate (ex: rua/endereço digitado) — resolve via Google
+  // Geocoding (mesma function/cache do GPS), igual buscar um endereço no Maps.
+  async function useTypedLocation() {
+    const text = useSearchDraftStore.getState().draft.location.trim();
+    if (text.length < 2 || locGeocoding) return;
+    setLocGeocoding(true);
+    const geo = await geocodeLocationText(text);
+    setLocGeocoding(false);
+    if (!geo) {
+      toast.error("Endereço não encontrado. Tente outro texto.");
+      return;
+    }
+    setDraft({ location: geo.label, coords: { lat: geo.latitude, lng: geo.longitude } });
+    setLocOpen(false);
+  }
 
   // Phase 4 — Real search: uses repository (demo keeps mock behavior)
   const { run, cancel, loading, progress } = useSearchMutation({
@@ -165,6 +182,9 @@ export function SearchForm() {
     // botão), nunca a cada tecla. `location-text` = digitando o endereço sem
     // coordenada resolvida ainda; `location` (coords movidas) é commit e busca.
     if (reason === "niche" || reason === "location-text") return;
+    // Sem nicho não há o que buscar — o backend rejeita (query min 2 chars) e
+    // o botão já fica desabilitado; o auto-busca não deve tentar mesmo assim.
+    if (draft.niche.trim().length < 2) return;
     const timer = setTimeout(() => runSearch(), 700);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on any draft change while dirty; runSearch reads fresh state itself
@@ -288,7 +308,16 @@ export function SearchForm() {
                 onValueChange={(v) => setDraft({ location: v })}
               />
               <CommandList>
-                <CommandEmpty>Nenhuma sugestão</CommandEmpty>
+                <CommandEmpty>
+                  <button
+                    type="button"
+                    className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={location.trim().length < 2 || locGeocoding}
+                    onClick={useTypedLocation}
+                  >
+                    {locGeocoding ? "Buscando endereço..." : `Usar "${location}"`}
+                  </button>
+                </CommandEmpty>
                 <CommandGroup>
                   {suggestions.map((c) => (
                     <CommandItem
@@ -371,7 +400,7 @@ export function SearchForm() {
 
       <Button
         onClick={() => runSearch()}
-        disabled={loading}
+        disabled={loading || niche.trim().length < 2}
         size="lg"
         className={cn(
           "w-full gap-2 shadow-card",
@@ -381,7 +410,12 @@ export function SearchForm() {
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         {loading ? "Buscando…" : dirty && hasResults ? "Atualizar busca" : "Buscar oportunidades"}
       </Button>
-      {!loading && dirty && hasResults && (
+      {!loading && niche.trim().length < 2 && (
+        <p className="text-[11px] text-muted-foreground text-center -mt-1.5">
+          Informe o nicho pra buscar
+        </p>
+      )}
+      {!loading && niche.trim().length >= 2 && dirty && hasResults && (
         <p className="text-[11px] text-muted-foreground text-center -mt-1.5">
           Atualizando em instantes — ou clique acima pra já
         </p>
