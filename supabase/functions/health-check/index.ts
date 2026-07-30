@@ -13,7 +13,7 @@ interface HealthStatus {
 
 const startTime = Date.now();
 
-Deno.serve(async (req: Request) => {
+Deno.serve((req: Request) => {
   const opts = handleOptions(req);
   if (opts) return opts;
 
@@ -55,7 +55,9 @@ async function ready(): Promise<Response> {
   try {
     const start = Date.now();
     const admin = adminClient();
-    const { data, error } = await admin.from("organizations").select("id").limit(1);
+    // Só o erro importa: o /ready checa conectividade, não conteúdo — e ler
+    // dados de tenant num health check seria exposição desnecessária.
+    const { error } = await admin.from("organizations").select("id").limit(1);
     if (error) throw error;
     checks.database = { status: "ok", latencyMs: Date.now() - start };
   } catch (err) {

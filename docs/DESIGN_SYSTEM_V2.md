@@ -19,16 +19,16 @@ aparência (`green-500`).
 
 ## Cores — papéis já existentes
 
-| Papel | Tokens |
-| --- | --- |
-| Fundo/superfície | `--background`, `--surface`, `--surface-2`, `--surface-hover`, `--card`, `--popover` |
-| Ação primária | `--primary(+foreground/hover/soft/subtle)` |
-| Texto | `--foreground`, `--muted-foreground`, `--subtle-foreground` |
-| Borda | `--border`, `--border-strong`, `--input`, `--ring` |
-| Status | `--destructive`, `--warning`, `--info`, `--success` (todos com `-foreground`/`-soft`) |
-| Temperatura do lead | `--hot`, `--warm`, `--cold` (com `-foreground`/`-soft`) |
-| Seleção | `--sel` (+`-foreground`/`-soft`) — **azul, de propósito**, distinto do primário verde, pra não confundir "isso é ação" com "isso tá selecionado". Decisão mantida mesmo com o novo spec pedindo verde. |
-| Estágio do Pipeline | `--stage-new/qualified/contacted/won/discarded` (+`-foreground`/`-soft`) — **novo nesta rodada**, antes eram emprestados de outros papéis |
+| Papel               | Tokens                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fundo/superfície    | `--background`, `--surface`, `--surface-2`, `--surface-hover`, `--card`, `--popover`                                                                                                                   |
+| Ação primária       | `--primary(+foreground/hover/soft/subtle)`                                                                                                                                                             |
+| Texto               | `--foreground`, `--muted-foreground`, `--subtle-foreground`                                                                                                                                            |
+| Borda               | `--border`, `--border-strong`, `--input`, `--ring`                                                                                                                                                     |
+| Status              | `--destructive`, `--warning`, `--info`, `--success` (todos com `-foreground`/`-soft`)                                                                                                                  |
+| Temperatura do lead | `--hot`, `--warm`, `--cold` (com `-foreground`/`-soft`)                                                                                                                                                |
+| Seleção             | `--sel` (+`-foreground`/`-soft`) — **azul, de propósito**, distinto do primário verde, pra não confundir "isso é ação" com "isso tá selecionado". Decisão mantida mesmo com o novo spec pedindo verde. |
+| Estágio do Pipeline | `--stage-new/qualified/contacted/won/discarded` (+`-foreground`/`-soft`) — **novo nesta rodada**, antes eram emprestados de outros papéis                                                              |
 
 Uso: `bg-{token}`, `text-{token}`, `border-t-{token}` — o `@theme
 inline` já expõe cada `--X` como utilitário Tailwind (`--color-X`), não
@@ -37,16 +37,16 @@ duas seções (`:root`/`.dark`) e mapeá-lo em `@theme inline`.
 
 ## Tipografia — escala nomeada (nova nesta rodada)
 
-| Classe | Tamanho | Line-height | Uso sugerido |
-| --- | --- | --- | --- |
-| `text-display` | 30px | 38px | Números grandes, hero |
-| `text-page-title` | 24px | 32px | Título de página |
-| `text-section-title` | 18px | 26px | Título de seção |
-| `text-card-title` | 14px | 20px | Título de card |
-| `text-body` | 14px | 21px | Texto padrão |
-| `text-body-sm` | 13px | 19px | Texto secundário |
-| `text-caption` | 12px | 17px | Metadado |
-| `text-micro` | 11px | 16px | Rótulo minúsculo |
+| Classe               | Tamanho | Line-height | Uso sugerido          |
+| -------------------- | ------- | ----------- | --------------------- |
+| `text-display`       | 30px    | 38px        | Números grandes, hero |
+| `text-page-title`    | 24px    | 32px        | Título de página      |
+| `text-section-title` | 18px    | 26px        | Título de seção       |
+| `text-card-title`    | 14px    | 20px        | Título de card        |
+| `text-body`          | 14px    | 21px        | Texto padrão          |
+| `text-body-sm`       | 13px    | 19px        | Texto secundário      |
+| `text-caption`       | 12px    | 17px        | Metadado              |
+| `text-micro`         | 11px    | 16px        | Rótulo minúsculo      |
 
 Peso não vem embutido — combine com `font-semibold`/`font-medium`
 conforme a hierarquia. **Ainda não aplicada retroativamente** no app —
@@ -75,6 +75,7 @@ em dropdown/popover.
 `useUIStore().density` (`"compact" | "comfortable"`, persistida,
 zustand). Configurável em Configurações → Prospecção. Consumida hoje
 por:
+
 - `KanbanBoard.tsx` (padding, tamanho de fonte, campos opcionais no
   card comfortable)
 - `DiscoveryCard.tsx` (novo nesta rodada — padding, score-ring, fonte)

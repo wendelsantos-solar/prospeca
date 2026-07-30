@@ -7,34 +7,38 @@
 
 ## Níveis de severidade
 
-| Nível | Descrição | Exemplo | Tempo de resposta |
-|-------|-----------|--------|-------------------|
-| **SEV1** | Produto indisponível | Site fora do ar, API 100% down | 1h |
-| **SEV2** | Funcionalidade crítica quebrada | Buscas não funcionam | 4h |
-| **SEV3** | Funcionalidade parcial degradada | Export lento, mapa não carrega | 24h |
-| **SEV4** | Bug cosmético | Erro de tradução, cor errada | Próximo ciclo |
+| Nível    | Descrição                        | Exemplo                        | Tempo de resposta |
+| -------- | -------------------------------- | ------------------------------ | ----------------- |
+| **SEV1** | Produto indisponível             | Site fora do ar, API 100% down | 1h                |
+| **SEV2** | Funcionalidade crítica quebrada  | Buscas não funcionam           | 4h                |
+| **SEV3** | Funcionalidade parcial degradada | Export lento, mapa não carrega | 24h               |
+| **SEV4** | Bug cosmético                    | Erro de tradução, cor errada   | Próximo ciclo     |
 
 ---
 
 ## Procedimento de resposta
 
 ### 1. Detectar
+
 - Alerta do Sentry / monitoramento
 - Report do usuário (feedback/suporte)
 - Observação do time
 
 ### 2. Triar
+
 - Qual a severidade?
 - Quantos usuários afetados?
 - Há risco de perda de dados?
 - Há risco de vazamento de dados?
 
 ### 3. Conter
+
 - SEV1/SEV2: Avaliar rollback
 - SEV3: Avaliar fix forward
 - Se necessário: desabilitar feature via feature flag
 
 ### 4. Corrigir
+
 - Criar branch de hotfix
 - Testar localmente
 - Deploy em staging
@@ -42,16 +46,19 @@
 - Deploy em produção
 
 ### 5. Verificar
+
 - Confirmar que o problema foi resolvido
 - Verificar se não houve regressão
 - Verificar métricas voltaram ao normal
 
 ### 6. Comunicar
+
 - SEV1/SEV2: Avisar usuários afetados (e-mail, in-app)
 - SEV3: Atualizar status page se disponível
 - Interno: Reportar no canal do time
 
 ### 7. Post-mortem
+
 - O que aconteceu? (timeline)
 - Qual foi a causa raiz?
 - O que fizemos bem?
@@ -97,13 +104,13 @@
 
 ## Contatos de emergência
 
-| Papel | Nome | Contato |
-|-------|------|---------|
-| Tech Lead | — | — |
-| Founder | — | — |
-| DevOps | — | — |
+| Papel     | Nome | Contato |
+| --------- | ---- | ------- |
+| Tech Lead | —    | —       |
+| Founder   | —    | —       |
+| DevOps    | —    | —       |
 
-*(Preencher antes do beta)*
+_(Preencher antes do beta)_
 
 ---
 

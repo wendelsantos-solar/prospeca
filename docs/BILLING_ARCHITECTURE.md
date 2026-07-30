@@ -32,12 +32,12 @@ conectado quando houver um plano pago de verdade pra testar ponta a ponta
      ganhou `metric`/`idempotency_key`/`source_type`/`source_id`, todas
      nullable, pra não quebrar os escritores antigos (`event_type`/`provider`).
    - `usage_counters`: agregado por `(organization_id, metric,
-     period_start)`, mantido via upsert atômico (`increment_usage_counter`
+period_start)`, mantido via upsert atômico (`increment_usage_counter`
      RPC) — é o que o motor de entitlements lê, não a soma ao vivo de
      `usage_events` (mais barato em escala).
 5. **Créditos** — `credit_balances` (saldo atual) + `credit_transactions`
    (log). Schema pronto, sem lógica de consumo ainda — isso é Fase 1
-   parcial: a *forma* dos créditos existe, a compra/consumo real (Fase 2/4)
+   parcial: a _forma_ dos créditos existe, a compra/consumo real (Fase 2/4)
    não.
 6. **Eventos de webhook** — `billing_events`, guarda o payload bruto +
    `provider_event_id` único (idempotência de webhook). Vazia até a Fase 2.
@@ -70,13 +70,13 @@ dele.
 
 ## Roadmap (não implementado nesta fase)
 
-| Fase | Escopo |
-| --- | --- |
-| 2 | `BillingProvider` (Stripe), checkout, webhooks, portal de cobrança |
-| 3 | UI: `/app/configuracoes/plano`, comparação de planos, upgrade contextual |
-| 4 | Ciclo de vida: upgrade/downgrade com aviso de impacto, cancelamento, trial, falha de pagamento |
-| 5 | Admin: métricas de receita, cupons, plano fundador |
-| 6 | Testes de integração/E2E, `BILLING_SETUP.md`, `BILLING_WEBHOOKS.md`, `USAGE_AND_CREDITS.md`, `BILLING_SECURITY.md`, `BILLING_TESTING.md`, e-mails transacionais |
+| Fase | Escopo                                                                                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2    | `BillingProvider` (Stripe), checkout, webhooks, portal de cobrança                                                                                              |
+| 3    | UI: `/app/configuracoes/plano`, comparação de planos, upgrade contextual                                                                                        |
+| 4    | Ciclo de vida: upgrade/downgrade com aviso de impacto, cancelamento, trial, falha de pagamento                                                                  |
+| 5    | Admin: métricas de receita, cupons, plano fundador                                                                                                              |
+| 6    | Testes de integração/E2E, `BILLING_SETUP.md`, `BILLING_WEBHOOKS.md`, `USAGE_AND_CREDITS.md`, `BILLING_SECURITY.md`, `BILLING_TESTING.md`, e-mails transacionais |
 
 Provedor escolhido: **Stripe** (Billing Portal nativo, suporte a PIX/boleto
 no Brasil, decisão registrada ao aprovar este plano). `STRIPE_SECRET_KEY`

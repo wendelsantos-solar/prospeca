@@ -49,6 +49,7 @@ automática e a do convite. O cenário de 2+ organizações é a regra no beta, 
 exceção.
 
 **Correção.**
+
 - `apps/web/src/lib/tenant.ts` passa a ser a única fonte de resolução:
   `resolveActiveOrganizationId()` (fora do React) e `useTenant()` (hook).
 - Ordem total e estável: `.order("created_at").order("organization_id")`.
@@ -87,7 +88,7 @@ banco.
 `owner_user_id: userId` (o admin da plataforma), comentado no código como
 "temporarily owned by admin" — e nada transferia depois.
 
-**Impacto real, medido.** *Não* é vazamento de acesso: `is_organization_member()`
+**Impacto real, medido.** _Não_ é vazamento de acesso: `is_organization_member()`
 e `has_organization_role()` leem exclusivamente `organization_members`;
 `owner_user_id` **não** aparece em nenhuma policy de RLS (verificado por busca em
 todas as migrations). O impacto é de integridade de dado e de ownership
@@ -124,8 +125,8 @@ nenhuma apaga dado, nenhuma tem passo destrutivo.
 ### `20260730000004_rate_limit_events.sql`
 
 Cria `rate_limit_events` (contador antiabuso) + `purge_rate_limit_events()` +
-job pg_cron horário. Motivo: `_shared/rate-limit.ts` gravava o contador em
-`usage_events` com `event_type='rate_limit_*'`, violando o CHECK da coluna; o erro
+job pg*cron horário. Motivo: `_shared/rate-limit.ts` gravava o contador em
+`usage_events` com `event_type='rate_limit*\*'`, violando o CHECK da coluna; o erro
 não era verificado, então o contador nunca incrementava e o limite nunca
 disparava. Bug reproduzido em banco local (`check_violation` confirmado).
 
@@ -181,21 +182,21 @@ gate de CI vermelho onde não existe banco.
 
 ## 5. Dívida conhecida (não corrigida agora, deliberadamente)
 
-| # | Dívida | Por que ficou | Quando tratar |
-|---|--------|---------------|---------------|
-| D1 | `handle_new_user()` cria organização Free até para quem chega por convite, gerando 2 organizações | Mudar o trigger de auth é a alteração mais arriscada possível no fluxo de cadastro. A seleção explícita de organização (M1) neutraliza o sintoma | Antes de 10 pilotos |
-| D2 | Sem seletor de workspace na UI, apesar de `hasMultipleOrgs` já existir | Beta é single-workspace por decisão de produto | Quando houver equipes |
-| D3 | Duas abstrações de rate limit (`_shared/quota.ts` e `_shared/rate-limit.ts`) | Semânticas diferentes: uma conta eventos de custo reais, a outra é contador antiabuso próprio. Unificar exigiria decidir o que fazer com a base de custo | Antes de cobrar |
-| D4 | `get_quota_status` e `get_entitlements` não checam membership (confiam em serem chamadas só server-side) | Dívida preexistente e já documentada em `20260729000002_billing_foundation.sql` | Antes de expor por RPC ao cliente |
-| D5 | `organization_invitations` permite convidar com `role = 'owner'`, e um `admin` pode fazê-lo | Necessário para o fluxo de piloto (o convidado precisa ser owner) | Revisar quando houver equipes reais |
+| #   | Dívida                                                                                                   | Por que ficou                                                                                                                                            | Quando tratar                       |
+| --- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| D1  | `handle_new_user()` cria organização Free até para quem chega por convite, gerando 2 organizações        | Mudar o trigger de auth é a alteração mais arriscada possível no fluxo de cadastro. A seleção explícita de organização (M1) neutraliza o sintoma         | Antes de 10 pilotos                 |
+| D2  | Sem seletor de workspace na UI, apesar de `hasMultipleOrgs` já existir                                   | Beta é single-workspace por decisão de produto                                                                                                           | Quando houver equipes               |
+| D3  | Duas abstrações de rate limit (`_shared/quota.ts` e `_shared/rate-limit.ts`)                             | Semânticas diferentes: uma conta eventos de custo reais, a outra é contador antiabuso próprio. Unificar exigiria decidir o que fazer com a base de custo | Antes de cobrar                     |
+| D4  | `get_quota_status` e `get_entitlements` não checam membership (confiam em serem chamadas só server-side) | Dívida preexistente e já documentada em `20260729000002_billing_foundation.sql`                                                                          | Antes de expor por RPC ao cliente   |
+| D5  | `organization_invitations` permite convidar com `role = 'owner'`, e um `admin` pode fazê-lo              | Necessário para o fluxo de piloto (o convidado precisa ser owner)                                                                                        | Revisar quando houver equipes reais |
 
 ---
 
 ## 6. Riscos
 
-| Risco | Probabilidade | Mitigação |
-|-------|--------------|-----------|
-| Seleção de organização em `localStorage` perdida (modo privado, limpeza) | Média | Fallback determinístico por ordem estável; usuário permanece funcional, só pode cair na organização Free |
-| Convidado abre o link em navegador diferente daquele onde confirmou o e-mail | Média | Token vive em `user_metadata`, não no navegador — segue funcionando |
-| Policy de product events estreita demais e bloqueia evento legítimo futuro | Média | ISO-018 falha imediatamente se a forma divergir; a policy e `track()` estão comentadas apontando uma para a outra |
-| `pg_cron` ausente ⇒ `rate_limit_events` cresce sem expurgo | Baixa | Migration avisa via `raise notice`; índice cobre a query mesmo com tabela grande |
+| Risco                                                                        | Probabilidade | Mitigação                                                                                                         |
+| ---------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Seleção de organização em `localStorage` perdida (modo privado, limpeza)     | Média         | Fallback determinístico por ordem estável; usuário permanece funcional, só pode cair na organização Free          |
+| Convidado abre o link em navegador diferente daquele onde confirmou o e-mail | Média         | Token vive em `user_metadata`, não no navegador — segue funcionando                                               |
+| Policy de product events estreita demais e bloqueia evento legítimo futuro   | Média         | ISO-018 falha imediatamente se a forma divergir; a policy e `track()` estão comentadas apontando uma para a outra |
+| `pg_cron` ausente ⇒ `rate_limit_events` cresce sem expurgo                   | Baixa         | Migration avisa via `raise notice`; índice cobre a query mesmo com tabela grande                                  |

@@ -9,12 +9,12 @@
 
 O Supabase gerencia backups automáticos do banco de dados dependendo do plano:
 
-| Plano Supabase | Backup | Retenção | Point-in-time recovery |
-|---------------|--------|----------|----------------------|
-| Free | Diário | 7 dias | ❌ |
-| Pro | Diário | 14 dias | ✅ (7 dias) |
-| Team | Diário | 30 dias | ✅ (14 dias) |
-| Enterprise | Customizado | Customizado | ✅ |
+| Plano Supabase | Backup      | Retenção    | Point-in-time recovery |
+| -------------- | ----------- | ----------- | ---------------------- |
+| Free           | Diário      | 7 dias      | ❌                     |
+| Pro            | Diário      | 14 dias     | ✅ (7 dias)            |
+| Team           | Diário      | 30 dias     | ✅ (14 dias)           |
+| Enterprise     | Customizado | Customizado | ✅                     |
 
 **Verificar:** Qual plano Supabase está ativo para produção?
 
@@ -24,22 +24,22 @@ O Supabase gerencia backups automáticos do banco de dados dependendo do plano:
 
 ### O que precisa de backup
 
-| Recurso | Backup | Notas |
-|---------|--------|-------|
-| PostgreSQL database | Supabase managed | Inclui schema + dados |
-| Auth users | Supabase managed (auth schema) | Incluído no backup do banco |
-| Storage (arquivos) | Supabase managed | Se buckets estiverem em uso |
-| Edge Functions (código) | Git repository | Código fonte versionado |
-| Migrations | Git repository | `supabase/migrations/` |
+| Recurso                 | Backup                         | Notas                       |
+| ----------------------- | ------------------------------ | --------------------------- |
+| PostgreSQL database     | Supabase managed               | Inclui schema + dados       |
+| Auth users              | Supabase managed (auth schema) | Incluído no backup do banco |
+| Storage (arquivos)      | Supabase managed               | Se buckets estiverem em uso |
+| Edge Functions (código) | Git repository                 | Código fonte versionado     |
+| Migrations              | Git repository                 | `supabase/migrations/`      |
 
 ### O que NÃO está no backup automático
 
-| Recurso | Mitigação |
-|---------|-----------|
-| Configurações do Supabase (auth, api) | `config.toml` versionado |
-| Secrets (API keys, service role) | Documentados, não versionados |
-| Configuração de domínio/DNS | Gerenciado fora do Supabase |
-| Logs | Retenção limitada no Supabase |
+| Recurso                               | Mitigação                     |
+| ------------------------------------- | ----------------------------- |
+| Configurações do Supabase (auth, api) | `config.toml` versionado      |
+| Secrets (API keys, service role)      | Documentados, não versionados |
+| Configuração de domínio/DNS           | Gerenciado fora do Supabase   |
+| Logs                                  | Retenção limitada no Supabase |
 
 ---
 
@@ -91,10 +91,10 @@ Não há restore parcial por tabela.
 
 ## RPO e RTO
 
-| Métrica | Valor alvo | Realidade atual |
-|---------|-----------|-----------------|
+| Métrica                        | Valor alvo                         | Realidade atual          |
+| ------------------------------ | ---------------------------------- | ------------------------ |
 | RPO (Recovery Point Objective) | 24h (máx. 1 dia de dados perdidos) | Backup diário (Supabase) |
-| RTO (Recovery Time Objective) | 4h (máx. 4h para restaurar) | Não testado |
+| RTO (Recovery Time Objective)  | 4h (máx. 4h para restaurar)        | Não testado              |
 
 ---
 
@@ -133,9 +133,9 @@ Não há restore parcial por tabela.
 
 ## Responsabilidades
 
-| Responsável | Ação |
-|------------|------|
-| DevOps / Tech Lead | Verificar plano Supabase, configurar backup |
-| DevOps / Tech Lead | Realizar teste de restore trimestral |
-| Tech Lead | Documentar qualquer mudança no procedimento |
-| Time | Reportar qualquer suspeita de perda de dados imediatamente |
+| Responsável        | Ação                                                       |
+| ------------------ | ---------------------------------------------------------- |
+| DevOps / Tech Lead | Verificar plano Supabase, configurar backup                |
+| DevOps / Tech Lead | Realizar teste de restore trimestral                       |
+| Tech Lead          | Documentar qualquer mudança no procedimento                |
+| Time               | Reportar qualquer suspeita de perda de dados imediatamente |

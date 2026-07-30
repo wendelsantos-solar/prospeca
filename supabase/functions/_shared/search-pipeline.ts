@@ -76,7 +76,7 @@ export async function decideSource(
   cache: CachePort,
   budget: { limit: number | null; mtdCost: number },
 ): Promise<SourceDecision> {
-  const { forceRefresh, cacheKey, textQuery, center, radiusMeters } = params;
+  const { forceRefresh, cacheKey, center, radiusMeters } = params;
 
   // 1. Force refresh with cooldown guard.
   let doForce = false;

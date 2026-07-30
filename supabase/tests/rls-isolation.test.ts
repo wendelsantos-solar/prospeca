@@ -196,10 +196,7 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
   });
 
   test("ISO-006: usuário de B não lê template de A", async () => {
-    const { data } = await orgB.client
-      .from("message_templates")
-      .select("id")
-      .eq("id", templateIdA);
+    const { data } = await orgB.client.from("message_templates").select("id").eq("id", templateIdA);
     expect(data).toEqual([]);
   });
 

@@ -1,7 +1,7 @@
 // create-export: server-side CSV export with formula-injection protection.
 // Small volumes return inline; larger ones go to Storage with a signed URL.
 import { z } from "npm:zod@3";
-import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
+import { AppError, handleOptions, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, recordUsage, writeAudit } from "../_shared/quota.ts";
 

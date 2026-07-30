@@ -38,6 +38,7 @@ ação. Atualizar conforme cada item for feito.
 ## Como migrar um arquivo ao sistema de ícones
 
 Receita em `docs/ICON_MIGRATION_MAP.md`. Resumo:
+
 1. `import { AppIcon } from "@/design-system/icons/AppIcon"`
 2. `import { icons } from "@/design-system/icons/icon-registry"`
 3. `<Icon className="h-X w-X" />` → `<AppIcon icon={icons.dominio.nome} size="..." decorative />`

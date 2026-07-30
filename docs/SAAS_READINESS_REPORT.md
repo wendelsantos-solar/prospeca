@@ -416,30 +416,30 @@ checklists de beta).
 
 ## Resumo
 
-| Área | Nota | Status |
-|------|------|--------|
-| Arquitetura | 3 | ✅ |
-| Autenticação | 3 | ✅ |
-| Autorização | 3 | ✅ |
-| Multi-tenancy | 3 | ✅ |
-| Isolamento de dados | 3 | ✅ |
-| Segurança | 3 | ✅ |
-| Banco e migrations | 3 | ✅ |
-| Observabilidade | 2 | ⚠️ Precisa melhorar |
-| Infraestrutura | 2 | ⚠️ Precisa documentar |
-| Backups | 1 | 🔴 Crítico |
-| Controle de consumo | 3 | ✅ |
-| Billing | 2 | ⚠️ Fundação pronta |
-| Onboarding | 1 | 🔴 Precisa implementar |
-| Suporte | 1 | 🔴 Precisa implementar |
-| Feedback | 0 | 🔴 Inexistente |
-| Analytics de produto | 1 | 🔴 Precisa implementar |
-| Administração | 2 | ⚠️ Precisa expandir |
-| Privacidade | 2 | ⚠️ Precisa ToS/PP |
-| Testes | 3 | ✅ (faltam E2E/isolamento) |
-| Deploy | 2 | ⚠️ Precisa health checks |
-| Performance | 2 | ⚠️ |
-| Documentação | 3 | ✅ |
+| Área                 | Nota | Status                     |
+| -------------------- | ---- | -------------------------- |
+| Arquitetura          | 3    | ✅                         |
+| Autenticação         | 3    | ✅                         |
+| Autorização          | 3    | ✅                         |
+| Multi-tenancy        | 3    | ✅                         |
+| Isolamento de dados  | 3    | ✅                         |
+| Segurança            | 3    | ✅                         |
+| Banco e migrations   | 3    | ✅                         |
+| Observabilidade      | 2    | ⚠️ Precisa melhorar        |
+| Infraestrutura       | 2    | ⚠️ Precisa documentar      |
+| Backups              | 1    | 🔴 Crítico                 |
+| Controle de consumo  | 3    | ✅                         |
+| Billing              | 2    | ⚠️ Fundação pronta         |
+| Onboarding           | 1    | 🔴 Precisa implementar     |
+| Suporte              | 1    | 🔴 Precisa implementar     |
+| Feedback             | 0    | 🔴 Inexistente             |
+| Analytics de produto | 1    | 🔴 Precisa implementar     |
+| Administração        | 2    | ⚠️ Precisa expandir        |
+| Privacidade          | 2    | ⚠️ Precisa ToS/PP          |
+| Testes               | 3    | ✅ (faltam E2E/isolamento) |
+| Deploy               | 2    | ⚠️ Precisa health checks   |
+| Performance          | 2    | ⚠️                         |
+| Documentação         | 3    | ✅                         |
 
 **Média geral:** 2.2/5 — adequado para MVP interno, precisa de investimento
 focado para beta privado.
@@ -459,45 +459,45 @@ após correção dos itens críticos identificados.
 > subiu por existir — subiu só depois de funcionar e, quando possível, de ter
 > teste. Ver `docs/SAAS_BASELINE.md` §5 para a auditoria de evidência.
 
-| Área | Nota (rev 1) | Nota (rev 2) | Evidência da mudança |
-|------|-------------|-------------|----------------------|
-| Arquitetura | 3 | 3 | Sem mudança estrutural |
-| Autenticação | 3 | 3 | Sem mudança |
-| Autorização | 3 | **4** | `is_platform_admin()` + RLS comprovados por teste (ISO-011/023) |
-| Multi-tenancy | 3 | **4** | Resolução de tenant agora determinística e centralizada em `lib/tenant.ts` |
-| Isolamento de dados | 3 | **4** | 23 testes reais contra Postgres + RLS, 23 pass (`supabase/tests/rls-isolation.test.ts`) |
-| Segurança | 3 | 3 | 2 achados S3 corrigidos (S3-04, S3-05), mas error tracking segue ausente |
-| Banco e migrations | 3 | 3 | 2 migrations aditivas validadas em local; ainda sem staging |
-| Observabilidade | 2 | 2 | Logs estruturados + request ID + health check ok; **error tracking e alertas seguem em 0** |
-| Infraestrutura | 2 | 2 | `ENVIRONMENTS.md` existe; staging não provisionado |
-| Backups | 1 | 1 | Documentado, restore **nunca testado** — nota não sobe por documentação |
-| Controle de consumo | 3 | **4** | Quota + budget já existiam; rate limit antiabuso deixou de ser inerte (S3-04) |
-| Billing | 2 | 2 | Fundação + plano Pilot; sem cobrança (não bloqueia beta) |
-| Onboarding | 1 | **3** | `OnboardingWizard` + `useOnboarding` retomável, integrado ao `AppLayout` |
-| Suporte | 1 | **3** | `FeedbackForm` no produto + `submit-feedback` |
-| Feedback | 0 | **3** | Tabela `feedback` + edge function + RLS |
-| Analytics de produto | 1 | **2** | Corrigido de "não persistia nada" para funcional (policy + contexto). Só 2 porque **ainda não foi validado com tráfego real** |
-| Administração | 2 | **3** | `PilotManagement.tsx` + `create-pilot` com autorização e auditoria |
-| Privacidade | 2 | **3** | ToS + Política + `TermsGate` no cadastro; sem revisão jurídica |
-| Testes | 3 | **4** | 225 pass / 0 fail; isolamento real coberto. E2E ainda não executável |
-| Deploy | 2 | 2 | Health check entregue; **sem CI com gates** |
-| Performance | 2 | 2 | Sem mudança; adequado para 5–50 organizações |
-| Documentação | 3 | **4** | `SAAS_BASELINE.md` e `MULTI_TENANCY_MIGRATION_PLAN.md` criados; checklist e security audit corrigidos |
+| Área                 | Nota (rev 1) | Nota (rev 2) | Evidência da mudança                                                                                                          |
+| -------------------- | ------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Arquitetura          | 3            | 3            | Sem mudança estrutural                                                                                                        |
+| Autenticação         | 3            | 3            | Sem mudança                                                                                                                   |
+| Autorização          | 3            | **4**        | `is_platform_admin()` + RLS comprovados por teste (ISO-011/023)                                                               |
+| Multi-tenancy        | 3            | **4**        | Resolução de tenant agora determinística e centralizada em `lib/tenant.ts`                                                    |
+| Isolamento de dados  | 3            | **4**        | 23 testes reais contra Postgres + RLS, 23 pass (`supabase/tests/rls-isolation.test.ts`)                                       |
+| Segurança            | 3            | 3            | 2 achados S3 corrigidos (S3-04, S3-05), mas error tracking segue ausente                                                      |
+| Banco e migrations   | 3            | 3            | 2 migrations aditivas validadas em local; ainda sem staging                                                                   |
+| Observabilidade      | 2            | 2            | Logs estruturados + request ID + health check ok; **error tracking e alertas seguem em 0**                                    |
+| Infraestrutura       | 2            | 2            | `ENVIRONMENTS.md` existe; staging não provisionado                                                                            |
+| Backups              | 1            | 1            | Documentado, restore **nunca testado** — nota não sobe por documentação                                                       |
+| Controle de consumo  | 3            | **4**        | Quota + budget já existiam; rate limit antiabuso deixou de ser inerte (S3-04)                                                 |
+| Billing              | 2            | 2            | Fundação + plano Pilot; sem cobrança (não bloqueia beta)                                                                      |
+| Onboarding           | 1            | **3**        | `OnboardingWizard` + `useOnboarding` retomável, integrado ao `AppLayout`                                                      |
+| Suporte              | 1            | **3**        | `FeedbackForm` no produto + `submit-feedback`                                                                                 |
+| Feedback             | 0            | **3**        | Tabela `feedback` + edge function + RLS                                                                                       |
+| Analytics de produto | 1            | **2**        | Corrigido de "não persistia nada" para funcional (policy + contexto). Só 2 porque **ainda não foi validado com tráfego real** |
+| Administração        | 2            | **3**        | `PilotManagement.tsx` + `create-pilot` com autorização e auditoria                                                            |
+| Privacidade          | 2            | **3**        | ToS + Política + `TermsGate` no cadastro; sem revisão jurídica                                                                |
+| Testes               | 3            | **4**        | 225 pass / 0 fail; isolamento real coberto. E2E ainda não executável                                                          |
+| Deploy               | 2            | 2            | Health check entregue; **sem CI com gates**                                                                                   |
+| Performance          | 2            | 2            | Sem mudança; adequado para 5–50 organizações                                                                                  |
+| Documentação         | 3            | **4**        | `SAAS_BASELINE.md` e `MULTI_TENANCY_MIGRATION_PLAN.md` criados; checklist e security audit corrigidos                         |
 
 **Média geral: 3.0/5** (era 2.2). Adequado para **beta privado controlado**, ainda
 não para cobrança.
 
 **Áreas que continuam abaixo de 3 e por quê:**
 
-| Área | Nota | Único motivo de estar baixa |
-|------|------|----------------------------|
-| Observabilidade | 2 | Error tracking ausente — falha de piloto real é invisível |
-| Backups | 1 | Restore nunca executado |
-| Infraestrutura | 2 | Staging não provisionado |
-| Deploy | 2 | Sem CI com gates de lint/typecheck/test/build |
-| Analytics de produto | 2 | Corrigido mas não validado com uso real |
-| Billing | 2 | Deliberado — não bloqueia beta gratuito |
-| Performance | 2 | Deliberado — suficiente para a escala do beta |
+| Área                 | Nota | Único motivo de estar baixa                               |
+| -------------------- | ---- | --------------------------------------------------------- |
+| Observabilidade      | 2    | Error tracking ausente — falha de piloto real é invisível |
+| Backups              | 1    | Restore nunca executado                                   |
+| Infraestrutura       | 2    | Staging não provisionado                                  |
+| Deploy               | 2    | Sem CI com gates de lint/typecheck/test/build             |
+| Analytics de produto | 2    | Corrigido mas não validado com uso real                   |
+| Billing              | 2    | Deliberado — não bloqueia beta gratuito                   |
+| Performance          | 2    | Deliberado — suficiente para a escala do beta             |
 
 Quatro dos sete itens (observabilidade, backups, infraestrutura, deploy) são
 **operacionais e não de produto**, e são exatamente os bloqueadores B1–B4 do

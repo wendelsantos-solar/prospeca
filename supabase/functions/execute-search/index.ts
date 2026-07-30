@@ -29,7 +29,10 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
-async function isInternalCall(req: Request): Promise<boolean> {
+// Sem `async` de propósito: não há await aqui, só o repasse da Promise de
+// timingSafeEqual (que é assíncrona por usar SHA-256). Marcar como async
+// dispararia require-await sem mudar semântica alguma.
+function isInternalCall(req: Request): Promise<boolean> {
   const auth = req.headers.get("Authorization") ?? "";
   return timingSafeEqual(auth, `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
 }

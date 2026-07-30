@@ -11,5 +11,10 @@
     "@leads/domain/status": "./packages/domain/src/status.ts",
     "@leads/domain/ssrf": "./packages/domain/src/ssrf.ts",
     "@leads/geo": "./packages/geo/src/index.ts"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
+    }
   }
 }

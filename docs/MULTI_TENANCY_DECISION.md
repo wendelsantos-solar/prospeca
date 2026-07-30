@@ -61,6 +61,7 @@ User (auth.users)
 ### Auto-provisionamento
 
 No signup, o trigger `handle_new_user()`:
+
 1. Cria `profiles` row
 2. Cria `organizations` row (nome = company_name do metadata ou "Minha organização")
 3. Cria `organization_members` row (role = owner)
@@ -68,11 +69,11 @@ No signup, o trigger `handle_new_user()`:
 
 ### Membership e roles
 
-| Role | Permissões |
-|------|-----------|
-| `owner` | Acesso total à organização, gerencia membros, admin |
-| `admin` | Gerencia membros, acessa audit logs, edita organização |
-| `member` | Acesso aos dados de negócio (leads, buscas, pipeline) |
+| Role     | Permissões                                             |
+| -------- | ------------------------------------------------------ |
+| `owner`  | Acesso total à organização, gerencia membros, admin    |
+| `admin`  | Gerencia membros, acessa audit logs, edita organização |
+| `member` | Acesso aos dados de negócio (leads, buscas, pipeline)  |
 
 Para o beta inicial, `owner` e `member` são suficientes na interface.
 
@@ -85,6 +86,7 @@ melhorado com um seletor de workspace.
 ## Dados que pertencem ao tenant
 
 Todas as tabelas de negócio têm `organization_id`:
+
 - searches, places, search_results
 - leads, lead_notes, lead_activities, lead_stage_history
 - message_templates
@@ -159,6 +161,7 @@ automático via `handle_new_user()` trigger.
 ## Estratégia de rollback
 
 Como não há migração de dados para fazer, o rollback é simples:
+
 - Remover novas tabelas/migrations da feature branch
 - Manter compatibilidade com schema existente
 
@@ -171,6 +174,7 @@ para o estágio atual do Radar Local. Não há necessidade de migrar para schema
 ou bancos separados.
 
 ### O que implementar agora:
+
 1. Sistema de convites (`organization_invitations`)
 2. Melhorar resolução de tenant no frontend (contexto ou hook centralizado)
 3. Testes de isolamento cross-tenant

@@ -15,22 +15,22 @@ e adiciona verificações para o beta privado.
 
 ## Classificação de severidade
 
-| Nível | Descrição |
-|-------|-----------|
+| Nível  | Descrição                                           |
+| ------ | --------------------------------------------------- |
 | **S4** | Crítico — acesso não autorizado, vazamento de dados |
-| **S3** | Alto — bypass de controle, exposição de PII |
-| **S2** | Médio — hardening, configuração |
-| **S1** | Baixo — boas práticas |
+| **S3** | Alto — bypass de controle, exposição de PII         |
+| **S2** | Médio — hardening, configuração                     |
+| **S1** | Baixo — boas práticas                               |
 
 ---
 
 ## Achados anteriores (todos resolvidos)
 
-| ID | Descrição | Severidade | Status |
-|----|-----------|-----------|--------|
-| V1 | Suppression list não aplicada | S3 | ✅ Resolvido (2026-07-23) |
-| V2 | Sem retenção/minimização de PII | S2 | ✅ Resolvido (2026-07-23) |
-| V3 | Comparação de segredo não constant-time | S2 | ✅ Resolvido (2026-07-23) |
+| ID  | Descrição                               | Severidade | Status                    |
+| --- | --------------------------------------- | ---------- | ------------------------- |
+| V1  | Suppression list não aplicada           | S3         | ✅ Resolvido (2026-07-23) |
+| V2  | Sem retenção/minimização de PII         | S2         | ✅ Resolvido (2026-07-23) |
+| V3  | Comparação de segredo não constant-time | S2         | ✅ Resolvido (2026-07-23) |
 
 ---
 
@@ -117,6 +117,7 @@ Obtido tentando o INSERT exato que a função fazia:
 `insert into usage_events (organization_id, event_type, quantity) values (..., 'rate_limit_invitation', 1)`.
 
 **Agravantes encontrados no mesmo código:**
+
 - `accept-invitation` passava o UUID zerado `00000000-...` como escopo, criando um
   **balde global compartilhado**: qualquer chamador poderia esgotar o limite e
   negar o aceite de convite para todos os usuários (auto-DoS).
@@ -247,29 +248,29 @@ consumidor e a ausência de ordenação era um defeito real (ver S2-06).
 
 ## Checklist de segurança para beta
 
-| Item | Status |
-|------|--------|
-| RLS em todas tabelas | ✅ |
-| Autenticação em todas edge functions | ✅ |
-| Backend valida authorization (não confia no frontend) | ✅ |
-| Service role restrito a funções internas | ✅ |
-| Secrets não hardcoded | ✅ |
-| SSRF protegido (enrich) | ✅ |
-| Rate limiting em create-search | ✅ |
-| Rate limiting nas novas funções | ✅ Corrigido (S3-04) — antes estava inerte |
-| Headers de segurança | ✅ `_shared/http.ts` |
-| LGPD: exclusão de conta | ✅ |
-| LGPD: retenção de dados | ✅ |
-| LGPD: suppression opt-out | ✅ |
-| LGPD: Termos de Uso / Política de Privacidade | ✅ `routes/termos.tsx`, `routes/privacidade.tsx` (sem revisão jurídica) |
-| CSRF (Supabase gerencia) | ✅ |
-| CORS configurado | ✅ |
-| Input validation (Zod) | ✅ |
-| Audit logs em ações críticas | ⚠️ Parcial — falta alteração de role e de limite |
-| Testes de isolamento cross-tenant | ✅ 23/23 em `supabase/tests/rls-isolation.test.ts` |
-| Cliente barrado de escrever na base de custo | ✅ Corrigido (S3-05) |
-| Error tracking | ❌ Pendente — nenhuma integração |
-| CI com gates de segurança | ❌ Pendente |
+| Item                                                  | Status                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| RLS em todas tabelas                                  | ✅                                                                      |
+| Autenticação em todas edge functions                  | ✅                                                                      |
+| Backend valida authorization (não confia no frontend) | ✅                                                                      |
+| Service role restrito a funções internas              | ✅                                                                      |
+| Secrets não hardcoded                                 | ✅                                                                      |
+| SSRF protegido (enrich)                               | ✅                                                                      |
+| Rate limiting em create-search                        | ✅                                                                      |
+| Rate limiting nas novas funções                       | ✅ Corrigido (S3-04) — antes estava inerte                              |
+| Headers de segurança                                  | ✅ `_shared/http.ts`                                                    |
+| LGPD: exclusão de conta                               | ✅                                                                      |
+| LGPD: retenção de dados                               | ✅                                                                      |
+| LGPD: suppression opt-out                             | ✅                                                                      |
+| LGPD: Termos de Uso / Política de Privacidade         | ✅ `routes/termos.tsx`, `routes/privacidade.tsx` (sem revisão jurídica) |
+| CSRF (Supabase gerencia)                              | ✅                                                                      |
+| CORS configurado                                      | ✅                                                                      |
+| Input validation (Zod)                                | ✅                                                                      |
+| Audit logs em ações críticas                          | ⚠️ Parcial — falta alteração de role e de limite                        |
+| Testes de isolamento cross-tenant                     | ✅ 23/23 em `supabase/tests/rls-isolation.test.ts`                      |
+| Cliente barrado de escrever na base de custo          | ✅ Corrigido (S3-05)                                                    |
+| Error tracking                                        | ❌ Pendente — nenhuma integração                                        |
+| CI com gates de segurança                             | ❌ Pendente                                                             |
 
 ---
 

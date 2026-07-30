@@ -9,37 +9,37 @@
 
 ### Dados de usuário (personal data)
 
-| Dado | Tabela | Propósito | Base legal |
-|------|--------|-----------|------------|
-| Nome completo | `profiles.full_name` | Identificação no produto | Consentimento (cadastro) |
-| E-mail | `auth.users.email` | Autenticação, comunicação | Execução de contrato |
-| Senha (hash) | `auth.users` | Autenticação | Execução de contrato |
-| Avatar | `profiles.avatar_url` | Personalização | Consentimento |
-| Telefone | `profiles.phone` | Suporte | Consentimento |
+| Dado          | Tabela                | Propósito                 | Base legal               |
+| ------------- | --------------------- | ------------------------- | ------------------------ |
+| Nome completo | `profiles.full_name`  | Identificação no produto  | Consentimento (cadastro) |
+| E-mail        | `auth.users.email`    | Autenticação, comunicação | Execução de contrato     |
+| Senha (hash)  | `auth.users`          | Autenticação              | Execução de contrato     |
+| Avatar        | `profiles.avatar_url` | Personalização            | Consentimento            |
+| Telefone      | `profiles.phone`      | Suporte                   | Consentimento            |
 
 ### Dados de terceiros (empresas prospectadas)
 
-| Dado | Tabela | Fonte | Retenção |
-|------|--------|-------|----------|
-| Nome da empresa | `places.name`, `leads.company_name` | Google Places | Até deleção |
-| Endereço | `places.formatted_address`, `leads.address` | Google Places | Até deleção |
-| Telefone | `places.national_phone_number`, `leads.phone` | Google Places | Até deleção ou suppression |
-| Website | `places.website_uri`, `leads.website` | Google Places | Até deleção |
-| E-mail | Extraído do website da empresa | Enricher | 90 dias (stale) ou suppression |
-| Instagram | Extraído do website da empresa | Enricher | 90 dias (stale) ou suppression |
-| WhatsApp | Extraído do website da empresa | Enricher | 90 dias (stale) ou suppression |
-| Avaliações | `places.rating`, `places.user_rating_count` | Google Places | Até deleção |
+| Dado            | Tabela                                        | Fonte         | Retenção                       |
+| --------------- | --------------------------------------------- | ------------- | ------------------------------ |
+| Nome da empresa | `places.name`, `leads.company_name`           | Google Places | Até deleção                    |
+| Endereço        | `places.formatted_address`, `leads.address`   | Google Places | Até deleção                    |
+| Telefone        | `places.national_phone_number`, `leads.phone` | Google Places | Até deleção ou suppression     |
+| Website         | `places.website_uri`, `leads.website`         | Google Places | Até deleção                    |
+| E-mail          | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
+| Instagram       | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
+| WhatsApp        | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
+| Avaliações      | `places.rating`, `places.user_rating_count`   | Google Places | Até deleção                    |
 
 ### Dados operacionais
 
-| Dado | Retenção |
-|------|----------|
-| `usage_events` | Indefinido (agregado em `usage_counters`) |
-| `audit_logs` | Indefinido (propósito de auditoria) |
-| `billing_events` | Indefinido (propósito fiscal) |
-| `idempotency_keys` | 24 horas |
-| `geocode_cache` | 30 dias |
-| `exports` | 30 dias (expira) |
+| Dado               | Retenção                                  |
+| ------------------ | ----------------------------------------- |
+| `usage_events`     | Indefinido (agregado em `usage_counters`) |
+| `audit_logs`       | Indefinido (propósito de auditoria)       |
+| `billing_events`   | Indefinido (propósito fiscal)             |
+| `idempotency_keys` | 24 horas                                  |
+| `geocode_cache`    | 30 dias                                   |
+| `exports`          | 30 dias (expira)                          |
 
 ---
 
@@ -65,14 +65,14 @@
 
 ## Direitos do titular (LGPD)
 
-| Direito | Como exercer |
-|---------|-------------|
-| Confirmação e acesso | Dashboard de configurações (a implementar) |
-| Correção | Editar perfil |
-| Exclusão | `delete-account-data` via configurações |
-| Oposição (opt-out) | Botão "Não contatar" no lead |
-| Portabilidade | Export CSV (implementado) |
-| Informação sobre compartilhamento | Política de Privacidade |
+| Direito                           | Como exercer                               |
+| --------------------------------- | ------------------------------------------ |
+| Confirmação e acesso              | Dashboard de configurações (a implementar) |
+| Correção                          | Editar perfil                              |
+| Exclusão                          | `delete-account-data` via configurações    |
+| Oposição (opt-out)                | Botão "Não contatar" no lead               |
+| Portabilidade                     | Export CSV (implementado)                  |
+| Informação sobre compartilhamento | Política de Privacidade                    |
 
 ---
 
@@ -80,12 +80,12 @@
 
 ### Com terceiros
 
-| Terceiro | Dados compartilhados | Propósito |
-|----------|---------------------|-----------|
-| Google Places API | Query de busca, localização | Busca de empresas |
-| Google Geocoding API | Endereço textual | Geocodificação |
-| Supabase | Todos (hospedagem) | Infraestrutura |
-| Stripe (futuro) | E-mail, assinatura | Cobrança |
+| Terceiro             | Dados compartilhados        | Propósito         |
+| -------------------- | --------------------------- | ----------------- |
+| Google Places API    | Query de busca, localização | Busca de empresas |
+| Google Geocoding API | Endereço textual            | Geocodificação    |
+| Supabase             | Todos (hospedagem)          | Infraestrutura    |
+| Stripe (futuro)      | E-mail, assinatura          | Cobrança          |
 
 ### Entre tenants
 

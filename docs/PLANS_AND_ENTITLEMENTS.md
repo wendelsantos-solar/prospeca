@@ -7,50 +7,50 @@ um `update billing_plans set ...`, não um deploy.
 
 ## Planos
 
-| code | Nome | Mensal | Anual | Usuários | Leads/mês |
-| --- | --- | --- | --- | --- | --- |
-| `free` | Descobrir | R$ 0 | R$ 0 | 1 | 50 |
-| `solo` | Solo | R$ 59 | R$ 590 | 1 | 500 |
-| `professional` | Profissional | R$ 119 | R$ 1.190 | 1 | 2.000 |
-| `agency` | Agência | R$ 299 | R$ 2.990 | 3 | 7.500 |
-| `team` | Equipe | personalizado | personalizado | ilimitado (-1) | ilimitado (-1) |
+| code           | Nome         | Mensal        | Anual         | Usuários       | Leads/mês      |
+| -------------- | ------------ | ------------- | ------------- | -------------- | -------------- |
+| `free`         | Descobrir    | R$ 0          | R$ 0          | 1              | 50             |
+| `solo`         | Solo         | R$ 59         | R$ 590        | 1              | 500            |
+| `professional` | Profissional | R$ 119        | R$ 1.190      | 1              | 2.000          |
+| `agency`       | Agência      | R$ 299        | R$ 2.990      | 3              | 7.500          |
+| `team`         | Equipe       | personalizado | personalizado | ilimitado (-1) | ilimitado (-1) |
 
 ## Features por plano
 
-| Feature | free | solo | professional | agency | team |
-| --- | :-: | :-: | :-: | :-: | :-: |
-| `lead_search` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `advanced_filters` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `pipeline` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `saved_searches` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `search_monitoring` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `csv_export` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `xlsx_export` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `message_templates` | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `cadences` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `automations` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `advanced_analytics` | ❌ | ❌ | ✅ | ✅ | ✅ |
-| `team_management` | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `custom_permissions` | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `api_access` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Feature              | free | solo | professional | agency | team |
+| -------------------- | :--: | :--: | :----------: | :----: | :--: |
+| `lead_search`        |  ✅  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `advanced_filters`   |  ❌  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `pipeline`           |  ✅  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `saved_searches`     |  ❌  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `search_monitoring`  |  ❌  |  ❌  |      ✅      |   ✅   |  ✅  |
+| `csv_export`         |  ✅  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `xlsx_export`        |  ❌  |  ❌  |      ✅      |   ✅   |  ✅  |
+| `message_templates`  |  ❌  |  ✅  |      ✅      |   ✅   |  ✅  |
+| `cadences`           |  ❌  |  ❌  |      ✅      |   ✅   |  ✅  |
+| `automations`        |  ❌  |  ❌  |      ✅      |   ✅   |  ✅  |
+| `advanced_analytics` |  ❌  |  ❌  |      ✅      |   ✅   |  ✅  |
+| `team_management`    |  ❌  |  ❌  |      ❌      |   ✅   |  ✅  |
+| `custom_permissions` |  ❌  |  ❌  |      ❌      |   ✅   |  ✅  |
+| `api_access`         |  ❌  |  ❌  |      ❌      |   ❌   |  ✅  |
 
 `free` tem `pipeline`/`csv_export` = true mas com `limits` bem baixos
 (1 pipeline, 50 linhas de exportação/mês) — a feature existe, o volume é
-que é mínimo. Isso é intencional: bloquear por *limite*, não por feature
+que é mínimo. Isso é intencional: bloquear por _limite_, não por feature
 flag, quando o recurso em si deveria estar disponível pra experimentar.
 
 ## Limites (`limits`, valores por plano)
 
-| metric | free | solo | professional | agency | team |
-| --- | --- | --- | --- | --- | --- |
-| `users` | 1 | 1 | 1 | 3 | -1 |
-| `searchesPerMonth` | 2 | 60 | 200 | 600 | -1 |
-| `processedLeadsPerMonth` | 50 | 500 | 2.000 | 7.500 | -1 |
-| `savedSearches` | 0 | 10 | 30 | 100 | -1 |
-| `activeMonitors` | 0 | 0 | 10 | 30 | -1 |
-| `pipelines` | 1 | 1 | 1 | 5 | -1 |
-| `messageTemplates` | 0 | 20 | -1 | -1 | -1 |
-| `exportRowsPerMonth` | 50 | 2.000 | 10.000 | 30.000 | -1 |
+| metric                   | free | solo  | professional | agency | team |
+| ------------------------ | ---- | ----- | ------------ | ------ | ---- |
+| `users`                  | 1    | 1     | 1            | 3      | -1   |
+| `searchesPerMonth`       | 2    | 60    | 200          | 600    | -1   |
+| `processedLeadsPerMonth` | 50   | 500   | 2.000        | 7.500  | -1   |
+| `savedSearches`          | 0    | 10    | 30           | 100    | -1   |
+| `activeMonitors`         | 0    | 0     | 10           | 30     | -1   |
+| `pipelines`              | 1    | 1     | 1            | 5      | -1   |
+| `messageTemplates`       | 0    | 20    | -1           | -1     | -1   |
+| `exportRowsPerMonth`     | 50   | 2.000 | 10.000       | 30.000 | -1   |
 
 `-1` = ilimitado/personalizado. Nunca comparar contra `-1` diretamente fora
 de `packages/domain/src/entitlements.ts` — use `remaining()`/`canConsume()`,
@@ -59,8 +59,12 @@ que já tratam o caso.
 ## Como consultar (backend)
 
 ```ts
-import { getEntitlements, assertFeatureAccess, assertUsageAvailable, recordEntitlementUsage }
-  from "../_shared/entitlements.ts";
+import {
+  getEntitlements,
+  assertFeatureAccess,
+  assertUsageAvailable,
+  recordEntitlementUsage,
+} from "../_shared/entitlements.ts";
 
 // bloqueia se o plano não tiver a feature
 await assertFeatureAccess(ctx.adminClient, ctx.organizationId, "search_monitoring");

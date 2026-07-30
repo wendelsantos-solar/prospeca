@@ -12,30 +12,30 @@ Coletar feedback, medir ativação e confirmar disposição a pagar.
 
 ## Plano Pilot
 
-| Propriedade | Valor |
-|------------|-------|
-| **Código** | `pilot` |
-| **Preço** | R$ 0 (gratuito durante o beta) |
-| **Duração padrão** | 30 dias (prorrogável) |
-| **Usuários** | 1 |
-| **Buscas/mês** | 60 |
-| **Leads processados/mês** | 1.000 |
-| **Monitores ativos** | 5 |
-| **Pipelines** | 1 |
-| **Templates de mensagem** | 20 |
-| **Exportação** | CSV (3.000 linhas/mês) |
-| **Recursos** | Busca, filtros avançados, pipeline, buscas salvas, monitoramento, analytics |
-| **Suporte** | Direto (e-mail/WhatsApp do time) |
+| Propriedade               | Valor                                                                       |
+| ------------------------- | --------------------------------------------------------------------------- |
+| **Código**                | `pilot`                                                                     |
+| **Preço**                 | R$ 0 (gratuito durante o beta)                                              |
+| **Duração padrão**        | 30 dias (prorrogável)                                                       |
+| **Usuários**              | 1                                                                           |
+| **Buscas/mês**            | 60                                                                          |
+| **Leads processados/mês** | 1.000                                                                       |
+| **Monitores ativos**      | 5                                                                           |
+| **Pipelines**             | 1                                                                           |
+| **Templates de mensagem** | 20                                                                          |
+| **Exportação**            | CSV (3.000 linhas/mês)                                                      |
+| **Recursos**              | Busca, filtros avançados, pipeline, buscas salvas, monitoramento, analytics |
+| **Suporte**               | Direto (e-mail/WhatsApp do time)                                            |
 
 ## Status do piloto (na organização)
 
-| Campo | Descrição |
-|-------|-----------|
-| `pilot_status` | `invited` → `onboarding` → `active` → `completed`/`converted`/`declined`/`expired` |
-| `pilot_started_at` | Quando o piloto começou a usar |
-| `pilot_ends_at` | Data de expiração |
-| `pilot_notes` | Observações internas |
-| `pilot_source` | Origem (indicação, inbound, outbound) |
+| Campo              | Descrição                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `pilot_status`     | `invited` → `onboarding` → `active` → `completed`/`converted`/`declined`/`expired` |
+| `pilot_started_at` | Quando o piloto começou a usar                                                     |
+| `pilot_ends_at`    | Data de expiração                                                                  |
+| `pilot_notes`      | Observações internas                                                               |
+| `pilot_source`     | Origem (indicação, inbound, outbound)                                              |
 
 ## Fluxo de convite
 
@@ -75,22 +75,22 @@ Quando o piloto está pronto para converter:
 
 ## Métricas do programa
 
-| Métrica | Descrição |
-|---------|-----------|
-| Pilotos convidados | Total de convites enviados |
-| Taxa de aceite | Convites aceitos / enviados |
-| Tempo até primeira busca | Mediana em horas |
-| Taxa de ativação | Pilotos que atingiram evento de ativação |
-| Pilotos ativos (7d) | Usaram na última semana |
-| Taxa de conversão | Converteram para plano / completaram |
-| Tempo até conversão | Mediana em dias |
-| NPS qualitativo | Feedback coletado |
+| Métrica                  | Descrição                                |
+| ------------------------ | ---------------------------------------- |
+| Pilotos convidados       | Total de convites enviados               |
+| Taxa de aceite           | Convites aceitos / enviados              |
+| Tempo até primeira busca | Mediana em horas                         |
+| Taxa de ativação         | Pilotos que atingiram evento de ativação |
+| Pilotos ativos (7d)      | Usaram na última semana                  |
+| Taxa de conversão        | Converteram para plano / completaram     |
+| Tempo até conversão      | Mediana em dias                          |
+| NPS qualitativo          | Feedback coletado                        |
 
 ## Responsabilidades
 
-| Papel | Responsabilidade |
-|-------|-----------------|
-| Founder / PM | Selecionar pilotos, conduzir check-ins |
-| Tech Lead | Criar acesso, monitorar erros |
-| Suporte | Responder dúvidas em até 24h (dias úteis) |
-| Time | Reportar bugs e feedback imediatamente |
+| Papel        | Responsabilidade                          |
+| ------------ | ----------------------------------------- |
+| Founder / PM | Selecionar pilotos, conduzir check-ins    |
+| Tech Lead    | Criar acesso, monitorar erros             |
+| Suporte      | Responder dúvidas em até 24h (dias úteis) |
+| Time         | Reportar bugs e feedback imediatamente    |

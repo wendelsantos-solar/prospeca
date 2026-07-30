@@ -93,6 +93,7 @@ Desligado (`CASE_STUDY_ENABLED = false`) — sem dado real, sem placeholder
 fabricado.
 
 ## Preços — teaser na home (`PricingTeaser.tsx`) e página completa
+
 (`PricingPage.tsx`)
 
 Título: "Um plano pra cada estágio da sua prospecção." 5 planos —

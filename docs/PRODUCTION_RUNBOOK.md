@@ -8,11 +8,13 @@
 ## Acesso
 
 ### Supabase Dashboard
+
 - URL: https://supabase.com/dashboard
 - Projeto produção: (preencher)
 - Projeto staging: (preencher)
 
 ### Deploy
+
 - Frontend: (plataforma de hosting a definir)
 - Edge Functions: `supabase functions deploy`
 

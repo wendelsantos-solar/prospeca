@@ -115,42 +115,42 @@ leads-platform/              # monorepo (Bun workspaces)
 
 ## Stack tecnológica
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Frontend framework | React 19 + TanStack Start/Router/Query |
-| Styling | Tailwind CSS + shadcn/ui |
-| State management | Zustand (persisted) |
-| Backend runtime | Deno (Supabase Edge Functions) |
-| Database | PostgreSQL 17 + PostGIS |
-| Auth | Supabase Auth (JWT) |
-| Package manager | Bun 1.3.14 |
-| Monorepo | Turborepo |
-| Validation | Zod |
-| Maps | Google Maps JS API (browser) + Leaflet (demo fallback) |
-| External APIs | Google Places API (New), Google Geocoding API |
-| Payments | Stripe (planned, not yet connected) |
+| Camada             | Tecnologia                                             |
+| ------------------ | ------------------------------------------------------ |
+| Frontend framework | React 19 + TanStack Start/Router/Query                 |
+| Styling            | Tailwind CSS + shadcn/ui                               |
+| State management   | Zustand (persisted)                                    |
+| Backend runtime    | Deno (Supabase Edge Functions)                         |
+| Database           | PostgreSQL 17 + PostGIS                                |
+| Auth               | Supabase Auth (JWT)                                    |
+| Package manager    | Bun 1.3.14                                             |
+| Monorepo           | Turborepo                                              |
+| Validation         | Zod                                                    |
+| Maps               | Google Maps JS API (browser) + Leaflet (demo fallback) |
+| External APIs      | Google Places API (New), Google Geocoding API          |
+| Payments           | Stripe (planned, not yet connected)                    |
 
 ## Aplicações
 
-| App | Descrição | Status |
-|-----|-----------|--------|
-| `apps/web` | Frontend React SPA + SSR | Funcional, em evolução |
-| Supabase Edge Functions | 17 funções serverless | Funcional |
+| App                     | Descrição                | Status                 |
+| ----------------------- | ------------------------ | ---------------------- |
+| `apps/web`              | Frontend React SPA + SSR | Funcional, em evolução |
+| Supabase Edge Functions | 17 funções serverless    | Funcional              |
 
 ## Pacotes compartilhados
 
-| Pacote | Descrição | Status |
-|--------|-----------|--------|
+| Pacote          | Descrição                                                                      | Status                   |
+| --------------- | ------------------------------------------------------------------------------ | ------------------------ |
 | `@leads/domain` | Pure domain logic (score, address, entitlements, dedup, SSRF guard, normalize) | Funcional, 14 test files |
-| `@leads/geo` | Geographic utilities (haversine, bounding box, coordinate validation) | Funcional |
+| `@leads/geo`    | Geographic utilities (haversine, bounding box, coordinate validation)          | Funcional                |
 
 ## Ambientes
 
-| Ambiente | Config | Status |
-|----------|--------|--------|
-| `local` | Supabase local (config.toml) + `VITE_DATA_MODE=demo` | Funcional |
-| `staging` | Não documentado formalmente | **Pendente** |
-| `production` | Supabase Cloud | Assume-se funcional |
+| Ambiente     | Config                                               | Status              |
+| ------------ | ---------------------------------------------------- | ------------------- |
+| `local`      | Supabase local (config.toml) + `VITE_DATA_MODE=demo` | Funcional           |
+| `staging`    | Não documentado formalmente                          | **Pendente**        |
+| `production` | Supabase Cloud                                       | Assume-se funcional |
 
 ## Deploy
 
@@ -161,69 +161,69 @@ leads-platform/              # monorepo (Bun workspaces)
 
 ## Autenticação
 
-| Funcionalidade | Status | Notas |
-|---------------|--------|-------|
-| Cadastro (email/senha) | ✅ | `signUp()` com `full_name` + `company_name` |
-| Login (email/senha) | ✅ | `signInWithPassword()` |
-| Logout | ✅ | `signOut()` |
-| Refresh de sessão | ✅ | `autoRefreshToken: true` |
-| Verificação de e-mail | ⚠️ | `enable_confirmations = false` no config local |
-| Recuperação de senha | ✅ | `resetPasswordForEmail()` |
-| Redefinição de senha | ✅ | `updatePassword()` |
-| Proteção de rotas | ✅ | `AuthGate` no layout `/app` |
-| Login social | ❌ | Não implementado |
-| CSRF protection | ✅ | Supabase gerencia |
-| Rate limiting | ✅ | Via Supabase Auth config |
-| Confirmação de e-mail | ⚠️ | Desabilitado localmente (deve ser habilitado em prod) |
-| Exclusão de conta | ✅ | `delete-account-data` edge function (cascata LGPD) |
+| Funcionalidade         | Status | Notas                                                 |
+| ---------------------- | ------ | ----------------------------------------------------- |
+| Cadastro (email/senha) | ✅     | `signUp()` com `full_name` + `company_name`           |
+| Login (email/senha)    | ✅     | `signInWithPassword()`                                |
+| Logout                 | ✅     | `signOut()`                                           |
+| Refresh de sessão      | ✅     | `autoRefreshToken: true`                              |
+| Verificação de e-mail  | ⚠️     | `enable_confirmations = false` no config local        |
+| Recuperação de senha   | ✅     | `resetPasswordForEmail()`                             |
+| Redefinição de senha   | ✅     | `updatePassword()`                                    |
+| Proteção de rotas      | ✅     | `AuthGate` no layout `/app`                           |
+| Login social           | ❌     | Não implementado                                      |
+| CSRF protection        | ✅     | Supabase gerencia                                     |
+| Rate limiting          | ✅     | Via Supabase Auth config                              |
+| Confirmação de e-mail  | ⚠️     | Desabilitado localmente (deve ser habilitado em prod) |
+| Exclusão de conta      | ✅     | `delete-account-data` edge function (cascata LGPD)    |
 
 ## Autorização
 
-| Funcionalidade | Status | Notas |
-|---------------|--------|-------|
-| RLS em todas tabelas | ✅ | 19+ tabelas com RLS via `is_organization_member()` |
-| Backend verifica acesso | ✅ | `requireAuth()` em todas edge functions |
-| Frontend NÃO é fonte de autorização | ✅ | Políticas no banco, backend valida |
-| Roles (owner/admin/member) | ✅ | `organization_members.role` + `has_organization_role()` |
-| Platform admin | ✅ | `is_platform_admin()` RPC + `useIsPlatformAdmin()` hook |
-| Queries filtradas por org | ✅ | `organization_id` em todas queries |
+| Funcionalidade                      | Status | Notas                                                   |
+| ----------------------------------- | ------ | ------------------------------------------------------- |
+| RLS em todas tabelas                | ✅     | 19+ tabelas com RLS via `is_organization_member()`      |
+| Backend verifica acesso             | ✅     | `requireAuth()` em todas edge functions                 |
+| Frontend NÃO é fonte de autorização | ✅     | Políticas no banco, backend valida                      |
+| Roles (owner/admin/member)          | ✅     | `organization_members.role` + `has_organization_role()` |
+| Platform admin                      | ✅     | `is_platform_admin()` RPC + `useIsPlatformAdmin()` hook |
+| Queries filtradas por org           | ✅     | `organization_id` em todas queries                      |
 
 ## Modelo de dados
 
 ### Dados com tenant (organization_id)
 
-| Tabela | Tem organization_id | RLS |
-|--------|---------------------|-----|
-| organizations | N/A (é o tenant) | ✅ |
-| organization_members | ✅ | ✅ |
-| profiles | ❌ (user-scoped) | ✅ (owner only) |
-| searches | ✅ | ✅ |
-| places | ✅ | ✅ |
-| search_results | ✅ (via search) | ✅ |
-| leads | ✅ | ✅ |
-| lead_notes | ✅ | ✅ |
-| lead_activities | ✅ | ✅ |
-| lead_stage_history | ✅ | ✅ |
-| message_templates | ✅ | ✅ |
-| audit_logs | ✅ | ✅ |
-| usage_events | ✅ | ✅ |
-| usage_counters | ✅ | ✅ |
-| credit_balances | ✅ | ✅ |
-| credit_transactions | ✅ | ✅ |
-| suppression_list | ✅ | ✅ |
-| exports | ✅ | ✅ |
-| idempotency_keys | ✅ | ✅ |
+| Tabela               | Tem organization_id | RLS             |
+| -------------------- | ------------------- | --------------- |
+| organizations        | N/A (é o tenant)    | ✅              |
+| organization_members | ✅                  | ✅              |
+| profiles             | ❌ (user-scoped)    | ✅ (owner only) |
+| searches             | ✅                  | ✅              |
+| places               | ✅                  | ✅              |
+| search_results       | ✅ (via search)     | ✅              |
+| leads                | ✅                  | ✅              |
+| lead_notes           | ✅                  | ✅              |
+| lead_activities      | ✅                  | ✅              |
+| lead_stage_history   | ✅                  | ✅              |
+| message_templates    | ✅                  | ✅              |
+| audit_logs           | ✅                  | ✅              |
+| usage_events         | ✅                  | ✅              |
+| usage_counters       | ✅                  | ✅              |
+| credit_balances      | ✅                  | ✅              |
+| credit_transactions  | ✅                  | ✅              |
+| suppression_list     | ✅                  | ✅              |
+| exports              | ✅                  | ✅              |
+| idempotency_keys     | ✅                  | ✅              |
 
 ### Dados globais (sem organization_id)
 
-| Tabela | Notas |
-|--------|-------|
-| billing_plans | Catálogo de planos — pública para authenticated |
-| billing_customers | Service role only |
-| subscriptions | Scoped via organization_id |
-| billing_events | Service role only |
-| geocode_cache | Service role only (derived data, sem org scope) |
-| profiles | User-scoped (1:1 com auth.users) |
+| Tabela            | Notas                                           |
+| ----------------- | ----------------------------------------------- |
+| billing_plans     | Catálogo de planos — pública para authenticated |
+| billing_customers | Service role only                               |
+| subscriptions     | Scoped via organization_id                      |
+| billing_events    | Service role only                               |
+| geocode_cache     | Service role only (derived data, sem org scope) |
+| profiles          | User-scoped (1:1 com auth.users)                |
 
 ## Conclusão da auditoria de arquitetura
 

@@ -6,3 +6,10 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+
+# Artefatos locais do Supabase CLI (catálogos pgdelta, temporários de build).
+# Não são código do projeto e quebravam `format:check` no CI.
+supabase/.temp
+
+# Planos/specs gerados por sessão de agente — histórico, não código-fonte.
+docs/superpowers

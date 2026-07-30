@@ -52,6 +52,7 @@ Frontend pode capturar e exibir ao usuário ("Erro ref: abc123").
 **Recomendação:** Sentry (suporta Deno/Edge Functions e React)
 
 Ações:
+
 - [ ] Criar conta Sentry
 - [ ] Adicionar `SENTRY_DSN` como secret
 - [ ] Integrar nas edge functions (`_shared/http.ts`)
@@ -79,6 +80,7 @@ Ações:
 **Implementado:** ❌ Pendente
 
 Alertas necessários:
+
 - [ ] Erro 5xx em edge function (threshold: > 5 em 5 min)
 - [ ] Quota do Google Places excedida
 - [ ] Budget de organização estourado
@@ -110,15 +112,15 @@ organizações ou latência acima de 2s no p95.
 
 O que monitorar durante o beta:
 
-| Métrica | Fonte | Frequência |
-|---------|-------|-----------|
-| Erros por edge function | Sentry / logs | Tempo real |
-| Latência p95 das edge functions | Supabase logs | Diário |
-| Custo Google estimado (dia) | Admin panel | Diário |
-| Buscas completadas vs. falhas | Admin panel | Diário |
-| Organizações ativas (7d) | Query manual | Semanal |
-| Pilotos ativos | Admin panel | Semanal |
-| Feedback reports abertos | Tabela feedback | Semanal |
+| Métrica                         | Fonte           | Frequência |
+| ------------------------------- | --------------- | ---------- |
+| Erros por edge function         | Sentry / logs   | Tempo real |
+| Latência p95 das edge functions | Supabase logs   | Diário     |
+| Custo Google estimado (dia)     | Admin panel     | Diário     |
+| Buscas completadas vs. falhas   | Admin panel     | Diário     |
+| Organizações ativas (7d)        | Query manual    | Semanal    |
+| Pilotos ativos                  | Admin panel     | Semanal    |
+| Feedback reports abertos        | Tabela feedback | Semanal    |
 
 ---
 

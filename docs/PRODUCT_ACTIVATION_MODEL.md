@@ -44,11 +44,13 @@ explorou uma oportunidade e organizou para ação.
 ## Jornada do usuário
 
 ### Fase 1: Aquisição → Cadastro
+
 - Landing page → Preços → Cadastro
 - Evento: `account_created`
 - Tempo alvo: < 2 minutos
 
 ### Fase 2: Cadastro → Primeira busca
+
 - Preencher perfil comercial (o que vende, região)
 - Escolher nicho + localização
 - Executar primeira busca
@@ -56,6 +58,7 @@ explorou uma oportunidade e organizou para ação.
 - Tempo alvo: < 5 minutos após cadastro
 
 ### Fase 3: Primeira busca → Exploração
+
 - Ver resultados no mapa/lista
 - Abrir detalhes de uma empresa
 - Ver score, canais de contato
@@ -63,12 +66,14 @@ explorou uma oportunidade e organizou para ação.
 - Tempo alvo: < 2 minutos após busca
 
 ### Fase 4: Exploração → Pipeline
+
 - Selecionar lead promissor
 - Adicionar ao Pipeline
 - Evento: `lead_added_to_pipeline`
 - Tempo alvo: < 3 minutos após explorar
 
 ### Fase 5: Ativação → Engajamento
+
 - Pipeline → Preparar mensagem
 - Agendar follow-up
 - Marcar como contactado/ganho
@@ -80,49 +85,49 @@ explorou uma oportunidade e organizou para ação.
 
 ### Eventos de aquisição
 
-| Evento | Trigger | Propriedades |
-|--------|---------|-------------|
-| `landing_page_viewed` | Visitou `/` | source, utm_* |
-| `pricing_page_viewed` | Visitou `/precos` | - |
-| `signup_started` | Clicou "Cadastrar" | source |
-| `account_created` | Signup concluído | plan, organization_id |
-| `email_confirmed` | Confirmou e-mail | - |
+| Evento                | Trigger            | Propriedades          |
+| --------------------- | ------------------ | --------------------- |
+| `landing_page_viewed` | Visitou `/`        | source, utm\_\*       |
+| `pricing_page_viewed` | Visitou `/precos`  | -                     |
+| `signup_started`      | Clicou "Cadastrar" | source                |
+| `account_created`     | Signup concluído   | plan, organization_id |
+| `email_confirmed`     | Confirmou e-mail   | -                     |
 
 ### Eventos de onboarding
 
-| Evento | Trigger | Propriedades |
-|--------|---------|-------------|
-| `onboarding_started` | Iniciou fluxo guiado | step |
-| `business_profile_completed` | Preencheu perfil | what_sells, region |
-| `first_search_started` | Iniciou primeira busca | niche, location |
-| `first_search_completed` | Busca concluída | found_count, duration_ms |
-| `first_lead_viewed` | Abriu detalhes | lead_score |
-| `first_lead_added_to_pipeline` | Adicionou ao Pipeline | stage |
-| `onboarding_completed` | Fluxo concluído | total_time_ms |
-| `onboarding_skipped` | Pulou onboarding | step_skipped |
+| Evento                         | Trigger                | Propriedades             |
+| ------------------------------ | ---------------------- | ------------------------ |
+| `onboarding_started`           | Iniciou fluxo guiado   | step                     |
+| `business_profile_completed`   | Preencheu perfil       | what_sells, region       |
+| `first_search_started`         | Iniciou primeira busca | niche, location          |
+| `first_search_completed`       | Busca concluída        | found_count, duration_ms |
+| `first_lead_viewed`            | Abriu detalhes         | lead_score               |
+| `first_lead_added_to_pipeline` | Adicionou ao Pipeline  | stage                    |
+| `onboarding_completed`         | Fluxo concluído        | total_time_ms            |
+| `onboarding_skipped`           | Pulou onboarding       | step_skipped             |
 
 ### Eventos de engajamento
 
-| Evento | Trigger | Propriedades |
-|--------|---------|-------------|
-| `search_completed` | Qualquer busca concluída | found_count, cached |
-| `lead_viewed` | Abriu lead | score, temperature |
-| `lead_added_to_pipeline` | Adicionou lead | stage |
-| `lead_stage_changed` | Moveu lead | from_stage, to_stage |
-| `message_prepared` | Preparou mensagem | channel |
-| `activity_created` | Criou atividade | type |
-| `activity_completed` | Completou atividade | type |
-| `export_completed` | Exportou dados | format, row_count |
+| Evento                   | Trigger                  | Propriedades         |
+| ------------------------ | ------------------------ | -------------------- |
+| `search_completed`       | Qualquer busca concluída | found_count, cached  |
+| `lead_viewed`            | Abriu lead               | score, temperature   |
+| `lead_added_to_pipeline` | Adicionou lead           | stage                |
+| `lead_stage_changed`     | Moveu lead               | from_stage, to_stage |
+| `message_prepared`       | Preparou mensagem        | channel              |
+| `activity_created`       | Criou atividade          | type                 |
+| `activity_completed`     | Completou atividade      | type                 |
+| `export_completed`       | Exportou dados           | format, row_count    |
 
 ### Eventos de retenção e monetização
 
-| Evento | Trigger | Propriedades |
-|--------|---------|-------------|
-| `user_returned` | Login após 24h+ | days_since_last |
-| `usage_limit_reached` | Atingiu limite | metric, limit |
-| `plan_upgrade_started` | Iniciou upgrade | from_plan, to_plan |
-| `subscription_created` | Assinatura ativa | plan, value |
-| `feedback_submitted` | Enviou feedback | type, category |
+| Evento                 | Trigger          | Propriedades       |
+| ---------------------- | ---------------- | ------------------ |
+| `user_returned`        | Login após 24h+  | days_since_last    |
+| `usage_limit_reached`  | Atingiu limite   | metric, limit      |
+| `plan_upgrade_started` | Iniciou upgrade  | from_plan, to_plan |
+| `subscription_created` | Assinatura ativa | plan, value        |
+| `feedback_submitted`   | Enviou feedback  | type, category     |
 
 ---
 
@@ -135,15 +140,15 @@ Visitantes → Cadastros → Primeira busca → Lead visualizado → Lead no Pip
 
 ### Métricas alvo para beta
 
-| Métrica | Alvo |
-|---------|------|
-| Visitante → Cadastro | > 5% |
-| Cadastro → Primeira busca | > 70% |
-| Primeira busca → Lead visualizado | > 80% |
-| Lead visualizado → Lead no Pipeline | > 50% |
-| Tempo até ativação (mediana) | < 15 minutos |
-| Ativação na primeira sessão | > 40% |
-| Retorno em 7 dias | > 30% |
+| Métrica                             | Alvo         |
+| ----------------------------------- | ------------ |
+| Visitante → Cadastro                | > 5%         |
+| Cadastro → Primeira busca           | > 70%        |
+| Primeira busca → Lead visualizado   | > 80%        |
+| Lead visualizado → Lead no Pipeline | > 50%        |
+| Tempo até ativação (mediana)        | < 15 minutos |
+| Ativação na primeira sessão         | > 40%        |
+| Retorno em 7 dias                   | > 30%        |
 
 ---
 
