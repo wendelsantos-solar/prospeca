@@ -6,6 +6,7 @@ import { useLeadsStore } from "@/stores";
 import { LeadDetailsDrawer } from "@/components/app/LeadDetailsDrawer";
 import { BulkMessageDialog } from "@/components/app/BulkBar";
 import { WonDialog, DiscardDialog } from "@/components/app/StageDialogs";
+import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import {
   Sheet,
   SheetContent,
@@ -186,31 +187,33 @@ function AppLayout() {
 
   return (
     <AuthGate>
-      <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
-        <NavRail />
-        <AppSidebar />
-        <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
-          <TopNav />
-          {showOnboarding && (
-            <div className="px-3 pt-3">
-              <OnboardingWizard
-                onComplete={handleOnboardingComplete}
-                onSkip={handleOnboardingSkip}
-                initialProgress={onboarding.progress ?? undefined}
-              />
+      <ErrorBoundary location="AppLayout">
+        <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+          <NavRail />
+          <AppSidebar />
+          <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
+            <TopNav />
+            {showOnboarding && (
+              <div className="px-3 pt-3">
+                <OnboardingWizard
+                  onComplete={handleOnboardingComplete}
+                  onSkip={handleOnboardingSkip}
+                  initialProgress={onboarding.progress ?? undefined}
+                />
+              </div>
+            )}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Outlet />
             </div>
-          )}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <Outlet />
-          </div>
-        </main>
-        <MobileNav />
-        <LeadDetailsDrawer />
-        <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
-        <WonDialog />
-        <DiscardDialog />
-        <DemoModeBanner />
-      </div>
+          </main>
+          <MobileNav />
+          <LeadDetailsDrawer />
+          <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+          <WonDialog />
+          <DiscardDialog />
+          <DemoModeBanner />
+        </div>
+      </ErrorBoundary>
     </AuthGate>
   );
 }

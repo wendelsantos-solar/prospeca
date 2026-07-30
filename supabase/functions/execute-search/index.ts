@@ -1,9 +1,17 @@
 // execute-search: internal worker. Calls Google Places (Text Search),
 // paginates within limits, upserts places, links search_results,
 // validates distance with PostGIS, updates progress. Service-role only.
-import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
+import {
+  AppError,
+  handleOptions,
+  json,
+  logEvent,
+  newRequestId,
+  captureAndRespond,
+} from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
+import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "../_shared/cache.ts";
 import { shouldForceRefresh } from "../_shared/refresh.ts";
@@ -414,6 +422,16 @@ Deno.serve(async (req) => {
     const code = err instanceof AppError ? err.code : "INTERNAL_ERROR";
     const errorMessage =
       err instanceof AppError ? err.message : "Erro interno. Tente novamente em instantes.";
+
+    // Track unexpected errors for production observability.
+    if (code === "INTERNAL_ERROR") {
+      captureError(err, {
+        location: "execute-search",
+        requestId,
+        context: { searchId, code },
+      });
+    }
+
     if (searchId) {
       // Partial results survive: mark partial when anything was linked.
       const { count } = await admin

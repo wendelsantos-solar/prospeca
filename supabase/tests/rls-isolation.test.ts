@@ -392,4 +392,88 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
     const { data } = await orgB.client.rpc("is_platform_admin");
     expect(data).toBe(false);
   });
+
+  // ── Error events (error tracking do beta) ─────────────────────────────
+
+  test("ISO-024: cliente autenticado grava error_event na própria organização", async () => {
+    const { error } = await orgB.client.from("error_events").insert({
+      source: "browser",
+      location: "ISO-024",
+      message: "Erro de teste — pode ignorar",
+      severity: "error",
+      organization_id: orgB.organizationId,
+      environment: "development",
+      user_agent: "bun-test",
+    });
+    expect(error).toBeNull();
+  });
+
+  test("ISO-025: cliente autenticado grava error_event SEM organização (pré-org)", async () => {
+    // Erros que acontecem antes da organização ser resolvida (ex: signup quebrado)
+    // devem ser aceitos com organization_id = null.
+    const { error } = await orgB.client.from("error_events").insert({
+      source: "browser",
+      location: "ISO-025",
+      message: "Erro pré-organização — pode ignorar",
+      severity: "error",
+      organization_id: null,
+      environment: "development",
+      user_agent: "bun-test",
+    });
+    expect(error).toBeNull();
+  });
+
+  test("ISO-026: cliente NÃO grava error_event na organização de A", async () => {
+    const { error } = await orgB.client.from("error_events").insert({
+      source: "browser",
+      location: "ISO-026",
+      message: "Tentativa de poluir org A",
+      severity: "error",
+      organization_id: orgA.organizationId,
+      environment: "development",
+      user_agent: "bun-test",
+    });
+    expect(error).not.toBeNull();
+  });
+
+  test("ISO-027: cliente NÃO lê error_events (nem os próprios)", async () => {
+    // Erros podem conter detalhes internos — cliente nunca deve ler.
+    // Primeiro gravamos um erro legítimo via service_role para ter algo para ler.
+    const { error: insertError } = await admin.from("error_events").insert({
+      source: "edge-function",
+      location: "ISO-027-setup",
+      message: "Erro de setup — pode ignorar",
+      severity: "error",
+      organization_id: orgB.organizationId,
+      environment: "development",
+    });
+    expect(insertError).toBeNull();
+
+    // Agora o cliente tenta ler.
+    const { data, error: selectError } = await orgB.client
+      .from("error_events")
+      .select("id")
+      .limit(1);
+    // RLS: authenticated tem grant de SELECT revogado.
+    expect(selectError !== null || (data ?? []).length === 0).toBe(true);
+  });
+
+  test("ISO-028: usuário anônimo NÃO grava error_event", async () => {
+    const anon = createClient(API_URL, ANON_KEY, { auth: { persistSession: false } });
+    const { error } = await anon.from("error_events").insert({
+      source: "browser",
+      location: "ISO-028",
+      message: "Anônimo não deve gravar",
+      severity: "error",
+      environment: "development",
+      user_agent: "bun-test",
+    });
+    expect(error).not.toBeNull();
+  });
+
+  test("ISO-029: service_role lê error_events normalmente", async () => {
+    const { data, error } = await admin.from("error_events").select("id").limit(1);
+    expect(error).toBeNull();
+    expect(Array.isArray(data)).toBe(true);
+  });
 });

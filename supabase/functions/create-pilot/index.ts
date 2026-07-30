@@ -7,6 +7,7 @@
 import { handleOptions, json, AppError, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, scope } from "../_shared/rate-limit.ts";
+import { captureError } from "../_shared/error-tracking.ts";
 import { sendEmail } from "../_shared/email.ts";
 import { z } from "npm:zod@3";
 
@@ -182,7 +183,7 @@ Deno.serve(async (req: Request) => {
       }).toResponse(requestId, req);
     }
     if (err instanceof AppError) return err.toResponse(requestId, req);
-    console.error("create-pilot unexpected error:", err);
+    captureError(err, { location: "create-pilot", requestId });
     return new AppError("INTERNAL_ERROR", "Erro interno ao criar piloto.").toResponse(
       requestId,
       req,

@@ -4,6 +4,7 @@
 import { handleOptions, json, AppError, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { assertRateLimit, scope } from "../_shared/rate-limit.ts";
+import { captureError } from "../_shared/error-tracking.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 Deno.serve(async (req: Request) => {
@@ -168,7 +169,7 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     if (err instanceof AppError) return err.toResponse(requestId, req);
-    console.error("accept-invitation unexpected error:", err);
+    captureError(err, { location: "accept-invitation", requestId });
     return new AppError("INTERNAL_ERROR", "Erro interno ao processar convite.").toResponse(
       requestId,
       req,

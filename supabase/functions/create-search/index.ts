@@ -3,6 +3,7 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
+import { captureError } from "../_shared/error-tracking.ts";
 import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
@@ -179,6 +180,7 @@ Deno.serve(async (req) => {
       logEvent({ requestId, operation: "create-search", status: "error", errorCode: err.code });
       return err.toResponse(requestId, req);
     }
+    captureError(err, { location: "create-search", requestId });
     logEvent({
       requestId,
       operation: "create-search",

@@ -148,3 +148,41 @@ export function handleOptions(req: Request): Response | null {
   if (req.method === "OPTIONS") return new Response("ok", { headers: responseHeaders(req) });
   return null;
 }
+
+/**
+ * Helper: captura um erro inesperado no error-tracking e retorna 500.
+ * Uso: } catch (err) { return captureAndRespond(err, requestId, "my-func", req, orgId); }
+ *
+ * Fire-and-forget no tracking; a resposta é imediata.
+ */
+export async function captureAndRespond(
+  err: unknown,
+  requestId: string,
+  location: string,
+  req?: Request,
+  organizationId?: string,
+): Promise<Response> {
+  // Dynamic import para evitar dependência circular e carregar o módulo
+  // de error tracking só quando realmente há um erro.
+  try {
+    const { captureError } = await import("../_shared/error-tracking.ts");
+    captureError(err, { location, requestId, organizationId });
+  } catch {
+    // Se o próprio error tracking falhar, loga e segue.
+    console.error(
+      JSON.stringify({
+        event: "capture_and_respond_fault",
+        location,
+        requestId,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  if (err instanceof AppError) {
+    return err.toResponse(requestId, req);
+  }
+
+  const message = err instanceof Error ? err.message : "Erro interno do servidor";
+  return apiError(requestId, "INTERNAL_ERROR", message, 500, undefined, req);
+}
