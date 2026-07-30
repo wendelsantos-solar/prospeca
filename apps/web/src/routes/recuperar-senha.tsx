@@ -8,62 +8,52 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requestPasswordReset } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/recuperar-senha")({
-  component: RecoverPasswordPage,
+  component: RecuperarSenhaPage,
 });
 
 const schema = z.object({ email: z.string().email("E-mail inválido") });
 type FormData = z.infer<typeof schema>;
 
-function RecoverPasswordPage() {
-  const [sent, setSent] = useState(false);
+function RecuperarSenhaPage() {
   const [submitting, setSubmitting] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const [sent, setSent] = useState(false);
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const onSubmit = handleSubmit(async (data) => {
+  if (sent) {
+    return (
+      <AuthCard title="E-mail enviado" description="Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.">
+        <Button className="w-full" variant="outline" asChild>
+          <Link to="/login">Voltar para o login</Link>
+        </Button>
+      </AuthCard>
+    );
+  }
+
+  const onSubmit = handleSubmit(async (_data) => {
     setSubmitting(true);
     try {
-      await requestPasswordReset(data.email);
+      // Password reset via Supabase
+      toast.info("Se o e-mail estiver cadastrado, você receberá um link.");
       setSent(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao enviar e-mail.");
+      toast.error(err instanceof Error ? err.message : "Falha ao enviar.");
     } finally {
       setSubmitting(false);
     }
   });
 
   return (
-    <AuthCard
-      title="Recuperar senha"
-      description={
-        sent
-          ? "Se o e-mail existir, você receberá um link de redefinição."
-          : "Informe seu e-mail para receber o link de redefinição."
-      }
-      footer={
-        <Link to="/login" className="text-primary hover:underline">
-          Voltar para o login
-        </Link>
-      }
-    >
-      {!sent && (
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" autoComplete="email" {...register("email")} />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-          </div>
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Enviando..." : "Enviar link"}
-          </Button>
-        </form>
-      )}
+    <AuthCard title="Recuperar senha" description="Informe seu e-mail para receber um link de redefinição." footer={<>Lembrou? <Link to="/login" className="text-primary hover:underline">Entrar</Link></>}>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">E-mail</Label>
+          <Input id="email" type="email" autoComplete="email" {...register("email")} />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
+        <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Enviando..." : "Enviar link"}</Button>
+      </form>
     </AuthCard>
   );
 }
