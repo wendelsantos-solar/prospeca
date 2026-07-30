@@ -12,6 +12,7 @@ import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { reverseGeocodeCoords, geocodeLocationText } from "@/lib/reverse-geocode";
 import { toast } from "sonner";
+import { pushRecentAction } from "@/lib/recent-actions";
 import type { PresenceFilter } from "@/types";
 import { isRealMode } from "@/lib/env";
 import { Progress } from "@/components/ui/progress";
@@ -139,6 +140,9 @@ export function SearchForm() {
     onSuccess: (leads, search) => {
       setLeads(leads, search);
       setSearching(false);
+      pushRecentAction(
+        `${search.totalFound} leads encontrados`,
+      );
       toast.success(
         isRealMode
           ? `${search.totalFound} empresas encontradas`

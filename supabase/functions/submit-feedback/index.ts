@@ -10,10 +10,16 @@ const feedbackSchema = z.object({
   type: z.enum(["feedback", "bug", "question", "feature_request", "data_quality"]),
   category: z.string().max(200).optional(),
   message: z.string().min(1).max(5000),
+  sentiment: z.enum(["frustrated", "neutral", "happy"]).optional(),
+  goal: z.string().max(200).optional(),
+  email: z.string().email().max(320).optional().or(z.literal("")),
+  canContact: z.boolean().optional(),
   currentPage: z.string().max(500).optional(),
   appVersion: z.string().max(50).optional(),
   browser: z.string().max(200).optional(),
   operatingSystem: z.string().max(200).optional(),
+  recentActions: z.array(z.string().max(100)).max(10).optional(),
+  screenshotUrl: z.string().url().max(500).optional(),
   requestId: z.string().max(100).optional(),
 });
 
@@ -42,10 +48,16 @@ Deno.serve(async (req: Request) => {
       type: body.type,
       category: body.category ?? null,
       message: body.message,
+      sentiment: body.sentiment ?? null,
+      goal: body.goal ?? null,
+      email: body.email || null,
+      can_contact: body.canContact ?? false,
       current_page: body.currentPage ?? null,
       app_version: body.appVersion ?? null,
       browser: body.browser ?? null,
       operating_system: body.operatingSystem ?? null,
+      recent_actions: body.recentActions ?? null,
+      screenshot_url: body.screenshotUrl ?? null,
       request_id: body.requestId ?? requestId,
     });
 
@@ -64,7 +76,9 @@ Deno.serve(async (req: Request) => {
 
     return json({
       success: true,
-      message: "Feedback registrado. Obrigado!",
+      message: body.email
+        ? "Feedback registrado. Responderemos em até 48h no seu e-mail."
+        : "Feedback registrado. Obrigado por ajudar a melhorar!",
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

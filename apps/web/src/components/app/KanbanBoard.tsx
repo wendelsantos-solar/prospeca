@@ -21,6 +21,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useLeadsStore, useSettingsStore } from "@/stores";
 import { useMoveLeadMutation, useRemoveLeadMutation } from "@/hooks/useLeadsQuery";
+import { pushRecentAction } from "@/lib/recent-actions";
 import type { Lead, LeadStage, LeadTemperature, LeadChannel } from "@/types";
 import { STAGE_ORDER, STAGE_LABELS, TEMPERATURE_LABELS } from "@/lib/constants";
 import { TemperatureBadge, ScoreBadge } from "@/components/shared/Badges";
@@ -199,7 +200,12 @@ const KanbanCard = memo(function KanbanCard({
                   onClick={() => {
                     moveMutation.mutate(
                       { id: lead.id, input: { toStage: s } },
-                      { onSuccess: () => toast.success(`Movido para ${STAGE_LABELS[s]}`) },
+                      {
+                        onSuccess: () => {
+                          pushRecentAction(`Lead movido para ${STAGE_LABELS[s]}`);
+                          toast.success(`Movido para ${STAGE_LABELS[s]}`);
+                        },
+                      },
                     );
                   }}
                 >
