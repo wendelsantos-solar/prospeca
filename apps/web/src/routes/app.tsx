@@ -35,7 +35,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, preserveReturnTo } from "@/hooks/useAuth";
 import { usePendingInvitation } from "@/hooks/usePendingInvitation";
 import { useTenant } from "@/lib/tenant";
 import { setAnalyticsContext } from "@/lib/analytics";
@@ -64,16 +64,19 @@ function ConfigErrorScreen({ missing }: { missing: string[] }) {
   );
 }
 
-/** Real mode: requires session; redirects to /login. Demo mode: open. */
+/** Real mode: requires session; redirects to /login preserving destination. */
 function AuthGate({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const navigate = useNavigate();
+  const routerState = useRouterState();
 
   useEffect(() => {
     if (isRealMode && !auth.loading && !auth.isAuthenticated) {
+      const currentPath = routerState.location.pathname + routerState.location.search;
+      preserveReturnTo(currentPath);
       navigate({ to: "/login" });
     }
-  }, [auth.loading, auth.isAuthenticated, navigate]);
+  }, [auth.loading, auth.isAuthenticated, navigate, routerState.location.pathname, routerState.location.search]);
 
   if (isRealMode) {
     const missing = realConfigMissing();

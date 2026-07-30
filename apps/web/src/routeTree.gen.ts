@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerificarEmailRouteImport } from './routes/verificar-email'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
@@ -21,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ParaAgenciasIndexRouteImport } from './routes/para-agencias/index'
 import { Route as ContatoIndexRouteImport } from './routes/contato/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppPainelRouteImport } from './routes/app.painel'
 import { Route as AppMapaRouteImport } from './routes/app.mapa'
 import { Route as AppKanbanRouteImport } from './routes/app.kanban'
@@ -30,6 +32,11 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes
 import { Route as AppAgendaRouteImport } from './routes/app.agenda'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 
+const VerificarEmailRoute = VerificarEmailRouteImport.update({
+  id: '/verificar-email',
+  path: '/verificar-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermosRoute = TermosRouteImport.update({
   id: '/termos',
   path: '/termos',
@@ -90,6 +97,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppPainelRoute = AppPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -141,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -149,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/app/': typeof AppIndexRoute
   '/contato/': typeof ContatoIndexRoute
   '/para-agencias/': typeof ParaAgenciasIndexRoute
@@ -162,6 +176,7 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -170,6 +185,7 @@ export interface FileRoutesByTo {
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/app': typeof AppIndexRoute
   '/contato': typeof ContatoIndexRoute
   '/para-agencias': typeof ParaAgenciasIndexRoute
@@ -185,6 +201,7 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -193,6 +210,7 @@ export interface FileRoutesById {
   '/app/kanban': typeof AppKanbanRoute
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/app/': typeof AppIndexRoute
   '/contato/': typeof ContatoIndexRoute
   '/para-agencias/': typeof ParaAgenciasIndexRoute
@@ -209,6 +227,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/termos'
+    | '/verificar-email'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -217,6 +236,7 @@ export interface FileRouteTypes {
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
+    | '/auth/callback'
     | '/app/'
     | '/contato/'
     | '/para-agencias/'
@@ -230,6 +250,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/termos'
+    | '/verificar-email'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -238,6 +259,7 @@ export interface FileRouteTypes {
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
+    | '/auth/callback'
     | '/app'
     | '/contato'
     | '/para-agencias'
@@ -252,6 +274,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/termos'
+    | '/verificar-email'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -260,6 +283,7 @@ export interface FileRouteTypes {
     | '/app/kanban'
     | '/app/mapa'
     | '/app/painel'
+    | '/auth/callback'
     | '/app/'
     | '/contato/'
     | '/para-agencias/'
@@ -275,12 +299,21 @@ export interface RootRouteChildren {
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  VerificarEmailRoute: typeof VerificarEmailRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   ContatoIndexRoute: typeof ContatoIndexRoute
   ParaAgenciasIndexRoute: typeof ParaAgenciasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verificar-email': {
+      id: '/verificar-email'
+      path: '/verificar-email'
+      fullPath: '/verificar-email'
+      preLoaderRoute: typeof VerificarEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/termos': {
       id: '/termos'
       path: '/termos'
@@ -364,6 +397,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/painel': {
       id: '/app/painel'
@@ -460,6 +500,8 @@ const rootRouteChildren: RootRouteChildren = {
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  VerificarEmailRoute: VerificarEmailRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   ContatoIndexRoute: ContatoIndexRoute,
   ParaAgenciasIndexRoute: ParaAgenciasIndexRoute,
 }
