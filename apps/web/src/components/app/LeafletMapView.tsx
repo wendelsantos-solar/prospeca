@@ -13,27 +13,32 @@ import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
-import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2, RefreshCw } from "lucide-react";
+import {
+  Crosshair,
+  ZoomIn,
+  Circle as CircleIcon,
+  Moon,
+  Loader2,
+  RefreshCw,
+  Info,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
-import { popupHtml } from "./map-popup";
+import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
 
-const tempColor: Record<DiscoveryResult["temperature"], string> = {
-  hot: "oklch(0.72 0.17 55)",
-  warm: "oklch(0.83 0.15 90)",
-  cold: "oklch(0.72 0.04 250)",
-};
-
+// Mesma fonte de cor que o Google usa (map-popup.ts) — antes o Leaflet tinha
+// seus próprios valores oklch, divergentes dos hex do Google pra mesma decisão.
 function markerIcon(r: DiscoveryResult, selected: boolean) {
-  const inFunnel = r.importedLeadId != null;
-  const color = selected
-    ? "oklch(0.62 0.16 245)"
-    : inFunnel
-      ? "oklch(0.62 0.15 155)"
-      : tempColor[r.temperature];
-  const ring = inFunnel ? "border:2px solid oklch(0.55 0.18 150);" : "border:2px solid white;";
-  const html = `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.25);${ring}">${r.score}</div>`;
-  return L.divIcon({ html, className: "lead-marker", iconSize: [26, 26], iconAnchor: [13, 13] });
+  const visual = markerVisual(r, selected);
+  const html = `<div style="display:flex;align-items:center;justify-content:center;width:${visual.size}px;height:${visual.size}px;border-radius:50%;background:${visual.color};color:#fff;font-size:11px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.25);border:2px solid ${visual.ring};">${r.score}</div>`;
+  return L.divIcon({
+    html,
+    className: "lead-marker",
+    iconSize: [visual.size, visual.size],
+    iconAnchor: [visual.size / 2, visual.size / 2],
+  });
 }
 
 /** OSM/Leaflet renderer (free, no key). Lazy-loaded by MapView only when there
@@ -61,6 +66,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
   const mapDark = useUIStore((s) => s.mapDark);
   const setMapDark = useUIStore((s) => s.setMapDark);
+  const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
+  const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -222,8 +229,10 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     markersRef.current.clear();
     const searchId = currentSearch?.id;
     results.forEach((r) => {
+      const selected = r.placeId === focusedId;
       const m = L.marker([r.latitude, r.longitude], {
-        icon: markerIcon(r, r.placeId === focusedId),
+        icon: markerIcon(r, selected),
+        zIndexOffset: selected ? 1000 : 0,
       }).on("click", () => {
         setFocused(r.placeId);
         // Lets AppSidebar scroll the matching card into view — the list has no
@@ -326,11 +335,11 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
 
   const legend = useMemo(
     () => [
-      { label: "Quente", color: tempColor.hot },
-      { label: "Morno", color: tempColor.warm },
-      { label: "Frio", color: tempColor.cold },
-      { label: "No funil", color: "oklch(0.62 0.15 155)" },
-      { label: "Selecionado", color: "oklch(0.62 0.16 245)" },
+      { label: "Quente", color: MARKER_HEX.hot },
+      { label: "Morno", color: MARKER_HEX.warm },
+      { label: "Frio", color: MARKER_HEX.cold },
+      { label: "No funil", color: MARKER_HEX.funnel },
+      { label: "Selecionado", color: MARKER_HEX.selected },
     ],
     [],
   );
@@ -376,12 +385,12 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         </div>
       )}
 
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-0.5 rounded-lg border border-border bg-surface/95 p-1 shadow-elevated backdrop-blur">
         {results.length > 0 && (
           <Button
             size="icon"
-            variant="secondary"
-            className="h-8 w-8 shadow-elevated"
+            variant="ghost"
+            className="h-8 w-8"
             onClick={() => {
               useSearchSession.getState().refreshSearch();
               toast.info("Atualizando resultados direto do Google…");
@@ -394,8 +403,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         )}
         <Button
           size="icon"
-          variant="secondary"
-          className="h-8 w-8 shadow-elevated"
+          variant="ghost"
+          className="h-8 w-8"
           onClick={recenter}
           aria-label="Centralizar no ponto pesquisado"
         >
@@ -403,17 +412,18 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         </Button>
         <Button
           size="icon"
-          variant="secondary"
-          className="h-8 w-8 shadow-elevated"
+          variant="ghost"
+          className="h-8 w-8"
           onClick={fitAll}
           aria-label="Ajustar zoom aos resultados"
         >
           <ZoomIn className="h-4 w-4" />
         </Button>
+        <div className="my-0.5 h-px bg-border" />
         <Button
           size="icon"
-          variant={showCircle ? "default" : "secondary"}
-          className="h-8 w-8 shadow-elevated"
+          variant={showCircle ? "default" : "ghost"}
+          className="h-8 w-8"
           onClick={() => setShowCircle(!showCircle)}
           aria-label="Alternar círculo de raio"
           aria-pressed={showCircle}
@@ -422,8 +432,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         </Button>
         <Button
           size="icon"
-          variant={mapDark ? "default" : "secondary"}
-          className="h-8 w-8 shadow-elevated"
+          variant={mapDark ? "default" : "ghost"}
+          className="h-8 w-8"
           onClick={() => setMapDark(!mapDark)}
           aria-label="Alternar tema do mapa"
           aria-pressed={mapDark}
@@ -431,16 +441,35 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
           <Moon className="h-4 w-4" />
         </Button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border bg-surface/95 px-3 py-2 shadow-elevated backdrop-blur">
-        {legend.map((l) => (
-          <div
-            key={l.label}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-          >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-            {l.label}
+      <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-border bg-surface/95 shadow-elevated backdrop-blur">
+        <button
+          type="button"
+          onClick={() => setMapLegendCollapsed(!mapLegendCollapsed)}
+          aria-expanded={!mapLegendCollapsed}
+          aria-label={mapLegendCollapsed ? "Expandir legenda" : "Recolher legenda"}
+          className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <Info className="h-3.5 w-3.5" />
+          Legenda
+          {mapLegendCollapsed ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {!mapLegendCollapsed && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
+            {legend.map((l) => (
+              <div
+                key={l.label}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
+                {l.label}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>

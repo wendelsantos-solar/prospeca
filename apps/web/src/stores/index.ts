@@ -50,6 +50,7 @@ interface UIState {
   collapsedColumns: LeadStage[];
   mapShowCircle: boolean;
   mapDark: boolean;
+  mapLegendCollapsed: boolean;
   /** Discovery workspace view: the map, or a full-width results list. */
   discoveryView: "map" | "list";
   toggleTheme: () => void;
@@ -58,6 +59,7 @@ interface UIState {
   toggleColumnCollapsed: (stage: LeadStage) => void;
   setMapShowCircle: (v: boolean) => void;
   setMapDark: (v: boolean) => void;
+  setMapLegendCollapsed: (v: boolean) => void;
   setDiscoveryView: (v: "map" | "list") => void;
 }
 export const useUIStore = create<UIState>()(
@@ -69,6 +71,7 @@ export const useUIStore = create<UIState>()(
       collapsedColumns: [],
       mapShowCircle: true,
       mapDark: false,
+      mapLegendCollapsed: false,
       discoveryView: "map",
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
@@ -81,6 +84,7 @@ export const useUIStore = create<UIState>()(
         })),
       setMapShowCircle: (mapShowCircle) => set({ mapShowCircle }),
       setMapDark: (mapDark) => set({ mapDark }),
+      setMapLegendCollapsed: (mapLegendCollapsed) => set({ mapLegendCollapsed }),
       setDiscoveryView: (discoveryView) => set({ discoveryView }),
     }),
     { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },

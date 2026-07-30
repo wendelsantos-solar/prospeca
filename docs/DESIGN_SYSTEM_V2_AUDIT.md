@@ -68,12 +68,29 @@ Corrigido nesta rodada:
 6. **Radius do modal** não era distinto (12px, igual a card) — bumped
    pra 18px em `dialog.tsx` (só esse componente).
 
-Não corrigido nesta rodada — mapeado pra sessões futuras:
+Corrigido na rodada seguinte (mapa):
 
-7. **Mapa**: marcadores diferenciam estado só por cor (sem escala/anel/
-   z-index), sem estados `won`/`discarded` modelados, 5 botões
-   flutuantes + legenda fixa (não colapsável) + pill de contagem — 3
-   clusters de UI separados em vez de 1 consolidado.
+7. **Mapa** — `markerVisual()` (novo, `map-popup.ts`) unifica a lógica de
+   cor/anel/tamanho/z-index, consumida pelos dois renderizadores (antes
+   o Leaflet tinha `tempColor`/cores oklch próprias, divergentes dos hex
+   do Google). Selecionado agora escala (26px→32px), ganha anel azul
+   (`--sel`) e z-index elevado — antes só mudava a cor de preenchimento,
+   um bug real (o anel só refletia "no funil", nunca seleção). Os 5
+   botões flutuantes viraram 1 cluster consolidado (`GoogleMapView.tsx`/
+   `LeafletMapView.tsx`), legenda ganhou toggle colapsar/expandir
+   (`useUIStore.mapLegendCollapsed`, persistido). `channelIcons()` (emoji
+   morto, nunca chamado) removido.
+   - **Não implementado**: estados `won`/`discarded` no marcador — o
+     mapa só recebe `DiscoveryResult[]` (workspace de descoberta), que
+     não carrega `stage`, só `importedLeadId` genérico. Não existe visão
+     de mapa com leads do Pipeline que exporia esses dois estados — sem
+     dado real, não fabricado.
+   - **Não implementado**: cor dominante no cluster — exigiria agregar
+     temperatura de todos os membros do cluster (feature nova, não só
+     polish visual), fica pra quando fizer sentido.
+
+Não corrigido — mapeado pra sessões futuras:
+
 8. **Configurações**: página única e plana, só cobre "Integrações" — o
    pedido de central com abas (Geral/Perfil/Prospecção/Score/Mensagens/
    Dados/Plano/Integrações) precisa de reconstrução completa, e boa

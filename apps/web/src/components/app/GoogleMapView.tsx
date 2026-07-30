@@ -11,10 +11,20 @@ import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
 import { Button } from "@/components/ui/button";
-import { Crosshair, ZoomIn, Circle as CircleIcon, Moon, Loader2, RefreshCw } from "lucide-react";
+import {
+  Crosshair,
+  ZoomIn,
+  Circle as CircleIcon,
+  Moon,
+  Loader2,
+  RefreshCw,
+  Info,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
-import { popupHtml, markerColor, MARKER_HEX } from "./map-popup";
+import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
 
 // Minimal dark map style (Google Maps styled maps) — mirrors the OSM dark toggle.
 const DARK_STYLE: google.maps.MapTypeStyle[] = [
@@ -68,6 +78,8 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const setShowCircle = useUIStore((s) => s.setMapShowCircle);
   const mapDark = useUIStore((s) => s.mapDark);
   const setMapDark = useUIStore((s) => s.setMapDark);
+  const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
+  const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -296,15 +308,15 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     const markers: google.maps.Marker[] = [];
     results.forEach((r) => {
       const selected = r.placeId === focusedId;
-      const color = markerColor(r, selected);
-      const ring = r.importedLeadId != null ? "#16a34a" : "#ffffff";
+      const visual = markerVisual(r, selected);
       const m = new google.maps.Marker({
         position: { lat: r.latitude, lng: r.longitude },
         icon: {
-          url: svgIcon(color, ring, String(r.score), 26),
-          scaledSize: new google.maps.Size(26, 26),
-          anchor: new google.maps.Point(13, 13),
+          url: svgIcon(visual.color, visual.ring, String(r.score), visual.size),
+          scaledSize: new google.maps.Size(visual.size, visual.size),
+          anchor: new google.maps.Point(visual.size / 2, visual.size / 2),
         },
+        zIndex: visual.zIndex,
       });
       m.addListener("click", () => {
         setFocused(r.placeId);
@@ -400,12 +412,12 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         </div>
       )}
 
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-0.5 rounded-lg border border-border bg-surface/95 p-1 shadow-elevated backdrop-blur">
         {results.length > 0 && (
           <Button
             size="icon"
-            variant="secondary"
-            className="h-8 w-8 shadow-elevated"
+            variant="ghost"
+            className="h-8 w-8"
             onClick={() => {
               useSearchSession.getState().refreshSearch();
               toast.info("Atualizando resultados direto do Google…");
@@ -418,8 +430,8 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         )}
         <Button
           size="icon"
-          variant="secondary"
-          className="h-8 w-8 shadow-elevated"
+          variant="ghost"
+          className="h-8 w-8"
           onClick={recenter}
           aria-label="Centralizar no ponto pesquisado"
         >
@@ -427,17 +439,18 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         </Button>
         <Button
           size="icon"
-          variant="secondary"
-          className="h-8 w-8 shadow-elevated"
+          variant="ghost"
+          className="h-8 w-8"
           onClick={fitAll}
           aria-label="Ajustar zoom aos resultados"
         >
           <ZoomIn className="h-4 w-4" />
         </Button>
+        <div className="my-0.5 h-px bg-border" />
         <Button
           size="icon"
-          variant={showCircle ? "default" : "secondary"}
-          className="h-8 w-8 shadow-elevated"
+          variant={showCircle ? "default" : "ghost"}
+          className="h-8 w-8"
           onClick={() => setShowCircle(!showCircle)}
           aria-label="Alternar círculo de raio"
           aria-pressed={showCircle}
@@ -446,8 +459,8 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         </Button>
         <Button
           size="icon"
-          variant={mapDark ? "default" : "secondary"}
-          className="h-8 w-8 shadow-elevated"
+          variant={mapDark ? "default" : "ghost"}
+          className="h-8 w-8"
           onClick={() => setMapDark(!mapDark)}
           aria-label="Alternar tema do mapa"
           aria-pressed={mapDark}
@@ -455,16 +468,35 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
           <Moon className="h-4 w-4" />
         </Button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border bg-surface/95 px-3 py-2 shadow-elevated backdrop-blur">
-        {legend.map((l) => (
-          <div
-            key={l.label}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-          >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-            {l.label}
+      <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-border bg-surface/95 shadow-elevated backdrop-blur">
+        <button
+          type="button"
+          onClick={() => setMapLegendCollapsed(!mapLegendCollapsed)}
+          aria-expanded={!mapLegendCollapsed}
+          aria-label={mapLegendCollapsed ? "Expandir legenda" : "Recolher legenda"}
+          className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <Info className="h-3.5 w-3.5" />
+          Legenda
+          {mapLegendCollapsed ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {!mapLegendCollapsed && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
+            {legend.map((l) => (
+              <div
+                key={l.label}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
+                {l.label}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>

@@ -4,13 +4,6 @@ import type { DiscoveryResult } from "@/repositories/types";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 
-export function channelIcons(r: DiscoveryResult): string {
-  const parts: string[] = [];
-  if (r.phone) parts.push("📞");
-  if (r.hasWebsite) parts.push("🌐");
-  return parts.join(" ");
-}
-
 /** Temperature → ring color token. */
 const RING_VAR: Record<DiscoveryResult["temperature"], string> = {
   hot: "var(--color-hot)",
@@ -93,4 +86,24 @@ export function markerColor(r: DiscoveryResult, selected: boolean): string {
   if (selected) return MARKER_HEX.selected;
   if (r.importedLeadId != null) return MARKER_HEX.funnel;
   return MARKER_HEX[r.temperature];
+}
+
+export interface MarkerVisual {
+  color: string;
+  ring: string;
+  size: number;
+  zIndex: number;
+}
+
+/** Single source of truth for marker appearance — used by both the Google and
+ * the Leaflet renderer so a "selected" marker looks and behaves identically
+ * (scaled up, ringed, raised above its neighbors), not just recolored. */
+export function markerVisual(r: DiscoveryResult, selected: boolean): MarkerVisual {
+  const inFunnel = r.importedLeadId != null;
+  return {
+    color: markerColor(r, selected),
+    ring: selected ? MARKER_HEX.selected : inFunnel ? MARKER_HEX.funnel : "#ffffff",
+    size: selected ? 32 : 26,
+    zIndex: selected ? 1000 : 1,
+  };
 }
