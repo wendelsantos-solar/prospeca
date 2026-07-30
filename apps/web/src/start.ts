@@ -3,8 +3,10 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 import { renderErrorPage } from "./lib/error-page";
 import { reportWebVitals } from "./lib/web-vitals";
 
-// Start Web Vitals monitoring (LCP, CLS, INP, FCP, TTFB) on first load
-reportWebVitals();
+// Web Vitals is browser-only — guard SSR where document is unavailable.
+if (typeof document !== "undefined") {
+  reportWebVitals();
+}
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
