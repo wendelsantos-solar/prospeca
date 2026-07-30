@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { hasFeature, remaining, canConsume, isUnlimited, type PlanEntitlements } from "./entitlements";
+import {
+  hasFeature,
+  remaining,
+  canConsume,
+  isUnlimited,
+  type PlanEntitlements,
+} from "./entitlements";
 
 const solo: PlanEntitlements = {
   features: {
@@ -55,7 +61,9 @@ describe("remaining", () => {
     expect(remaining(solo, {}, "savedSearches")).toBe(10);
   });
   test("-1 limit -> null (unlimited)", () => {
-    expect(remaining(team, { processedLeadsPerMonth: 50_000 }, "processedLeadsPerMonth")).toBeNull();
+    expect(
+      remaining(team, { processedLeadsPerMonth: 50_000 }, "processedLeadsPerMonth"),
+    ).toBeNull();
   });
 });
 
@@ -67,9 +75,9 @@ describe("canConsume", () => {
     expect(canConsume(solo, { savedSearches: 9 }, "savedSearches", 2)).toBe(false);
   });
   test("unlimited metric always allows consumption", () => {
-    expect(canConsume(team, { processedLeadsPerMonth: 1_000_000 }, "processedLeadsPerMonth", 500)).toBe(
-      true,
-    );
+    expect(
+      canConsume(team, { processedLeadsPerMonth: 1_000_000 }, "processedLeadsPerMonth", 500),
+    ).toBe(true);
   });
 });
 

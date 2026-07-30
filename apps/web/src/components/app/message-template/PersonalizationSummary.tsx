@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { ChevronDown, CheckCircle2, Circle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 interface SummaryRow {
   key: string;
@@ -39,9 +41,9 @@ export function PersonalizationSummary({ rows }: PersonalizationSummaryProps) {
               {rows.map((row) => (
                 <div key={row.key} className="flex items-center gap-1.5 text-xs">
                   {row.hasRealData ? (
-                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                    <AppIcon icon={icons.feedback.success} size="xs" tone="success" decorative />
                   ) : (
-                    <Circle className="h-3 w-3 shrink-0 text-amber-500" />
+                    <AppIcon icon={icons.pipeline.circle} size="xs" tone="warning" decorative />
                   )}
                   <span className="font-mono text-muted-foreground">{`{{${row.key}}}`}</span>
                   <span className="truncate font-medium">→ {row.value}</span>

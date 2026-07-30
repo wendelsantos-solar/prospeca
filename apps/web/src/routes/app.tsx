@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { MapIcon, Sunrise, Kanban, CalendarDays, Search } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -137,6 +139,16 @@ function MobileNav() {
 function AppLayout() {
   useThemeSync();
   const [bulkOpen, setBulkOpen] = useState(false);
+  const onboarding = useOnboarding();
+  const [showOnboarding, setShowOnboarding] = useState(!onboarding.isCompleted);
+
+  const handleOnboardingComplete = useCallback((_progress: OnboardingProgress) => {
+    setShowOnboarding(false);
+  }, []);
+
+  const handleOnboardingSkip = useCallback(() => {
+    setShowOnboarding(false);
+  }, []);
 
   // Sync Zustand store → demo repo on first mount (page reload)
   useEffect(() => {
@@ -161,6 +173,15 @@ function AppLayout() {
         <AppSidebar />
         <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
           <TopNav />
+          {showOnboarding && (
+            <div className="px-3 pt-3">
+              <OnboardingWizard
+                onComplete={handleOnboardingComplete}
+                onSkip={handleOnboardingSkip}
+                initialProgress={onboarding.progress ?? undefined}
+              />
+            </div>
+          )}
           <div className="flex-1 min-h-0 overflow-hidden">
             <Outlet />
           </div>

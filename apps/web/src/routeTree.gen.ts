@@ -9,8 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
@@ -26,6 +28,11 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes
 import { Route as AppAgendaRouteImport } from './routes/app.agenda'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
@@ -34,6 +41,11 @@ const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrecosRoute = PrecosRouteImport.update({
@@ -113,8 +125,10 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/precos': typeof PrecosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -130,8 +144,10 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/precos': typeof PrecosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -149,8 +165,10 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/precos': typeof PrecosRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -169,8 +187,10 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/precos'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/termos'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -186,8 +206,10 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/precos'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/termos'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -204,8 +226,10 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/precos'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/termos'
     | '/app/admin'
     | '/app/agenda'
     | '/app/configuracoes'
@@ -223,12 +247,21 @@ export interface RootRouteChildren {
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
   PrecosRoute: typeof PrecosRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  TermosRoute: typeof TermosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/redefinir-senha': {
       id: '/redefinir-senha'
       path: '/redefinir-senha'
@@ -241,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/recuperar-senha'
       fullPath: '/recuperar-senha'
       preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/precos': {
@@ -376,8 +416,10 @@ const rootRouteChildren: RootRouteChildren = {
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
   PrecosRoute: PrecosRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  TermosRoute: TermosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

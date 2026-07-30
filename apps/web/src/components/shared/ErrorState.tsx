@@ -1,6 +1,7 @@
-import { AlertTriangle, RotateCcw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 export function ErrorState({
   title,
@@ -28,7 +29,7 @@ export function ErrorState({
       )}
     >
       <div className="grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
-        <AlertTriangle className="h-5 w-5" />
+        <AppIcon icon={icons.feedback.warning} size="xl" tone="inherit" decorative />
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">{title}</p>
@@ -39,7 +40,7 @@ export function ErrorState({
       <div className="flex flex-wrap justify-center gap-2">
         {onSecondary && (
           <Button size="sm" onClick={onSecondary} className="gap-1.5">
-            <RotateCcw className="h-3.5 w-3.5" />
+            <AppIcon icon={icons.actions.reset} size="sm" tone="inherit" decorative />
             {secondaryLabel ?? "Tentar novamente"}
           </Button>
         )}
@@ -50,13 +51,13 @@ export function ErrorState({
             onClick={onRetry}
             className="gap-1.5"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <AppIcon icon={icons.actions.reset} size="sm" tone="inherit" decorative />
             Tentar novamente
           </Button>
         )}
         {onBack && (
           <Button size="sm" variant="outline" onClick={onBack} className="gap-1.5">
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <AppIcon icon={icons.directional.arrowLeft} size="sm" tone="inherit" decorative />
             Voltar
           </Button>
         )}

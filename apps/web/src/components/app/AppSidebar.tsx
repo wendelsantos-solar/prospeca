@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Filter, Download } from "lucide-react";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 import {
   DropdownMenu,
   DropdownMenuContent,

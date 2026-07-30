@@ -37,7 +37,7 @@ export function popupHtml(r: DiscoveryResult): string {
     </div>`;
 
   const funnelBtn = inFunnel
-    ? `<span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary-soft);color:var(--color-primary);font-size:12.5px;font-weight:600;">No funil ✓</span>`
+    ? `<span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary-soft);color:var(--color-primary);font-size:12.5px;font-weight:600;">No funil <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg></span>`
     : `<button data-action="funnel" data-id="${r.placeId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;height:34px;border-radius:8px;background:var(--color-primary);color:var(--color-primary-foreground);font-size:12.5px;font-weight:600;border:none;cursor:pointer;">+ Adicionar ao funil</button>`;
 
   return `

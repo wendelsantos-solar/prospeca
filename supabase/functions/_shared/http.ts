@@ -42,6 +42,31 @@ export function getCorsHeaders(req?: Request): Record<string, string> {
 /** Pre-built static cors headers (legacy compat). Prefer getCorsHeaders(req) for dynamic origin. */
 export const corsHeaders = getCorsHeaders();
 
+/** Security headers applied to every response. */
+function securityHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Permitted-Cross-Domain-Policies": "none",
+  };
+  // HSTS: only in production over HTTPS
+  const env = Deno.env.get("APP_ENV") ?? "development";
+  if (env === "production") {
+    headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload";
+  }
+  return headers;
+}
+
+/** Headers merged: CORS + security. */
+export function responseHeaders(req?: Request, extra?: HeadersInit): Record<string, string> {
+  return {
+    ...getCorsHeaders(req),
+    ...securityHeaders(),
+    ...((extra as Record<string, string>) ?? {}),
+  };
+}
+
 export interface ApiError {
   code: string;
   message: string;
@@ -61,7 +86,7 @@ export function json(
 ): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...getCorsHeaders(req), "Content-Type": "application/json", ...extra },
+    headers: { ...responseHeaders(req), "Content-Type": "application/json", ...extra },
   });
 }
 
@@ -120,6 +145,6 @@ export function logEvent(fields: Record<string, unknown>): void {
 }
 
 export function handleOptions(req: Request): Response | null {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: getCorsHeaders(req) });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: responseHeaders(req) });
   return null;
 }

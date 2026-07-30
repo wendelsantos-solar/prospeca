@@ -1,16 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import {
-  Sunrise,
-  AlertTriangle,
-  Sparkles,
-  Focus as FocusIcon,
-  List,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  SkipForward,
-} from "lucide-react";
 import { useLeadsList, useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
 import { applyFilters } from "@/lib/filters";
@@ -19,6 +8,8 @@ import { ActivityItem } from "@/components/app/ActivityItem";
 import { NbaCard } from "@/components/app/NbaCard";
 import { SavedFiltersBar } from "@/components/app/SavedFiltersBar";
 import { toast } from "sonner";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 export const Route = createFileRoute("/app/hoje")({
   head: () => ({
@@ -76,7 +67,7 @@ function HojePage() {
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-5 py-3">
         <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
-          <Sunrise className="h-4 w-4" />
+          <AppIcon icon={icons.navigation.today} size="md" tone="primary" decorative />
         </div>
         <div>
           <h1 className="text-[16px] font-semibold">Hoje</h1>
@@ -90,7 +81,8 @@ function HojePage() {
                 {totalPending} {totalPending === 1 ? "item aberto" : "itens abertos"}
                 {overdueCount > 0 && (
                   <span className="ml-1 inline-flex items-center gap-1 text-destructive">
-                    · <AlertTriangle className="h-3 w-3" /> {overdueCount} atrasada
+                    · <AppIcon icon={icons.feedback.warning} size="xs" tone="inherit" decorative />{" "}
+                    {overdueCount} atrasada
                     {overdueCount === 1 ? "" : "s"}
                   </span>
                 )}
@@ -107,7 +99,7 @@ function HojePage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <List className="h-3 w-3" /> Lista
+            <AppIcon icon={icons.layout.list} size="xs" tone="inherit" decorative /> Lista
           </button>
           <button
             onClick={() => {
@@ -122,7 +114,7 @@ function HojePage() {
                 : "text-muted-foreground hover:text-foreground"
             } disabled:opacity-50`}
           >
-            <FocusIcon className="h-3 w-3" /> Foco
+            <AppIcon icon={icons.lead.score} size="xs" tone="inherit" decorative /> Foco
           </button>
         </div>
       </header>
@@ -218,7 +210,7 @@ function FocusMode({
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
         <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-          <CheckCircle2 className="h-5 w-5" />
+          <AppIcon icon={icons.feedback.success} size="xl" tone="primary" decorative />
         </div>
         <h2 className="text-[15px] font-semibold">Sessão concluída</h2>
         <p className="mt-1 text-[12.5px] text-muted-foreground">
@@ -247,7 +239,7 @@ function FocusMode({
             aria-label="Anterior"
             className="grid h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground hover:border-border-strong disabled:opacity-40"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <AppIcon icon={icons.directional.chevronLeft} size="md" tone="inherit" decorative />
           </button>
           <button
             onClick={onNext}
@@ -255,7 +247,7 @@ function FocusMode({
             aria-label="Próximo"
             className="grid h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground hover:border-border-strong disabled:opacity-40"
           >
-            <ChevronRight className="h-4 w-4" />
+            <AppIcon icon={icons.directional.chevronRight} size="md" tone="inherit" decorative />
           </button>
         </div>
       </div>
@@ -296,13 +288,14 @@ function FocusMode({
             onClick={onComplete}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:bg-primary-hover"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como concluída
+            <AppIcon icon={icons.feedback.success} size="sm" tone="inherit" decorative /> Marcar
+            como concluída
           </button>
           <button
             onClick={onSkip}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-[12.5px] font-medium hover:border-border-strong"
           >
-            <SkipForward className="h-3.5 w-3.5" /> Pular
+            <AppIcon icon={icons.actions.skipForward} size="sm" tone="inherit" decorative /> Pular
           </button>
         </div>
       </div>
@@ -314,7 +307,7 @@ function EmptyToday() {
   return (
     <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
       <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-        <Sparkles className="h-5 w-5" />
+        <AppIcon icon={icons.lead.opportunity} size="xl" tone="primary" decorative />
       </div>
       <h2 className="text-[15px] font-semibold">Tudo em dia</h2>
       <p className="mt-1 text-[12.5px] text-muted-foreground">

@@ -26,6 +26,7 @@ import {
 import { invokeFunction } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { PilotManagement } from "@/components/app/PilotManagement";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({
@@ -459,6 +460,12 @@ function AdminPage() {
               emptyIcon={Building2}
               emptyTitle="Nenhuma organização ainda"
             />
+          </div>
+        </Section>
+
+        <Section title="Pilotos" desc="Acompanhamento do programa de beta privado">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <PilotManagement />
           </div>
         </Section>
 

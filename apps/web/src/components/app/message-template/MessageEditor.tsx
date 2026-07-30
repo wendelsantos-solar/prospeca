@@ -119,7 +119,7 @@ export function MessageEditor({
             }
           }}
           placeholder="Digite sua mensagem..."
-          className="min-h-[340px] resize-none rounded-t-none focus-visible:ring-emerald-500"
+          className="min-h-[340px] resize-none rounded-t-none focus-visible:ring-ring"
         />
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">

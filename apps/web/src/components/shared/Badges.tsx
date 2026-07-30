@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import type { LeadTemperature } from "@/types";
 import { TEMPERATURE_LABELS } from "@/lib/constants";
-import { Flame, Thermometer, Snowflake } from "lucide-react";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
+import type { LucideIcon } from "lucide-react";
 
-const map: Record<LeadTemperature, { cls: string; icon: React.ElementType }> = {
-  hot: { cls: "bg-hot-soft text-hot", icon: Flame },
-  warm: { cls: "bg-warm-soft text-warm", icon: Thermometer },
-  cold: { cls: "bg-cold-soft text-cold", icon: Snowflake },
+const map: Record<LeadTemperature, { cls: string; icon: LucideIcon }> = {
+  hot: { cls: "bg-hot-soft text-hot", icon: icons.lead.hot },
+  warm: { cls: "bg-warm-soft text-warm", icon: icons.lead.warm },
+  cold: { cls: "bg-cold-soft text-cold", icon: icons.lead.cold },
 };
 
 export function TemperatureBadge({
@@ -16,7 +18,7 @@ export function TemperatureBadge({
   temperature: LeadTemperature;
   size?: "xs" | "sm";
 }) {
-  const { cls, icon: Icon } = map[temperature];
+  const { cls, icon } = map[temperature];
   return (
     <span
       className={cn(
@@ -25,7 +27,7 @@ export function TemperatureBadge({
         size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs",
       )}
     >
-      <Icon className={size === "xs" ? "h-2.5 w-2.5" : "h-3 w-3"} />
+      <AppIcon icon={icon} size="xs" tone="inherit" decorative />
       {TEMPERATURE_LABELS[temperature]}
     </span>
   );
@@ -44,7 +46,7 @@ export function ScorePill({
   temperature: LeadTemperature;
   className?: string;
 }) {
-  const { icon: Icon } = map[temperature];
+  const { icon } = map[temperature];
   const tone =
     score >= 75
       ? "bg-primary-hover text-primary-foreground"
@@ -59,7 +61,7 @@ export function ScorePill({
         className,
       )}
     >
-      <Icon className="h-3 w-3" />
+      <AppIcon icon={icon} size="xs" tone="inherit" decorative />
       {score}
     </span>
   );

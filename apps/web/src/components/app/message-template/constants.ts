@@ -49,17 +49,17 @@ export function getSizeHint(length: number) {
   if (length <= MESSAGE_CHAR_LIMIT) {
     return {
       label: "Ótimo tamanho para WhatsApp",
-      tone: "text-emerald-700 dark:text-emerald-400",
-      bg: "bg-emerald-600/10",
-      dot: "bg-emerald-500",
+      tone: "text-success",
+      bg: "bg-success/10",
+      dot: "bg-success",
     };
   }
   if (length <= MESSAGE_CHAR_LIMIT * 2) {
     return {
       label: "Mensagem longa",
-      tone: "text-amber-700 dark:text-amber-400",
-      bg: "bg-amber-600/10",
-      dot: "bg-amber-500",
+      tone: "text-warning-foreground",
+      bg: "bg-warning/10",
+      dot: "bg-warning",
     };
   }
   return {

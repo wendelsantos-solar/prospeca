@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2 } from "lucide-react";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { ActivityItem } from "@/components/app/ActivityItem";
 import type { Lead, LeadActivity } from "@/types";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 export const Route = createFileRoute("/app/agenda")({
   head: () => ({
@@ -101,7 +102,7 @@ function AgendaPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-5 py-3">
         <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
-          <CalendarDays className="h-4 w-4" />
+          <AppIcon icon={icons.agenda.calendar} size="md" tone="primary" decorative />
         </div>
         <div>
           <h1 className="text-[16px] font-semibold">Agenda</h1>
@@ -154,7 +155,7 @@ function AgendaPage() {
         ) : sorted.length === 0 ? (
           <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-              <CheckCircle2 className="h-5 w-5" />
+              <AppIcon icon={icons.feedback.success} size="xl" tone="primary" decorative />
             </div>
             <h2 className="text-[15px] font-semibold">
               {tab === "overdue"

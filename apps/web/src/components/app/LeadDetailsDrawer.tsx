@@ -31,6 +31,8 @@ import { hasRealWebsite } from "@leads/domain";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NbaCard } from "@/components/app/NbaCard";
 import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 import {
   MessageCircle,
   Phone,
@@ -57,7 +59,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,12 +165,12 @@ export function LeadDetailsDrawer() {
         }
       }}
     >
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0">
         {isLoading ? (
           <>
             <SheetTitle className="sr-only">Carregando lead…</SheetTitle>
             <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           </>
         ) : lead ? (
@@ -312,18 +314,19 @@ export function LeadDetailsDrawer() {
               }
             />
 
-            <div className="p-5 pb-0">
-              {!readOnly && <NbaCard lead={lead} />}
-              <OpportunitySummaryCard lead={lead} />
-            </div>
-
-            <Tabs defaultValue="info" className="p-5 pt-0">
-              <TabsList className="grid h-10 w-full grid-cols-4">
+            <Tabs defaultValue="info" className="p-5">
+              <TabsList className="grid h-10 w-full grid-cols-5">
                 <TabsTrigger value="info">Visão geral</TabsTrigger>
+                <TabsTrigger value="opportunity">Oportunidade</TabsTrigger>
                 <TabsTrigger value="notes">Notas</TabsTrigger>
                 <TabsTrigger value="activities">Atividades</TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="opportunity" className="mt-4">
+                {!readOnly && <NbaCard lead={lead} />}
+                <OpportunitySummaryCard lead={lead} />
+              </TabsContent>
 
               <TabsContent value="info" className="mt-4">
                 <Section title="Contato">

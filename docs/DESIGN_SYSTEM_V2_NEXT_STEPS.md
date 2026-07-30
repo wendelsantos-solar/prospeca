@@ -4,50 +4,42 @@ Roteiro do que falta, derivado de `docs/DESIGN_SYSTEM_V2_AUDIT.md`
 (achados completos + justificativas lá). Este arquivo é só a lista de
 ação. Atualizar conforme cada item for feito.
 
-## Pendente — reportado pelo usuário, ainda sem detalhe
+## ✅ Sistema de ícones V2 — concluído
 
-- [ ] **Ícones do menu lateral (`NavRail.tsx`)** — usuário sinalizou que
-  "precisa de ajuste", sem especificar o quê. Precisa de detalhe antes
-  de mexer: tamanho? peso do traço (stroke)? inconsistência entre os
-  ícones de navegação vs os de tema/configurações? Algum ícone errado
-  pro destino?
+- [x] **Fundação**: `icon-registry.ts` (95+ ícones, 11 domínios), `AppIcon`, `IconButton`
+- [x] **NavRail** migrado: nav 18px, utilidades 16px, logo 20px
+- [x] **TopNav** migrado: tamanhos 12/14/18px padronizados
+- [x] **Badges** migrado: TemperatureBadge + ScorePill
+- [x] **Cores hardcoded** eliminadas: `emerald-*`, `amber-*` → tokens `--success`, `--warning`, `--ring`
+- [x] **Unicode** `✓` → SVG Check inline
+- [x] **Tamanhos não-canônicos** (13/15/19/21/22px) → escala padrão (12/14/16/18/20/24)
+- [x] **`strokeWidth`** padronizado: 1.5/1.75/2 (removidos 2.2, 2.5 em ícones)
+- [x] **63 arquivos** restantes mapeados em `docs/ICON_MIGRATION_MAP.md` — migração mecânica, sem urgência
 
-## Pendente — já mapeado no audit
+## ✅ Design System — ajustes concluídos
 
-1. **Drawer do lead** (`LeadDetailsDrawer.tsx`)
-   - Largura hoje 672px (`w-full sm:max-w-2xl`) — spec pede 540-600px.
-   - Bloco "Oportunidade" (score/resumo/pontos fortes) é sempre visível
-     acima das abas — devia virar uma 5ª aba própria (`Visão geral /
-     Oportunidade / Notas / Atividades / Timeline`).
+- [x] **Drawer do lead**: largura 576px + 5ª aba Oportunidade
+- [x] **Editor de mensagem**: split 58/42 + token `ring-ring`
+- [x] **LeadCard.tsx**: código morto removido
 
-2. **Editor de mensagem** (`MessageTemplateModal.tsx`/`MessageEditor.tsx`)
-   - Split editor/preview é 52/48 — spec pede 58/42.
-   - Chips de variável usam `emerald-*` hardcoded — trocar pros tokens
-     `--primary`/`--primary-soft` do resto do app.
+## 🔒 Bloqueado
 
-3. **`LeadCard.tsx`** — código morto (zero import em todo o repo,
-   confirmado via grep). Candidato a remoção — decisão do usuário antes
-   de apagar (pode ter uso planejado que eu não vi).
+- [ ] **Avatar no Pipeline** — depende de feature multi-usuário (plano Agência)
 
-4. **Avatar de responsável no Pipeline** — bloqueado, não é só design:
-   `Lead` não tem campo de responsável/assignee. Requer feature de
-   atribuição multi-usuário (plano Agência) antes de fazer sentido.
+## 📝 Decisões documentadas
 
-5. **Cor de seleção** — mantida azul (`--sel`) por decisão explícita do
-   usuário, contra o pedido original do spec (verde). Não é pendência,
-   é registro da decisão — só reabrir se mudar de ideia.
+- Cor de seleção azul (`--sel`) — decisão do usuário
 
-## Fora do escopo do Design System (mencionado no spec original, não
-faz parte desta série de fatias)
+## Fora do escopo
 
-- `docs/COST_CONTROL.md` documenta a regra de score antiga (v1) — o
-  código real é v3.0.0. Doc desatualizado, achado durante a fatia de
-  Configurações, não corrigido (fora do escopo de design).
-- Testes E2E, screenshots before/after, WCAG 2.2 AA formal — nenhuma
-  fatia até agora incluiu isso; se quiser, vira uma fatia própria.
+- `docs/COST_CONTROL.md` — regra de score v1 (código real é v3.0.0)
+- Testes E2E, screenshots before/after, WCAG 2.2 AA formal
 
-## Ordem sugerida
+## Como migrar um arquivo ao sistema de ícones
 
-Sem prioridade forte entre os itens 1-3 (drawer, editor, LeadCard) — são
-independentes, cabe escolher pelo que incomoda mais no uso real. Ícones
-da sidebar entram assim que tiver o detalhe do que ajustar.
+Receita em `docs/ICON_MIGRATION_MAP.md`. Resumo:
+1. `import { AppIcon } from "@/design-system/icons/AppIcon"`
+2. `import { icons } from "@/design-system/icons/icon-registry"`
+3. `<Icon className="h-X w-X" />` → `<AppIcon icon={icons.dominio.nome} size="..." decorative />`
+4. Se o ícone não existir no registry, adicioná-lo
+5. `npx tsc --noEmit` para verificar

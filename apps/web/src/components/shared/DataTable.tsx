@@ -1,5 +1,4 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -12,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useUIStore } from "@/stores";
 import { cn } from "@/lib/utils";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 export interface DataTableColumn<T> {
   key: string;
@@ -104,11 +105,11 @@ export function DataTable<T>({
                       aria-label={`Ordenar por ${col.label}`}
                     >
                       {col.label}
-                      <ArrowUpDown
-                        className={cn(
-                          "h-3 w-3",
-                          sort?.key === col.key ? "text-foreground" : "text-muted-foreground/50",
-                        )}
+                      <AppIcon
+                        icon={icons.directional.sort}
+                        size="xs"
+                        tone={sort?.key === col.key ? "default" : "muted"}
+                        decorative
                       />
                     </button>
                   ) : (
@@ -170,7 +171,7 @@ export function DataTable<T>({
             disabled={page === 0}
             aria-label="Página anterior"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <AppIcon icon={icons.directional.chevronLeft} size="sm" tone="inherit" decorative />
           </Button>
           <Button
             size="icon"
@@ -180,7 +181,7 @@ export function DataTable<T>({
             disabled={page >= pageCount - 1}
             aria-label="Próxima página"
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <AppIcon icon={icons.directional.chevronRight} size="sm" tone="inherit" decorative />
           </Button>
         </div>
       )}

@@ -1,23 +1,14 @@
 import { useMemo } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  Radar,
-  Map as MapIcon,
-  Sunrise,
-  Kanban,
-  CalendarDays,
-  BarChart3,
-  ShieldCheck,
-  Moon,
-  Sun,
-  Settings,
-  type LucideIcon,
-} from "lucide-react";
+import { Radar } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { buildTodayGroups } from "@/lib/today";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 interface NavItem {
   to: string;
@@ -26,11 +17,11 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { to: "/app/mapa", label: "Mapa", icon: MapIcon },
-  { to: "/app/hoje", label: "Hoje", icon: Sunrise },
-  { to: "/app/kanban", label: "Pipeline", icon: Kanban },
-  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/app/painel", label: "Análises", icon: BarChart3 },
+  { to: "/app/mapa", label: "Mapa", icon: icons.navigation.map },
+  { to: "/app/hoje", label: "Hoje", icon: icons.navigation.today },
+  { to: "/app/kanban", label: "Pipeline", icon: icons.navigation.pipeline },
+  { to: "/app/agenda", label: "Agenda", icon: icons.agenda.calendar },
+  { to: "/app/painel", label: "Análises", icon: icons.navigation.analytics },
 ];
 
 /** Primary navigation rail (64px). Holds the brand, the top-level destinations
@@ -55,7 +46,7 @@ export function NavRail() {
   }, [items]);
 
   const nav = isPlatformAdmin
-    ? [...NAV, { to: "/app/admin", label: "Administração", icon: ShieldCheck }]
+    ? [...NAV, { to: "/app/admin", label: "Administração", icon: icons.navigation.administration }]
     : NAV;
 
   const countFor = (to: string) => {
@@ -78,7 +69,7 @@ export function NavRail() {
         aria-label="Radar Local — início"
         className="mb-3.5 grid h-[38px] w-[38px] place-items-center rounded-[11px] bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-card"
       >
-        <Radar className="h-[19px] w-[19px]" strokeWidth={2.2} />
+        <Radar className="h-5 w-5" strokeWidth={2} />
       </Link>
 
       <div className="flex flex-1 flex-col items-center gap-1">
@@ -103,7 +94,13 @@ export function NavRail() {
               {active && (
                 <span className="absolute -left-3.5 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-primary" />
               )}
-              <Icon className="h-[21px] w-[21px]" strokeWidth={active ? 2.2 : 2} />
+              <AppIcon
+                icon={Icon}
+                size="lg"
+                tone={active ? "primary" : "muted"}
+                stroke={active ? "strong" : "regular"}
+                decorative
+              />
               {count > 0 && (
                 <span
                   className={cn(
@@ -126,11 +123,12 @@ export function NavRail() {
           title={theme === "dark" ? "Tema claro" : "Tema escuro"}
           className="grid h-11 w-11 place-items-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
         >
-          {theme === "dark" ? (
-            <Sun className="h-[19px] w-[19px]" />
-          ) : (
-            <Moon className="h-[19px] w-[19px]" />
-          )}
+          <AppIcon
+            icon={theme === "dark" ? icons.theme.light : icons.theme.dark}
+            size="md"
+            tone="inherit"
+            decorative
+          />
         </button>
         <Link
           to="/app/configuracoes"
@@ -138,7 +136,7 @@ export function NavRail() {
           title="Configurações"
           className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
         >
-          <Settings className="h-4 w-4" />
+          <AppIcon icon={icons.navigation.settings} size="md" tone="inherit" decorative />
         </Link>
         <div
           aria-hidden

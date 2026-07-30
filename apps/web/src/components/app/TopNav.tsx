@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { PanelLeftOpen, PanelLeftClose, MapPin, Search, Map as MapIcon, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore, useSearchDraftStore, useLeadsStore } from "@/stores";
 import { NotificationsPopover } from "./NotificationsPopover";
 import { CommandPalette } from "./CommandPalette";
+import { FeedbackForm } from "./FeedbackForm";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
 
 /** Page titles for the header context when there is no active search to show. */
 const PAGE_TITLES: Record<string, string> = {
@@ -59,9 +61,9 @@ export function TopNav() {
         title={sidebarCollapsed ? "Mostrar painel" : "Ocultar painel"}
       >
         {sidebarCollapsed ? (
-          <PanelLeftOpen className="h-[18px] w-[18px]" />
+          <AppIcon icon={icons.layout.expandSidebar} size="lg" tone="inherit" decorative />
         ) : (
-          <PanelLeftClose className="h-[18px] w-[18px]" />
+          <AppIcon icon={icons.layout.collapseSidebar} size="lg" tone="inherit" decorative />
         )}
       </button>
 
@@ -70,7 +72,7 @@ export function TopNav() {
         {showSearchContext ? (
           <>
             <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
-              <MapPin className="h-[13px] w-[13px]" />
+              <AppIcon icon={icons.lead.location} size="xs" tone="primary" decorative />
             </span>
             <span className="truncate text-muted-foreground">{location}</span>
             <span className="text-muted-foreground/50">/</span>
@@ -91,7 +93,7 @@ export function TopNav() {
         )}
         aria-label="Abrir busca de comandos (atalho: Ctrl+K)"
       >
-        <Search className="h-[15px] w-[15px] shrink-0" />
+        <AppIcon icon={icons.actions.search} size="sm" tone="inherit" decorative />
         <span className="truncate">Buscar páginas, nichos…</span>
         <kbd className="ml-auto rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           ⌘K
@@ -104,7 +106,7 @@ export function TopNav() {
         className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
         aria-label="Abrir busca de comandos"
       >
-        <Search className="h-[18px] w-[18px]" />
+        <AppIcon icon={icons.actions.search} size="lg" tone="inherit" decorative />
       </button>
 
       {/* Map / List view toggle (discovery workspace only) */}
@@ -116,12 +118,11 @@ export function TopNav() {
         >
           {(
             [
-              { v: "map", label: "Mapa", icon: MapIcon },
-              { v: "list", label: "Lista", icon: List },
+              { v: "map", label: "Mapa", icon: icons.navigation.map },
+              { v: "list", label: "Lista", icon: icons.layout.list },
             ] as const
           ).map((o) => {
             const active = discoveryView === o.v;
-            const Icon = o.icon;
             return (
               <button
                 key={o.v}
@@ -134,7 +135,7 @@ export function TopNav() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className="h-[14px] w-[14px]" />
+                <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
                 {o.label}
               </button>
             );
@@ -143,6 +144,7 @@ export function TopNav() {
       )}
 
       <div className="flex items-center gap-1">
+        <FeedbackForm currentPage={path} />
         <NotificationsPopover />
       </div>
 

@@ -17,7 +17,9 @@ export function AuthCard({
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
-          <Radar className="h-6 w-6 text-primary" />
+          <div className="grid h-10 w-10 place-items-center rounded-[11px] bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-card">
+            <Radar className="h-5 w-5" strokeWidth={2} />
+          </div>
           <span className="text-lg font-semibold tracking-tight">Radar Local</span>
         </div>
         <Card>

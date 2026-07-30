@@ -101,7 +101,7 @@ export function MessageTemplateModal() {
           <div className="p-6 pb-0">
             <MessageTemplateHeader onCopy={() => handleCopy(editor.draft, "Modelo copiado")} />
           </div>
-          <div className="grid flex-1 gap-0 overflow-y-auto p-6 md:grid-cols-[1.1fr_1fr]">
+          <div className="grid flex-1 gap-0 overflow-y-auto p-6 md:grid-cols-[58fr_42fr]">
             <div className="md:pr-6">
               <MessageEditor
                 nameDraft={editor.nameDraft}
