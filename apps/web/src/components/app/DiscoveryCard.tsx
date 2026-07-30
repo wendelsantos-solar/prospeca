@@ -22,18 +22,34 @@ const TEMP_META: Record<Temperature, { label: string; ring: string; badge: strin
 /** Score dial: a conic ring filled to `score`%, tinted by lead temperature.
  * Temperature is never carried by color alone — the TemperatureBadge repeats it
  * as text + dot, and the number is always legible in the center. */
-function ScoreRing({ score, temperature }: { score: number; temperature: Temperature }) {
+function ScoreRing({
+  score,
+  temperature,
+  compact,
+}: {
+  score: number;
+  temperature: Temperature;
+  compact?: boolean;
+}) {
   const color = TEMP_META[temperature].ring;
   return (
     <div
-      className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full"
+      className={cn(
+        "relative grid shrink-0 place-items-center rounded-full",
+        compact ? "h-9 w-9" : "h-11 w-11",
+      )}
       style={{
         background: `conic-gradient(${color} ${Math.max(0, Math.min(100, score))}%, var(--color-border) 0)`,
       }}
       aria-hidden
     >
       <div className="absolute inset-[3px] rounded-full bg-surface" />
-      <span className="relative z-10 font-mono text-[13px] font-bold tabular-nums text-foreground">
+      <span
+        className={cn(
+          "relative z-10 font-mono font-bold tabular-nums text-foreground",
+          compact ? "text-[11px]" : "text-[13px]",
+        )}
+      >
         {score}
       </span>
     </div>
@@ -113,10 +129,13 @@ function MiniBtn({
 export const DiscoveryCard = memo(function DiscoveryCard({
   result,
   searchId,
+  density = "comfortable",
 }: {
   result: DiscoveryResult;
   searchId: string;
+  density?: "compact" | "comfortable";
 }) {
+  const compact = density === "compact";
   const setFocused = useLeadsStore((s) => s.setFocused);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setDetails = useLeadsStore((s) => s.setDetails);
@@ -161,7 +180,8 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     <Card
       onClick={() => setFocused(result.placeId)}
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-xl border-border p-3 shadow-none transition-all hover:border-border-strong hover:shadow-card",
+        "group relative cursor-pointer overflow-hidden rounded-xl border-border shadow-none transition-all hover:border-border-strong hover:shadow-card",
+        compact ? "p-2" : "p-3",
         isFocused && "border-sel bg-sel-soft/40 ring-2 ring-sel/25",
       )}
     >
@@ -169,11 +189,16 @@ export const DiscoveryCard = memo(function DiscoveryCard({
         <span className="absolute inset-y-3 left-0 w-[3px] rounded-r-full bg-sel" aria-hidden />
       )}
 
-      <div className="flex items-start gap-3">
-        <ScoreRing score={result.score} temperature={result.temperature} />
+      <div className={cn("flex items-start", compact ? "gap-2" : "gap-3")}>
+        <ScoreRing score={result.score} temperature={result.temperature} compact={compact} />
 
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+          <h3
+            className={cn(
+              "truncate font-semibold tracking-tight text-foreground",
+              compact ? "text-[12.5px]" : "text-[13.5px]",
+            )}
+          >
             {result.name}
           </h3>
           <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
@@ -184,7 +209,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
             </span>
           </p>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1.5" : "mt-2")}>
             <TemperatureBadge temperature={result.temperature} />
             <ChannelChip has={!!result.phone} title="Telefone">
               <Phone className="h-3 w-3" />
@@ -211,7 +236,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
       </div>
 
       {/* actions */}
-      <div className="mt-2.5 flex items-center gap-1">
+      <div className={cn("flex items-center gap-1", compact ? "mt-1.5" : "mt-2.5")}>
         {hasContact && (
           <MiniBtn
             tone="primary"

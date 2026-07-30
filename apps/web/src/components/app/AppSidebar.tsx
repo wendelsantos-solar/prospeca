@@ -28,6 +28,7 @@ type SortBy = "score" | "distance" | "rating";
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const density = useUIStore((s) => s.density);
 
   const searching = useLeadsStore((s) => s.searching);
   const searchError = useLeadsStore((s) => s.searchError);
@@ -254,7 +255,11 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
                 const r = sortedResults[index];
                 return (
                   <div className="px-0.5 py-0.5" data-place-id={r.placeId}>
-                    <DiscoveryCard result={r} searchId={currentSearch?.id ?? ""} />
+                    <DiscoveryCard
+                      result={r}
+                      searchId={currentSearch?.id ?? ""}
+                      density={density}
+                    />
                   </div>
                 );
               }}

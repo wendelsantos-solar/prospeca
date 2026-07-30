@@ -14,6 +14,26 @@
 
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Type scale V2 — named sizes, paired line-height. Weight is a separate
+   * axis (pair with font-semibold/font-medium as needed), not baked in. */
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.375rem;
+  --text-page-title: 1.5rem;
+  --text-page-title--line-height: 2rem;
+  --text-section-title: 1.125rem;
+  --text-section-title--line-height: 1.625rem;
+  --text-card-title: 0.875rem;
+  --text-card-title--line-height: 1.25rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.3125rem;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.1875rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.0625rem;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -68,6 +88,21 @@
   --color-sel: var(--sel);
   --color-sel-foreground: var(--sel-foreground);
   --color-sel-soft: var(--sel-soft);
+  --color-stage-new: var(--stage-new);
+  --color-stage-new-foreground: var(--stage-new-foreground);
+  --color-stage-new-soft: var(--stage-new-soft);
+  --color-stage-qualified: var(--stage-qualified);
+  --color-stage-qualified-foreground: var(--stage-qualified-foreground);
+  --color-stage-qualified-soft: var(--stage-qualified-soft);
+  --color-stage-contacted: var(--stage-contacted);
+  --color-stage-contacted-foreground: var(--stage-contacted-foreground);
+  --color-stage-contacted-soft: var(--stage-contacted-soft);
+  --color-stage-won: var(--stage-won);
+  --color-stage-won-foreground: var(--stage-won-foreground);
+  --color-stage-won-soft: var(--stage-won-soft);
+  --color-stage-discarded: var(--stage-discarded);
+  --color-stage-discarded-foreground: var(--stage-discarded-foreground);
+  --color-stage-discarded-soft: var(--stage-discarded-soft);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -137,6 +172,25 @@
   --sel: oklch(0.62 0.14 240);
   --sel-foreground: oklch(0.99 0.003 160);
   --sel-soft: oklch(0.95 0.03 240);
+
+  /* Pipeline — tokens dedicados por estágio (antes emprestavam de hot/warm/
+   * info/destructive sem relação semântica). Mesmos valores dos tokens de
+   * status equivalentes, nome próprio. */
+  --stage-new: oklch(0.5 0.008 160);
+  --stage-new-foreground: oklch(0.99 0.003 160);
+  --stage-new-soft: oklch(0.95 0.004 160);
+  --stage-qualified: oklch(0.76 0.14 75);
+  --stage-qualified-foreground: oklch(0.28 0.09 55);
+  --stage-qualified-soft: oklch(0.96 0.045 85);
+  --stage-contacted: oklch(0.62 0.14 240);
+  --stage-contacted-foreground: oklch(0.99 0.003 160);
+  --stage-contacted-soft: oklch(0.95 0.03 240);
+  --stage-won: oklch(0.586 0.145 158);
+  --stage-won-foreground: oklch(0.99 0.003 160);
+  --stage-won-soft: oklch(0.96 0.028 156);
+  --stage-discarded: oklch(0.62 0.19 25);
+  --stage-discarded-foreground: oklch(0.99 0.003 160);
+  --stage-discarded-soft: oklch(0.95 0.03 25);
 
   --border: oklch(0.918 0.006 160);
   --border-strong: oklch(0.867 0.007 160);
@@ -223,6 +277,23 @@
   --sel: oklch(0.7 0.15 240);
   --sel-foreground: oklch(0.99 0 0);
   --sel-soft: oklch(0.29 0.05 240);
+
+  /* Pipeline — tokens dedicados por estágio */
+  --stage-new: oklch(0.7 0.008 160);
+  --stage-new-foreground: oklch(0.15 0.01 160);
+  --stage-new-soft: oklch(0.28 0.01 160);
+  --stage-qualified: oklch(0.76 0.14 75);
+  --stage-qualified-foreground: oklch(0.96 0.05 80);
+  --stage-qualified-soft: oklch(0.3 0.05 80);
+  --stage-contacted: oklch(0.7 0.15 240);
+  --stage-contacted-foreground: oklch(0.99 0 0);
+  --stage-contacted-soft: oklch(0.29 0.05 240);
+  --stage-won: oklch(0.68 0.155 158);
+  --stage-won-foreground: oklch(0.15 0.02 155);
+  --stage-won-soft: oklch(0.32 0.06 158);
+  --stage-discarded: oklch(0.68 0.22 27);
+  --stage-discarded-foreground: oklch(0.99 0 0);
+  --stage-discarded-soft: oklch(0.29 0.06 27);
 
   --border: oklch(0.3 0.01 160);
   --border-strong: oklch(0.4 0.01 160);

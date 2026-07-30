@@ -58,12 +58,22 @@ import { cn } from "@/lib/utils";
 import { categoryLabel } from "@/lib/category";
 import { useUIStore } from "@/stores";
 
+// Tokens dedicados por estágio (styles.css) — antes emprestavam de
+// hot/warm/info/destructive sem relação semântica com o Pipeline.
 const stageColor: Record<LeadStage, string> = {
-  new: "border-t-cold",
-  qualified: "border-t-info",
-  contacted: "border-t-warm",
-  won: "border-t-success",
-  discarded: "border-t-destructive",
+  new: "border-t-stage-new",
+  qualified: "border-t-stage-qualified",
+  contacted: "border-t-stage-contacted",
+  won: "border-t-stage-won",
+  discarded: "border-t-stage-discarded",
+};
+
+const stageDot: Record<LeadStage, string> = {
+  new: "bg-stage-new",
+  qualified: "bg-stage-qualified",
+  contacted: "bg-stage-contacted",
+  won: "bg-stage-won",
+  discarded: "bg-stage-discarded",
 };
 
 const KanbanCard = memo(function KanbanCard({
@@ -105,7 +115,7 @@ const KanbanCard = memo(function KanbanCard({
       {...(overlay ? {} : listeners)}
       onClick={() => setDetails(lead.id)}
       className={cn(
-        "cursor-grab active:cursor-grabbing border-border/70 shadow-none transition-all hover:border-border-strong hover:shadow-card",
+        "group cursor-grab active:cursor-grabbing border-border/70 shadow-none transition-all hover:border-border-strong hover:shadow-card",
         density === "compact" ? "p-2" : "p-2.5",
         isDragging && "opacity-40",
         overlay && "shadow-elevated rotate-2",
@@ -166,13 +176,13 @@ const KanbanCard = memo(function KanbanCard({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-1.5 text-[11px] gap-1"
+          className="h-6 px-1.5 text-[11px] gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={openWhats}
           aria-label="Abrir WhatsApp"
         >
           <MessageCircle className="h-3 w-3" />
         </Button>
-        <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70 tabular-nums">
+        <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70 tabular-nums opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {lead.phone ?? ""}
         </span>
         <DropdownMenu>
@@ -275,7 +285,13 @@ function KanbanColumn({
         )}
       >
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-foreground">{STAGE_LABELS[stage]}</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <span
+              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", stageDot[stage])}
+              aria-hidden
+            />
+            {STAGE_LABELS[stage]}
+          </p>
           <p className="text-[10px] text-muted-foreground tabular-nums">
             {leads.length} leads • {formatBRL(total)}
           </p>
@@ -331,10 +347,13 @@ function KanbanColumn({
       >
         <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
           {leads.length === 0 ? (
-            <div className="grid h-24 place-items-center text-[11px] text-muted-foreground/70">
-              <div className="flex flex-col items-center gap-1">
-                <Inbox className="h-4 w-4" />
-                Arraste leads aqui
+            <div className="grid h-28 place-items-center px-3 text-center">
+              <div className="flex flex-col items-center gap-1.5">
+                <Inbox className="h-4 w-4 text-muted-foreground/70" />
+                <p className="text-[11px] font-medium text-foreground">Nenhum lead neste estágio</p>
+                <p className="text-[10.5px] text-muted-foreground">
+                  Arraste um card ou adicione um lead ao Pipeline.
+                </p>
               </div>
             </div>
           ) : (
