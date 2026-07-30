@@ -6,7 +6,7 @@
 
 import { handleOptions, json, AppError, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/rate-limit.ts";
+import { assertRateLimit, scope } from "../_shared/rate-limit.ts";
 import { sendEmail } from "../_shared/email.ts";
 import { z } from "npm:zod@3";
 
@@ -41,17 +41,9 @@ Deno.serve(async (req: Request) => {
       throw new AppError("FORBIDDEN", "Apenas administradores da plataforma podem criar pilotos.");
     }
 
-    await assertRateLimit(adminClient, userId, "create-pilot", {
+    await assertRateLimit(adminClient, scope.byUser(userId), "create-pilot", {
       maxPerMinute: 5,
-      eventType: "rate_limit_create_pilot",
     });
-
-    // Check if user already exists
-    const { data: existingUsers } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("email", body.email)
-      .limit(1);
 
     // Get the billing plan for pilot
     const { data: pilotPlan } = await adminClient
@@ -98,14 +90,22 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Create subscription for pilot plan
-    await adminClient.from("subscriptions").insert({
+    // Create subscription for pilot plan.
+    // O erro É verificado: sem subscription a org existe com plan='pilot' mas os
+    // entitlements (que leem subscriptions) caem no plano errado ou em nada.
+    const { error: subError } = await adminClient.from("subscriptions").insert({
       organization_id: org.id,
       plan_id: pilotPlan.id,
       status: "trialing",
       trial_start: new Date().toISOString(),
       trial_end: expiresAt.toISOString(),
     });
+
+    if (subError) {
+      throw new AppError("INTERNAL_ERROR", "Falha ao criar assinatura do piloto.", {
+        detail: subError.message,
+      });
+    }
 
     // Generate invitation for the pilot user
     const token = crypto.randomUUID();

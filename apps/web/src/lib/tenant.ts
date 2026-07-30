@@ -38,7 +38,55 @@ const DEMO_TENANT: TenantContext = {
 };
 
 /**
+ * Chave da organização ativa escolhida explicitamente.
+ *
+ * Necessária porque um usuário pode ter MAIS DE UMA organização sem nunca ter
+ * pedido isso: `handle_new_user()` cria uma organização Free para todo usuário
+ * novo, então quem entra por convite (piloto) termina com duas — a Free
+ * automática e a da organização que o convidou. Sem uma escolha explícita, a
+ * organização resolvida seria arbitrária.
+ */
+const ACTIVE_ORG_STORAGE_KEY = "radar.activeOrganizationId";
+
+export function getStoredActiveOrganizationId(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(ACTIVE_ORG_STORAGE_KEY) ?? null;
+  } catch {
+    // localStorage indisponível (SSR, modo privado) — cai no default determinístico.
+    return null;
+  }
+}
+
+/**
+ * Fixa a organização ativa. Chamar depois de aceitar um convite, para o usuário
+ * cair na organização que o convidou em vez da Free criada no cadastro.
+ */
+export function setActiveOrganizationId(organizationId: string): void {
+  try {
+    globalThis.localStorage?.setItem(ACTIVE_ORG_STORAGE_KEY, organizationId);
+  } catch {
+    // Sem persistência: o default determinístico ainda se aplica.
+  }
+}
+
+export function clearActiveOrganizationId(): void {
+  try {
+    globalThis.localStorage?.removeItem(ACTIVE_ORG_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+/**
  * Fetch all organizations the current user belongs to.
+ *
+ * Ordenação é obrigatória, não cosmética: sem ORDER BY o Postgres devolve as
+ * linhas em ordem arbitrária, e a "primeira" organização podia mudar entre dois
+ * carregamentos da mesma sessão. `organization_id` é o desempate para a ordem
+ * ser total (created_at pode empatar).
+ *
+ * O `.eq("user_id")` é redundante com a RLS de organization_members — é defesa
+ * em profundidade proposital: se a policy for afrouxada, este filtro continua.
  */
 async function fetchMemberships(): Promise<OrganizationMembership[]> {
   const supabase = getSupabase();
@@ -51,6 +99,7 @@ async function fetchMemberships(): Promise<OrganizationMembership[]> {
       `
       organization_id,
       role,
+      created_at,
       organizations (
         id,
         name,
@@ -59,7 +108,9 @@ async function fetchMemberships(): Promise<OrganizationMembership[]> {
       )
     `,
     )
-    .eq("user_id", user.user.id);
+    .eq("user_id", user.user.id)
+    .order("created_at", { ascending: true })
+    .order("organization_id", { ascending: true });
 
   if (error) throw new Error(error.message);
 
@@ -73,6 +124,35 @@ async function fetchMemberships(): Promise<OrganizationMembership[]> {
       plan: org?.plan as string,
     };
   });
+}
+
+/**
+ * Escolhe a organização ativa entre as memberships.
+ * Preferência explícita do usuário > primeira em ordem determinística.
+ */
+export function pickActiveMembership(
+  memberships: OrganizationMembership[],
+): OrganizationMembership | undefined {
+  const storedId = getStoredActiveOrganizationId();
+  // Só honra o valor salvo se ainda for uma membership válida: a pessoa pode ter
+  // sido removida da organização desde a última visita.
+  const stored = storedId ? memberships.find((m) => m.organizationId === storedId) : undefined;
+  return stored ?? memberships[0];
+}
+
+/**
+ * Resolve o id da organização ativa fora do React.
+ *
+ * Existe para os repositories, que antes faziam
+ * `from("organization_members").select("organization_id").limit(1)` — sem
+ * ORDER BY e sem filtro de usuário — e portanto podiam escrever/ler na
+ * organização errada de quem tem mais de uma.
+ */
+export async function resolveActiveOrganizationId(): Promise<string> {
+  const memberships = await fetchMemberships();
+  const active = pickActiveMembership(memberships);
+  if (!active) throw new Error("Organização não encontrada.");
+  return active.organizationId;
 }
 
 const TENANT_QUERY_KEY = ["tenant-context"] as const;
@@ -117,7 +197,7 @@ export function useTenant(): {
   }
 
   const memberships = data ?? [];
-  const first = memberships[0];
+  const first = pickActiveMembership(memberships);
 
   if (!first && !isLoading) {
     return {

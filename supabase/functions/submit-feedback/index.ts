@@ -3,7 +3,7 @@
 
 import { handleOptions, json, AppError, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/rate-limit.ts";
+import { assertRateLimit, scope } from "../_shared/rate-limit.ts";
 import { z } from "npm:zod@3";
 
 const feedbackSchema = z.object({
@@ -39,8 +39,9 @@ Deno.serve(async (req: Request) => {
 
     const { userId, organizationId, adminClient } = await requireAuth(req);
 
-    // Rate limit: 5 feedback submissions per minute per org
-    await assertRateLimit(adminClient, organizationId, "submit-feedback");
+    // Rate limit: 5 envios por minuto por USUÁRIO. Escopo por usuário, não por
+    // organização: com escopo por org um membro esgotaria a cota dos colegas.
+    await assertRateLimit(adminClient, scope.byUser(userId), "submit-feedback");
 
     const { error } = await adminClient.from("feedback").insert({
       organization_id: organizationId,

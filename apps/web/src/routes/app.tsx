@@ -22,6 +22,9 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePendingInvitation } from "@/hooks/usePendingInvitation";
+import { useTenant } from "@/lib/tenant";
+import { setAnalyticsContext } from "@/lib/analytics";
 import { isDemoMode, isRealMode, realConfigMissing } from "@/lib/env";
 
 export const Route = createFileRoute("/app")({
@@ -141,6 +144,21 @@ function AppLayout() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const onboarding = useOnboarding();
   const [showOnboarding, setShowOnboarding] = useState(!onboarding.isCompleted);
+
+  // Consome o convite pendente do cadastro (entra na organização que convidou).
+  usePendingInvitation();
+
+  // Contexto de analytics. Sem isto `track()` não persiste nada:
+  // usage_events.organization_id é NOT NULL e setAnalyticsContext() não era
+  // chamado em lugar nenhum, então todo evento de produto era perdido.
+  const { tenant } = useTenant();
+  const tenantOrganizationId = tenant?.organizationId;
+  const tenantPlan = tenant?.plan;
+  useEffect(() => {
+    if (tenantOrganizationId) {
+      setAnalyticsContext({ organizationId: tenantOrganizationId, plan: tenantPlan });
+    }
+  }, [tenantOrganizationId, tenantPlan]);
 
   const handleOnboardingComplete = useCallback((_progress: OnboardingProgress) => {
     setShowOnboarding(false);

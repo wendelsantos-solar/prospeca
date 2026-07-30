@@ -9,6 +9,7 @@ import type {
   DashboardPeriod,
 } from "@/types";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
+import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { parseAddress } from "@leads/domain";
 import type {
   CreateSearchInput,
@@ -439,12 +440,7 @@ export class SupabaseLeadRepository implements LeadRepository {
   ): Promise<void> {
     if (!entries.length) return;
     const supabase = getSupabase();
-    const { data: memberships } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .limit(1);
-    const organizationId = memberships?.[0]?.organization_id;
-    if (!organizationId) throw new Error("Organização não encontrada.");
+    const organizationId = await resolveActiveOrganizationId();
     const { error } = await supabase.from("suppression_list").upsert(
       entries.map((e) => ({
         organization_id: organizationId,
@@ -596,12 +592,7 @@ export class SupabaseSearchRepository implements SearchRepository {
 export class SupabaseDashboardRepository implements DashboardRepository {
   async overview(_period: DashboardPeriod, start: Date, end: Date): Promise<DashboardOverview> {
     const supabase = getSupabase();
-    const { data: memberships } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .limit(1);
-    const organizationId = memberships?.[0]?.organization_id;
-    if (!organizationId) throw new Error("Organização não encontrada.");
+    const organizationId = await resolveActiveOrganizationId();
 
     const { data, error } = await supabase.rpc("get_dashboard_overview", {
       p_organization_id: organizationId,

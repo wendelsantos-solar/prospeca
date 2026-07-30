@@ -140,9 +140,7 @@ export function SearchForm() {
     onSuccess: (leads, search) => {
       setLeads(leads, search);
       setSearching(false);
-      pushRecentAction(
-        `${search.totalFound} leads encontrados`,
-      );
+      pushRecentAction(`${search.totalFound} leads encontrados`);
       toast.success(
         isRealMode
           ? `${search.totalFound} empresas encontradas`

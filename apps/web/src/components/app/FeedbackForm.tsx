@@ -147,12 +147,10 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
     const ext = screenshot.name.split(".").pop() ?? "png";
     const path = `${crypto.randomUUID()}.${ext}`;
 
-    const { data, error } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(path, screenshot, {
-        contentType: screenshot.type,
-        upsert: false,
-      });
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, screenshot, {
+      contentType: screenshot.type,
+      upsert: false,
+    });
 
     if (error) {
       console.warn("FeedbackForm: screenshot upload failed", error);
@@ -194,8 +192,9 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
             screenshotUrl: screenshotUrl ?? undefined,
             recentActions: getRecentActions(),
             currentPage: currentPage ?? window.location.pathname,
-            appVersion: (import.meta as { env?: Record<string, string> }).env
-              ?.VITE_APP_VERSION as string | undefined,
+            appVersion: (import.meta as { env?: Record<string, string> }).env?.VITE_APP_VERSION as
+              | string
+              | undefined,
             browser: navigator.userAgent.slice(0, 200),
             operatingSystem: navigator.platform,
           },
@@ -206,8 +205,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
         setOpen(false);
         onSuccess?.();
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Erro ao enviar. Tente novamente.";
+        const msg = err instanceof Error ? err.message : "Erro ao enviar. Tente novamente.";
         toast.error(msg);
       } finally {
         setSubmitting(false);
@@ -235,12 +233,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="ghost" size="sm" className="text-muted-foreground">
-            <AppIcon
-              icon={icons.lead.messageSquare}
-              size="sm"
-              tone="inherit"
-              decorative
-            />
+            <AppIcon icon={icons.lead.messageSquare} size="sm" tone="inherit" decorative />
             <span className="ml-1.5">Feedback</span>
           </Button>
         )}
@@ -248,9 +241,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar feedback</DialogTitle>
-          <DialogDescription>
-            Sua opinião ajuda a melhorar o Radar Local.
-          </DialogDescription>
+          <DialogDescription>Sua opinião ajuda a melhorar o Radar Local.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -374,8 +365,8 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
           {isBugOrData && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
               <p className="text-xs text-muted-foreground mb-2">
-                Para problemas e dados incorretos, recomendamos deixar um e-mail.
-                Assim podemos te responder quando resolvermos.
+                Para problemas e dados incorretos, recomendamos deixar um e-mail. Assim podemos te
+                responder quando resolvermos.
               </p>
               <div className="space-y-2">
                 <div>
@@ -432,9 +423,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
 
           {/* ---- Actions ---- */}
           <div className="flex justify-between items-center pt-1">
-            <p className="text-[10px] text-muted-foreground">
-              Enviado anonimamente para a equipe
-            </p>
+            <p className="text-[10px] text-muted-foreground">Enviado anonimamente para a equipe</p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -446,11 +435,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
               >
                 Cancelar
               </Button>
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={!message.trim() || isLoading}
-              >
+              <Button size="sm" onClick={handleSubmit} disabled={!message.trim() || isLoading}>
                 {uploading ? "Enviando imagem..." : submitting ? "Enviando..." : "Enviar"}
               </Button>
             </div>

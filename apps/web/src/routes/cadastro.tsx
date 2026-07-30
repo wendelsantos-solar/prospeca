@@ -63,7 +63,7 @@ function SignUpPage() {
     if (hasInvitation) {
       track("signup_started", { plan: plan ?? "pilot", source: "invitation" });
     }
-  }, [hasInvitation]);
+  }, [hasInvitation, plan]);
 
   const onSubmit = handleSubmit(async (data) => {
     setSubmitting(true);

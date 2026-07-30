@@ -3,7 +3,7 @@
 
 import { handleOptions, json, AppError, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/rate-limit.ts";
+import { assertRateLimit, scope } from "../_shared/rate-limit.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 Deno.serve(async (req: Request) => {
@@ -40,10 +40,11 @@ Deno.serve(async (req: Request) => {
 
     const admin = adminClient();
 
-    // Rate limit: 5 invitation accept attempts per minute per IP-like scope
-    // (uses a synthetic organization lookup for rate limiting)
-    await assertRateLimit(admin, "00000000-0000-0000-0000-000000000000", "accept-invitation", {
-      maxPerMinute: 5,
+    // Rate limit por USUÁRIO autenticado. Antes usava um UUID zerado fixo como
+    // escopo, o que criava um balde global compartilhado: qualquer chamador
+    // conseguia esgotar o limite e negar o aceite de convite para todos.
+    await assertRateLimit(admin, scope.byUser(userData.user.id), "accept-invitation", {
+      maxPerMinute: 10,
       message: "Muitas tentativas. Aguarde um momento.",
     });
 
@@ -106,6 +107,43 @@ Deno.serve(async (req: Request) => {
 
     if (memberError) {
       throw new AppError("INTERNAL_ERROR", "Falha ao adicionar membro à organização.");
+    }
+
+    // Handoff de propriedade: create-pilot cria a organização com
+    // owner_user_id = admin da plataforma ("temporariamente"), e nada transferia
+    // depois. Sem isto o admin fica dono da org do piloto para sempre.
+    // Só transfere quando o convite É de owner e o dono atual não é membro real
+    // da organização (isto é, é o admin que só criou o registro).
+    if (invitation.role === "owner") {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("owner_user_id")
+        .eq("id", invitation.organization_id)
+        .maybeSingle();
+
+      if (org && org.owner_user_id !== userData.user.id) {
+        const { data: currentOwnerMembership } = await admin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", invitation.organization_id)
+          .eq("user_id", org.owner_user_id)
+          .maybeSingle();
+
+        if (!currentOwnerMembership) {
+          await admin
+            .from("organizations")
+            .update({ owner_user_id: userData.user.id })
+            .eq("id", invitation.organization_id);
+        }
+      }
+
+      // Piloto sai de 'invited' ao aceitar. Só avança neste estado para não
+      // regredir um piloto que já esteja 'active'/'completed'.
+      await admin
+        .from("organizations")
+        .update({ pilot_status: "onboarding" })
+        .eq("id", invitation.organization_id)
+        .eq("pilot_status", "invited");
     }
 
     // Mark invitation as accepted

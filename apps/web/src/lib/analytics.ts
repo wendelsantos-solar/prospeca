@@ -45,6 +45,7 @@ export type AnalyticsEvent =
   | "plan_upgrade_started"
   | "feedback_submitted"
   | "invitation_accepted"
+  | "invitation_accept_failed"
   | "account_created"
   | "organization_created";
 
@@ -81,22 +82,42 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>): v
 
   console.debug(`[analytics] ${event}`, enriched);
 
-  // Fire-and-forget persistence to usage_events
+  // `organization_id` é NOT NULL em usage_events: sem contexto de organização a
+  // inserção falharia de qualquer forma. Não persiste, mas o console.debug acima
+  // já registrou — e o aviso torna visível a perda (antes era 100% silenciosa).
+  if (!context.organizationId) {
+    console.debug(`[analytics] ${event} não persistido: sem organizationId no contexto`);
+    return;
+  }
+
+  // Fire-and-forget. A forma do payload tem de casar EXATAMENTE com a policy
+  // `usage_events_product_insert` (20260730000005): metric preenchido,
+  // event_type/estimated_cost/provider nulos, quantity 1, source_type
+  // 'product_event' e user_id = auth.uid(). Mudar aqui exige mudar a policy.
   try {
     const supabase = getSupabase();
-    supabase
-      .from("usage_events")
-      .insert({
-        organization_id: context.organizationId ?? null,
-        metric: event,
-        quantity: 1,
-        source_type: "product_event",
-        metadata: enriched,
-      })
-      .then(
-        () => {},
-        () => {}, // Silently ignore persistence errors
-      );
+    void supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id;
+      if (!userId) return;
+      void supabase
+        .from("usage_events")
+        .insert({
+          organization_id: context.organizationId,
+          user_id: userId,
+          metric: event,
+          quantity: 1,
+          source_type: "product_event",
+          metadata: enriched,
+        })
+        .then(({ error }) => {
+          // Não relança: analytics nunca deve quebrar o app. Mas também não
+          // engole em silêncio — foi assim que a ausência da policy de INSERT
+          // passou despercebida.
+          if (error) {
+            console.warn(`[analytics] falha ao persistir ${event}: ${error.message}`);
+          }
+        });
+    });
   } catch {
     // Analytics should never break the app
   }
