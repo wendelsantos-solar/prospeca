@@ -54,5 +54,20 @@ begin
   select organization_id, id, 'new', stage, v_user
   from public.leads where organization_id = v_org and source = 'demo_seed' and stage <> 'new';
 
+  -- ── Usage counters (entitlements) ───────────────────────────────
+  -- Simula uso do período corrente para testar o painel de entitlements.
+  insert into public.usage_counters (organization_id, metric, period_start, period_end, quantity)
+  values
+    (v_org, 'searches',          date_trunc('month', now())::date, (date_trunc('month', now()) + interval '1 month')::date, 8),
+    (v_org, 'processed_leads',   date_trunc('month', now())::date, (date_trunc('month', now()) + interval '1 month')::date, 34),
+    (v_org, 'exports',           date_trunc('month', now())::date, (date_trunc('month', now()) + interval '1 month')::date, 1)
+  on conflict (organization_id, metric, period_start) do update set quantity = excluded.quantity, updated_at = now();
+
+  -- ── Feedback demo ───────────────────────────────────────────────
+  insert into public.feedback (organization_id, user_id, type, category, message, sentiment, goal, status, created_at)
+  values
+    (v_org, v_user, 'feedback', 'search', 'O search de padaria em SP retornou resultados muito bons!', 'happy', 'Encontrar leads de padaria', 'open', now() - interval '1 day'),
+    (v_org, v_user, 'bug', 'search', 'Não consegui filtrar por bairro, a busca parece ignorar o filtro.', 'frustrated', 'Filtrar leads por região específica', 'open', now() - interval '2 hours');
+
   raise notice 'Demo seed done for org %', v_org;
 end $$;
