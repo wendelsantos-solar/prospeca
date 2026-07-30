@@ -8,3 +8,4 @@ export * from "./cache.ts";
 export * from "./coverage.ts";
 export * from "./status.ts";
 export * from "./ssrf.ts";
+export * from "./entitlements.ts";
