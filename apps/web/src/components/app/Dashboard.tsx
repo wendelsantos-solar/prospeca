@@ -1,6 +1,7 @@
 import { useMemo, useState, Fragment } from "react";
 import { useLeadsStore, usePeriodStore } from "@/stores";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { formatBRL, formatNumber, formatPercent, formatDecimal } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, PERIOD_OPTIONS } from "@/lib/constants";
 import { resolvePeriod, previousWindow, leadsInWindow, deltaPct, inWindow } from "@/lib/period";
@@ -397,10 +398,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
     [byCity],
   );
 
-  const [nicheSort, setNicheSort] = useState<{ key: SortKey; dir: 1 | -1 }>({
-    key: "total",
-    dir: -1,
-  });
   const [citySort, setCitySort] = useState<{ key: SortKey; dir: 1 | -1 }>({
     key: "total",
     dir: -1,
@@ -410,10 +407,80 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const CITY_PAGE_SIZE = 5;
 
-  const nicheRows = useMemo(
-    () => sortRows(Object.entries(byNiche), nicheSort.key, nicheSort.dir),
-    [byNiche, nicheSort],
-  );
+  const nicheRows = useMemo(() => Object.entries(byNiche) as [string, StageAgg][], [byNiche]);
+  const nicheColumns: DataTableColumn<[string, StageAgg]>[] = useMemo(() => {
+    const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
+    return [
+      {
+        key: "name",
+        label: "Nicho",
+        sortValue: ([niche]) => categoryLabel(niche),
+        render: ([niche]) => <span className="font-medium">{categoryLabel(niche)}</span>,
+      },
+      {
+        key: "total",
+        label: "Leads",
+        align: "right",
+        sortValue: ([, v]) => v.total,
+        render: ([, v]) => (
+          <div className="flex items-center justify-end gap-2">
+            <span className="tabular-nums">{v.total}</span>
+            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-primary" style={{ width: `${(v.total / max) * 100}%` }} />
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "qualified",
+        label: "Qualificados",
+        align: "right",
+        sortValue: ([, v]) => v.qualified,
+        render: ([, v]) => <span className="tabular-nums">{v.qualified}</span>,
+      },
+      {
+        key: "contacted",
+        label: "Contatados",
+        align: "right",
+        sortValue: ([, v]) => v.contacted,
+        render: ([, v]) => <span className="tabular-nums">{v.contacted}</span>,
+      },
+      {
+        key: "won",
+        label: "Ganhos",
+        align: "right",
+        sortValue: ([, v]) => v.won,
+        render: ([, v]) => <span className="tabular-nums">{v.won}</span>,
+      },
+      {
+        key: "conv",
+        label: "Conversão",
+        align: "right",
+        sortValue: ([, v]) => (v.total ? v.won / v.total : 0),
+        render: ([, v]) => (
+          <span className="tabular-nums">
+            {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
+          </span>
+        ),
+      },
+      {
+        key: "revenue",
+        label: "Receita",
+        align: "right",
+        sortValue: ([, v]) => v.revenue,
+        render: ([, v]) => <span className="tabular-nums">{formatBRL(v.revenue)}</span>,
+      },
+      {
+        key: "ticket",
+        label: "Ticket médio",
+        align: "right",
+        sortValue: ([, v]) => (v.won ? v.revenue / v.won : 0),
+        render: ([, v]) => (
+          <span className="tabular-nums">{v.won ? formatBRL(v.revenue / v.won) : "—"}</span>
+        ),
+      },
+    ];
+  }, [byNiche]);
   const cityRowsAll = useMemo(() => {
     const rows = sortRows(Object.entries(byCity), citySort.key, citySort.dir);
     return citySearch
@@ -799,102 +866,12 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 <div className="text-[13px] font-semibold">Desempenho por nicho</div>
                 <div className="text-[11.5px] text-muted-foreground">Ranking por desempenho</div>
               </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableHead
-                        label="Nicho"
-                        k="name"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                      />
-                      <SortableHead
-                        label="Leads"
-                        k="total"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Qualificados"
-                        k="qualified"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Contatados"
-                        k="contacted"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Ganhos"
-                        k="won"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Conversão"
-                        k="conv"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Receita"
-                        k="revenue"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Ticket médio"
-                        k="ticket"
-                        sort={nicheSort}
-                        setSort={setNicheSort}
-                        className="text-right"
-                      />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {nicheRows.map(([niche, v]) => {
-                      const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
-                      return (
-                        <TableRow key={niche}>
-                          <TableCell className="font-medium">{categoryLabel(niche)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="tabular-nums">{v.total}</span>
-                              <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className="h-full bg-primary"
-                                  style={{ width: `${(v.total / max) * 100}%` }}
-                                />
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.won}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatBRL(v.revenue)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {v.won ? formatBRL(v.revenue / v.won) : "—"}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                columns={nicheColumns}
+                data={nicheRows}
+                rowKey={([niche]) => niche}
+                emptyTitle="Nenhum nicho ainda"
+              />
             </div>
 
             <div className="rounded-xl border border-border bg-surface p-4">

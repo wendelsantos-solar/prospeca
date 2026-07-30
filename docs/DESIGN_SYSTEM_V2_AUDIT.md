@@ -99,10 +99,21 @@ Não corrigido — mapeado pra sessões futuras:
 9. **Análises/Admin**: grid plano de cards idênticos, sem hierarquia
    primário/secundário por tamanho. Tabela de admin por org é `<table>`
    cru, não usa nenhum componente compartilhado.
-10. **`DataTable` genérico não existe** — `components/ui/table.tsx` é só
-    primitivas shadcn cruas (sem toolbar/busca/filtro/ordenação/seleção/
-    paginação/densidade/mobile-card). Usado hoje só de forma ad-hoc em
-    Dashboard e Admin.
+10. **`DataTable` genérico** — **parcialmente resolvido** (4ª rodada).
+    `components/shared/DataTable.tsx` (novo): ordenação por coluna,
+    paginação, densidade (`useUIStore`), empty state (`EmptyState`),
+    fallback mobile em cards empilhados label:valor — generaliza o
+    padrão `SortableHead`/`sortRows` que já existia local em
+    `Dashboard.tsx`. Migrados: tabela de organizações do Admin (não
+    tinha ordenação nenhuma antes) e tabela "Desempenho por nicho" do
+    Dashboard. **Não migrada**: tabela "Desempenho por cidade" do
+    Dashboard — tem linhas expansíveis (clique na cidade → expande
+    bairros), feature que o `DataTable` v1 não suporta; ficou
+    hand-rolled de propósito, não vale a pena forçar expansão de linha
+    numa v1 genérica. Migrar quando o componente ganhar essa capacidade.
+    `ResultsList.tsx` (tabela "Lista" da descoberta) também não migrou —
+    é densa e específica (score-ring, channel chips), não ganharia nada
+    virando genérica.
 11. **Drawer do lead**: 672px (`w-full sm:max-w-2xl`), spec pede
     540-600px. Tem 4 abas (Visão geral/Notas/Atividades/Timeline), spec
     pede 5ª aba "Oportunidade" — hoje esse conteúdo (score/resumo/
@@ -128,11 +139,12 @@ Não corrigido — mapeado pra sessões futuras:
 
 ## Ordem sugerida pras próximas sessões
 
-1. Mapa (marcadores + consolidar controles) — maior gap visual isolado.
-2. `DataTable` genérico — desbloqueia Admin/Análises/Histórico de uma
-   vez.
-3. Análises/Admin — hierarquia de métricas, depois que o DataTable
-   existir pra migrar as tabelas junto.
+1. ~~Mapa (marcadores + consolidar controles)~~ — feito (rodada 3).
+2. ~~`DataTable` genérico~~ — feito (rodada 4), ver item 10 acima.
+3. Análises/Admin — hierarquia de métricas (grid plano de cards
+   idênticos, sem diferença de peso visual entre indicador principal e
+   secundário), agora com o `DataTable` já disponível pra qualquer
+   tabela nova que a hierarquia precisar.
 4. Configurações — maior escopo, mais decisões de produto em aberto
    (o que cada aba realmente contém).
 5. Drawer/editor de mensagem — ajustes finos (largura, aba Oportunidade,

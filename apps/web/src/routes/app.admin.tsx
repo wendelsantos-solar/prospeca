@@ -27,6 +27,8 @@ import {
 } from "recharts";
 import { invokeFunction } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
+import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({
   component: AdminPage,
@@ -253,6 +255,67 @@ function AdminPage() {
     custo: s.est_cost_usd,
   }));
 
+  const orgColumns: DataTableColumn<OrgRow>[] = [
+    { key: "name", label: "Organização", sortValue: (r) => r.name, render: (r) => r.name },
+    {
+      key: "plan",
+      label: "Plano",
+      sortValue: (r) => r.plan,
+      render: (r) => <Badge variant="secondary">{r.plan}</Badge>,
+    },
+    {
+      key: "users",
+      label: "Usuários",
+      align: "right",
+      sortValue: (r) => r.users,
+      render: (r) => r.users,
+    },
+    {
+      key: "searches",
+      label: "Buscas",
+      align: "right",
+      sortValue: (r) => r.searches,
+      render: (r) => r.searches,
+    },
+    {
+      key: "est_cost_usd",
+      label: "Custo est.",
+      align: "right",
+      sortValue: (r) => r.est_cost_usd,
+      render: (r) => (
+        <span
+          className={cn(
+            r.budget_usd != null &&
+              r.est_cost_usd >= r.budget_usd &&
+              "font-medium text-destructive",
+          )}
+        >
+          US$ {r.est_cost_usd.toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: "budget_usd",
+      label: "Teto (US$/mês)",
+      render: (r) => (
+        <BudgetCell
+          org={r}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["admin-overview"] })}
+        />
+      ),
+    },
+    {
+      key: "last_activity",
+      label: "Última atividade",
+      sortValue: (r) => r.last_activity ?? "",
+      render: (r) => (
+        <span className="text-muted-foreground">
+          {r.last_activity ? new Date(r.last_activity).toLocaleDateString("pt-BR") : "—"}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="h-full overflow-y-auto bg-surface-2 p-5">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -385,63 +448,13 @@ function AdminPage() {
           desc={`Ordenado por gasto estimado · últimos ${days}d`}
         >
           <div className="rounded-xl border border-border bg-surface p-4">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th className="py-2 pr-3 font-medium">Organização</th>
-                    <th className="py-2 pr-3 font-medium">Plano</th>
-                    <th className="py-2 pr-3 font-medium text-right">Usuários</th>
-                    <th className="py-2 pr-3 font-medium text-right">Buscas</th>
-                    <th className="py-2 pr-3 font-medium text-right">Custo est.</th>
-                    <th className="py-2 pr-3 font-medium text-right">Teto (US$/mês)</th>
-                    <th className="py-2 font-medium">Última atividade</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.orgs.map((r) => (
-                    <tr key={r.org_id} className="border-b border-border last:border-0">
-                      <td className="py-2 pr-3 font-medium">{r.name}</td>
-                      <td className="py-2 pr-3">
-                        <Badge variant="secondary">{r.plan}</Badge>
-                      </td>
-                      <td className="py-2 pr-3 text-right">{r.users}</td>
-                      <td className="py-2 pr-3 text-right">{r.searches}</td>
-                      <td
-                        className={
-                          "py-2 pr-3 text-right" +
-                          (r.budget_usd != null && r.est_cost_usd >= r.budget_usd
-                            ? " font-medium text-destructive"
-                            : "")
-                        }
-                      >
-                        US$ {r.est_cost_usd.toFixed(2)}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <BudgetCell
-                          org={r}
-                          onSaved={() =>
-                            queryClient.invalidateQueries({ queryKey: ["admin-overview"] })
-                          }
-                        />
-                      </td>
-                      <td className="py-2 text-muted-foreground">
-                        {r.last_activity
-                          ? new Date(r.last_activity).toLocaleDateString("pt-BR")
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {data.orgs.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="py-4 text-center text-muted-foreground">
-                        Nenhuma organização ainda.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={orgColumns}
+              data={data.orgs}
+              rowKey={(r) => r.org_id}
+              emptyIcon={Building2}
+              emptyTitle="Nenhuma organização ainda"
+            />
           </div>
         </Section>
 
