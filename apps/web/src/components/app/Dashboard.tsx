@@ -229,6 +229,7 @@ function LocalMetricCard({
   tooltip,
   accent,
   highlight,
+  size = "default",
 }: {
   label: string;
   value: string;
@@ -236,12 +237,17 @@ function LocalMetricCard({
   tooltip?: string;
   accent?: "primary" | "hot" | "warm" | "cold" | "success" | "info";
   highlight?: boolean;
+  /** "lg" marks a headline metric — bigger value, more padding. Used to
+   * separate the 3-4 numbers that answer "how's the business" from the
+   * dozen supporting ones, instead of every card carrying equal weight. */
+  size?: "lg" | "default";
 }) {
   const trend = delta == null ? "flat" : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   return (
     <div
       className={cn(
-        "rounded-xl border p-3.5",
+        "rounded-xl border",
+        size === "lg" ? "p-4" : "p-3.5",
         highlight ? "border-primary/30 bg-primary-subtle" : "border-border bg-surface",
       )}
     >
@@ -261,7 +267,8 @@ function LocalMetricCard({
       <div className="mt-1 flex items-end justify-between gap-2">
         <div
           className={cn(
-            "text-[20px] font-semibold leading-none tabular-nums",
+            "font-semibold leading-none tabular-nums",
+            size === "lg" ? "text-[26px]" : "text-[20px]",
             accent === "hot" && "text-hot",
             accent === "success" && "text-success",
           )}
@@ -556,13 +563,44 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+            {/* Principais — os 4 números que respondem "como tá o negócio" de cara */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <LocalMetricCard
+                size="lg"
                 label="Total de leads"
                 value={formatNumber(a.total)}
                 delta={deltaPct(a.total, p.total)}
                 tooltip="Leads descobertos dentro do período selecionado."
               />
+              <LocalMetricCard
+                size="lg"
+                label="Ganhos"
+                value={formatNumber(a.byStage.won.length)}
+                delta={deltaPct(a.byStage.won.length, p.byStage.won.length)}
+                accent="success"
+                highlight
+                tooltip="Negócios fechados."
+              />
+              <LocalMetricCard
+                size="lg"
+                label="Conversão"
+                value={formatPercent(a.conv / 100)}
+                delta={deltaPct(a.conv, p.conv)}
+                tooltip="Ganhos sobre o total de leads do período."
+              />
+              <LocalMetricCard
+                size="lg"
+                label="Receita fechada"
+                value={formatBRL(a.revenue)}
+                delta={deltaPct(a.revenue, p.revenue)}
+                accent="success"
+                highlight
+                tooltip="Soma dos valores fechados no período."
+              />
+            </div>
+
+            {/* Secundárias — detalhe de apoio */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <LocalMetricCard
                 label="Enriquecidos"
                 value={formatNumber(a.enriched)}
@@ -582,24 +620,10 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 tooltip="Leads no estágio Contatado."
               />
               <LocalMetricCard
-                label="Ganhos"
-                value={formatNumber(a.byStage.won.length)}
-                delta={deltaPct(a.byStage.won.length, p.byStage.won.length)}
-                accent="success"
-                highlight
-                tooltip="Negócios fechados."
-              />
-              <LocalMetricCard
                 label="Descartados"
                 value={formatNumber(a.byStage.discarded.length)}
                 delta={deltaPct(a.byStage.discarded.length, p.byStage.discarded.length)}
                 tooltip="Leads descartados no período."
-              />
-              <LocalMetricCard
-                label="Conversão"
-                value={formatPercent(a.conv / 100)}
-                delta={deltaPct(a.conv, p.conv)}
-                tooltip="Ganhos sobre o total de leads do período."
               />
               <LocalMetricCard
                 label="Buscas"
@@ -618,14 +642,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 value={formatBRL(a.pipelineValue)}
                 delta={deltaPct(a.pipelineValue, p.pipelineValue)}
                 tooltip="Soma dos valores estimados dos leads ativos."
-              />
-              <LocalMetricCard
-                label="Receita fechada"
-                value={formatBRL(a.revenue)}
-                delta={deltaPct(a.revenue, p.revenue)}
-                accent="success"
-                highlight
-                tooltip="Soma dos valores fechados no período."
               />
               <LocalMetricCard
                 label="Ticket médio"

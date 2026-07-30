@@ -96,9 +96,16 @@ Não corrigido — mapeado pra sessões futuras:
    Dados/Plano/Integrações) precisa de reconstrução completa, e boa
    parte do conteúdo ainda não existe no produto (ex: "Plano" depende da
    Fase 3 do billing, que ainda não tem UI).
-9. **Análises/Admin**: grid plano de cards idênticos, sem hierarquia
-   primário/secundário por tamanho. Tabela de admin por org é `<table>`
-   cru, não usa nenhum componente compartilhado.
+9. **Análises/Admin — resolvido (5ª rodada).** `LocalMetricCard`/
+   `AdminCard` ganharam `size="lg"|"default"` — 4 indicadores principais
+   maiores (Análises: Total de leads/Ganhos/Conversão/Receita fechada;
+   Admin: Custo Google/Economia do cache/Buscas/Organizações), resto em
+   grid secundário menor. Bônus: Admin tinha uma duplicação real — os
+   sinais de "buscas presas/falhas/budget travado" apareciam duas vezes
+   (como card condicional em "Visão geral" **e** como `HealthRow` em
+   "Saúde operacional"). Removidos os cards condicionais, a informação
+   agora vive só em "Saúde operacional" (que já tinha semântica melhor —
+   estado ok/warn sempre visível, não só quando `> 0`).
 10. **`DataTable` genérico** — **parcialmente resolvido** (4ª rodada).
     `components/shared/DataTable.tsx` (novo): ordenação por coluna,
     paginação, densidade (`useUIStore`), empty state (`EmptyState`),
@@ -141,10 +148,7 @@ Não corrigido — mapeado pra sessões futuras:
 
 1. ~~Mapa (marcadores + consolidar controles)~~ — feito (rodada 3).
 2. ~~`DataTable` genérico~~ — feito (rodada 4), ver item 10 acima.
-3. Análises/Admin — hierarquia de métricas (grid plano de cards
-   idênticos, sem diferença de peso visual entre indicador principal e
-   secundário), agora com o `DataTable` já disponível pra qualquer
-   tabela nova que a hierarquia precisar.
+3. ~~Análises/Admin~~ — feito (rodada 5), ver item 9 acima.
 4. Configurações — maior escopo, mais decisões de produto em aberto
    (o que cada aba realmente contém).
 5. Drawer/editor de mensagem — ajustes finos (largura, aba Oportunidade,

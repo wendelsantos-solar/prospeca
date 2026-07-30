@@ -11,10 +11,8 @@ import {
   Zap,
   Users,
   Building2,
-  AlertTriangle,
   Activity,
   FileSearch,
-  Ban,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -103,6 +101,7 @@ function AdminCard({
   sub,
   delta,
   tone,
+  size = "default",
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -110,6 +109,10 @@ function AdminCard({
   sub?: string;
   delta?: string;
   tone?: "success" | "warn";
+  /** "lg" marks a headline indicator (spend, savings, volume, tenants) —
+   * separates those from the supporting detail cards instead of every
+   * card carrying equal visual weight. */
+  size?: "lg" | "default";
 }) {
   const iconColor =
     tone === "success"
@@ -118,7 +121,9 @@ function AdminCard({
         ? "text-warning-foreground bg-warning/15"
         : "text-muted-foreground bg-muted";
   return (
-    <div className="rounded-xl border border-border bg-surface p-3.5">
+    <div
+      className={cn("rounded-xl border border-border bg-surface", size === "lg" ? "p-4" : "p-3.5")}
+    >
       <div className="flex items-center justify-between">
         <span className={`grid h-7 w-7 place-items-center rounded-md ${iconColor}`}>
           <Icon className="h-3.5 w-3.5" />
@@ -126,7 +131,14 @@ function AdminCard({
         {delta && <span className="text-[10.5px] font-medium text-primary">{delta}</span>}
       </div>
       <div className="mt-2 text-[11.5px] font-medium text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-[18px] font-semibold leading-tight">{value}</div>
+      <div
+        className={cn(
+          "font-semibold leading-tight",
+          size === "lg" ? "mt-1 text-[24px]" : "mt-0.5 text-[18px]",
+        )}
+      >
+        {value}
+      </div>
       {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   );
@@ -346,14 +358,17 @@ function AdminPage() {
         </div>
 
         <Section title="Visão geral" desc={`Indicadores principais dos últimos ${days} dias`}>
+          {/* Principais — gasto, economia, volume e organizações */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <AdminCard
+              size="lg"
               icon={DollarSign}
               label="Custo Google"
               value={`US$ ${o.estCostUsd.toFixed(2)}`}
               tone="warn"
             />
             <AdminCard
+              size="lg"
               icon={Database}
               label="Economia do cache"
               value={`US$ ${o.estSavedUsd.toFixed(2)}`}
@@ -361,24 +376,32 @@ function AdminPage() {
               tone="success"
             />
             <AdminCard
-              icon={Zap}
-              label="Cache hit-rate"
-              value={`${Math.round(o.hitRate * 100)}%`}
-              tone="success"
-            />
-            <AdminCard
+              size="lg"
               icon={Activity}
               label="Buscas"
               value={o.searches}
               sub={`${o.cacheHits} do cache`}
             />
-            <AdminCard icon={Database} label="Entradas no cache" value={o.cacheEntries} />
             <AdminCard
+              size="lg"
               icon={Building2}
               label="Organizações"
               value={`${o.activeOrgs}/${o.orgs}`}
               sub="ativas/total"
             />
+          </div>
+
+          {/* Secundárias — detalhe de apoio. Alertas (buscas presas/falhas/
+           * budget travado) não repetem aqui — vivem só em "Saúde operacional",
+           * que já mostra o estado ok/warn sempre, não só quando > 0. */}
+          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <AdminCard
+              icon={Zap}
+              label="Cache hit-rate"
+              value={`${Math.round(o.hitRate * 100)}%`}
+              tone="success"
+            />
+            <AdminCard icon={Database} label="Entradas no cache" value={o.cacheEntries} />
             <AdminCard icon={Users} label="Usuários" value={o.users} />
             <AdminCard
               icon={FileSearch}
@@ -386,25 +409,6 @@ function AdminPage() {
               value={o.searchPages}
               sub={`+${o.geocodes} geocodes`}
             />
-            {o.stuckSearches > 0 && (
-              <AdminCard
-                icon={AlertTriangle}
-                label="Buscas presas"
-                value={o.stuckSearches}
-                tone="warn"
-              />
-            )}
-            {o.failedSearches > 0 && (
-              <AdminCard
-                icon={AlertTriangle}
-                label="Buscas falhas"
-                value={o.failedSearches}
-                tone="warn"
-              />
-            )}
-            {o.budgetCapped > 0 && (
-              <AdminCard icon={Ban} label="Budget travado" value={o.budgetCapped} tone="warn" />
-            )}
           </div>
         </Section>
 
