@@ -4,13 +4,26 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Check } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUp } from "@/hooks/useAuth";
+import { readUtm } from "@/lib/utm";
+import { track } from "@/lib/analytics";
+
+const PAID_PLAN_NAMES: Record<string, string> = {
+  solo: "Solo",
+  professional: "Profissional",
+  agency: "Agência",
+  team: "Equipe",
+};
 
 export const Route = createFileRoute("/cadastro")({
+  validateSearch: (search: Record<string, unknown>): { plan?: string } => ({
+    ...(typeof search.plan === "string" ? { plan: search.plan } : {}),
+  }),
   component: SignUpPage,
 });
 
@@ -30,7 +43,9 @@ type FormData = z.infer<typeof schema>;
 
 function SignUpPage() {
   const navigate = useNavigate();
+  const { plan } = Route.useSearch();
   const [submitting, setSubmitting] = useState(false);
+  const [createdWithPlan, setCreatedWithPlan] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -39,16 +54,45 @@ function SignUpPage() {
 
   const onSubmit = handleSubmit(async (data) => {
     setSubmitting(true);
+    track("signup_started", { plan: plan ?? "free" });
     try {
-      await signUp(data.email, data.password, data.fullName, data.companyName);
-      toast.success("Conta criada. Verifique seu e-mail para confirmar.");
-      navigate({ to: "/login" });
+      await signUp(data.email, data.password, data.fullName, data.companyName, {
+        intended_plan: plan ?? null,
+        utm: readUtm() ?? undefined,
+      });
+      track("signup_completed", { plan: plan ?? "free" });
+      if (plan && plan !== "free") {
+        setCreatedWithPlan(plan);
+      } else {
+        toast.success("Conta criada. Verifique seu e-mail para confirmar.");
+        navigate({ to: "/login" });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao criar conta.");
     } finally {
       setSubmitting(false);
     }
   });
+
+  if (createdWithPlan) {
+    return (
+      <AuthCard title="Conta criada" description="Verifique seu e-mail para confirmar o acesso.">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-primary-soft">
+            <Check className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-sm text-foreground">
+            Você escolheu o plano {PAID_PLAN_NAMES[createdWithPlan] ?? createdWithPlan}. Pagamentos
+            ainda não estão abertos — sua conta já está ativa no Descobrir e a gente avisa assim que
+            puder migrar.
+          </p>
+          <Button className="mt-5 w-full" onClick={() => navigate({ to: "/login" })}>
+            Ir para o login
+          </Button>
+        </div>
+      </AuthCard>
+    );
+  }
 
   return (
     <AuthCard

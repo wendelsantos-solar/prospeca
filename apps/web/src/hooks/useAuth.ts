@@ -62,11 +62,12 @@ export async function signUp(
   password: string,
   fullName: string,
   companyName: string,
+  extra?: Record<string, unknown>,
 ) {
   const { error } = await getSupabase().auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName, company_name: companyName } },
+    options: { data: { full_name: fullName, company_name: companyName, ...extra } },
   });
   if (error) throw new Error(traduzErroAuth(error.message));
 }
