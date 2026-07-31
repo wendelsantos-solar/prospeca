@@ -69,11 +69,15 @@ export function HeroProductDemo() {
                 key={i}
                 className={cn(
                   "absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[10px] font-bold shadow",
-                  pin.temp === "hot" && "bg-hot text-hot-foreground",
-                  pin.temp === "warm" && "bg-warm text-warm-foreground",
+                  pin.temp === "hot" && "bg-hot text-hot-foreground animate-pulse-soft",
+                  pin.temp === "warm" && "bg-warm text-warm-foreground animate-float",
                   pin.temp === "cold" && "bg-cold text-cold-foreground",
                 )}
-                style={{ top: pin.top, left: pin.left }}
+                style={{
+                  top: pin.top,
+                  left: pin.left,
+                  animationDelay: `${i * 0.5}s`,
+                }}
               >
                 {pin.score}
               </div>
@@ -84,7 +88,10 @@ export function HeroProductDemo() {
         {/* Right: Opportunity card + pipeline */}
         <div className="flex flex-col gap-3">
           {/* Opportunity card */}
-          <div className="rounded-xl border border-primary/20 bg-surface p-3 shadow-card">
+          <div
+            className="animate-slide-up rounded-xl border border-primary/20 bg-surface p-3 shadow-card"
+            style={{ animationDelay: "0.2s" }}
+          >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground">{hotLead.companyName}</span>
               <span className="rounded-md bg-hot-soft px-2 py-0.5 text-xs font-semibold text-hot">
@@ -115,7 +122,10 @@ export function HeroProductDemo() {
           </div>
 
           {/* Pipeline strip */}
-          <div className="rounded-xl border border-border bg-surface p-3">
+          <div
+            className="animate-slide-up rounded-xl border border-border bg-surface p-3"
+            style={{ animationDelay: "0.35s" }}
+          >
             <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
               <GitBranch className="h-3 w-3" /> Pipeline
             </div>
@@ -136,7 +146,10 @@ export function HeroProductDemo() {
           </div>
 
           {/* Message preview hint */}
-          <div className="rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] text-muted-foreground">
+          <div
+            className="animate-slide-up rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] text-muted-foreground"
+            style={{ animationDelay: "0.5s" }}
+          >
             <div className="mb-1 flex items-center gap-1.5">
               <MessageCircle className="h-3 w-3 text-primary" />
               <span className="font-medium text-foreground">Mensagem pronta</span>

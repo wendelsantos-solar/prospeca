@@ -372,6 +372,83 @@
   h4 {
     letter-spacing: -0.01em;
   }
+
+  /* === Marketing animations — subtle, respectful of reduced-motion === */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+  @keyframes draw-arc {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s var(--ease-enter) forwards;
+  }
+  .animate-slide-up {
+    animation: slide-up 0.6s var(--ease-enter) forwards;
+  }
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  .animate-draw-arc {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: draw-arc 1s var(--ease-enter) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-slide-up,
+    .animate-pulse-soft,
+    .animate-float,
+    .animate-draw-arc {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;

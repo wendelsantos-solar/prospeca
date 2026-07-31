@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { MarketingPage } from "./MarketingLayout";
+import { AnimatedSection } from "./AnimatedSection";
 import { HeroSection } from "./HeroSection";
 import { TrustStrip } from "./TrustStrip";
 import { ProblemSection } from "./ProblemSection";
@@ -31,21 +32,45 @@ export function LandingPage() {
     <MarketingPage>
       <HeroSection />
       <TrustStrip />
-      <ProblemSection />
-      <HowItWorksSection />
-      <OpportunitySection />
-      <ScoreSection />
-      <MapSection />
-      <PipelineSection />
-      <MessagingSection />
-      <UseCasesSection />
-      <AgencySection />
-      <BenefitsSection />
+      <AnimatedSection>
+        <ProblemSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <HowItWorksSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <OpportunitySection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <ScoreSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <MapSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <PipelineSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <MessagingSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <UseCasesSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <AgencySection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <BenefitsSection />
+      </AnimatedSection>
       <TestimonialsSection />
       <CaseStudySection />
-      <PricingTeaser />
+      <AnimatedSection>
+        <PricingTeaser />
+      </AnimatedSection>
       <FounderOffer />
-      <FAQSection />
+      <AnimatedSection>
+        <FAQSection />
+      </AnimatedSection>
       <FinalCTA />
     </MarketingPage>
   );

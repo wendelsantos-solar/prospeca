@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Background: warm cream -->
+  <rect width="1200" height="630" rx="0" fill="#F9F7F2"/>
+
+  <!-- Subtle top accent bar -->
+  <rect x="0" y="0" width="1200" height="6" fill="#0D9E5A"/>
+
+  <!-- Radar icon (centered-left area) -->
+  <g transform="translate(180, 160) scale(1.8)">
+    <!-- Outer arcs -->
+    <path d="M 14 14 A 14 14 0 0 1 34 14" stroke="#0D9E5A" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M 18 18 A 10 10 0 0 1 30 18" stroke="#0D9E5A" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <!-- Center dot -->
+    <circle cx="24" cy="24" r="2.5" fill="#0D9E5A"/>
+    <!-- Sweep line -->
+    <line x1="24" y1="24" x2="36" y2="12" stroke="#0D9E5A" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Blips -->
+    <circle cx="30" cy="16" r="1.5" fill="#0D9E5A"/>
+    <circle cx="22" cy="34" r="1.5" fill="#0D9E5A"/>
+  </g>
+
+  <!-- Brand name -->
+  <text x="280" y="230" font-family="Inter, system-ui, sans-serif" font-size="52" font-weight="700" fill="#1A1A1A" letter-spacing="-0.02em">Radar Local</text>
+
+  <!-- Tagline -->
+  <text x="280" y="285" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="400" fill="#6B6B6B" letter-spacing="-0.01em">Encontre empresas que precisam do serviço que você vende.</text>
+
+  <!-- Divider -->
+  <line x1="280" y1="330" x2="580" y2="330" stroke="#E0DDD5" stroke-width="1"/>
+
+  <!-- Value props row -->
+  <g transform="translate(280, 370)" font-family="Inter, system-ui, sans-serif">
+    <text x="0" y="0" font-size="18" font-weight="500" fill="#4A4A4A">🔍 Pesquise por nicho e região</text>
+    <text x="0" y="36" font-size="18" font-weight="500" fill="#4A4A4A">📊 Priorize com score inteligente</text>
+    <text x="0" y="72" font-size="18" font-weight="500" fill="#4A4A4A">📋 Organize tudo no Pipeline</text>
+  </g>
+
+  <!-- Bottom right: CTA -->
+  <rect x="800" y="440" width="280" height="56" rx="12" fill="#0D9E5A"/>
+  <text x="940" y="475" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="600" fill="#FFFFFF" text-anchor="middle">Começar gratuitamente</text>
+
+  <!-- URL -->
+  <text x="60" y="600" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#9B9B9B">radarlocal.com</text>
+</svg>

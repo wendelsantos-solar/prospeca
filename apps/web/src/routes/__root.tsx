@@ -102,7 +102,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Radar Local" },
       { property: "og:description", content: "Encontre, qualifique e converta negócios locais." },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/og-image.svg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "/og-image.svg" },
     ],
     links: [
       {
