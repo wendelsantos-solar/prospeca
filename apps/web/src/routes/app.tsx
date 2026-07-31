@@ -72,7 +72,7 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isRealMode && !auth.loading && !auth.isAuthenticated) {
-      const currentPath = routerState.location.pathname + routerState.location.search;
+      const currentPath = routerState.location.pathname + routerState.location.searchStr;
       preserveReturnTo(currentPath);
       navigate({ to: "/login" });
     }
@@ -81,7 +81,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     auth.isAuthenticated,
     navigate,
     routerState.location.pathname,
-    routerState.location.search,
+    routerState.location.searchStr,
   ]);
 
   if (isRealMode) {

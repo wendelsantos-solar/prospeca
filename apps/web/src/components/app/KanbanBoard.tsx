@@ -47,6 +47,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -100,6 +108,7 @@ const KanbanCard = memo(function KanbanCard({
   const removeLeadMut = useRemoveLeadMutation();
   const bulkLimit = useSettingsStore((s) => s.bulkLimit);
   const { openWhatsApp } = useOutbound();
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   const openWhats = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -192,7 +201,7 @@ const KanbanCard = memo(function KanbanCard({
               <MoreHorizontal className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
             {STAGE_ORDER.filter((s) => s !== lead.stage && s !== "won" && s !== "discarded").map(
               (s) => (
                 <DropdownMenuItem
@@ -229,14 +238,45 @@ const KanbanCard = memo(function KanbanCard({
               className="text-destructive focus:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
-                removeLeadMut.mutate(lead.id);
-                toast.success("Lead removido do pipeline");
+                setConfirmRemove(true);
               }}
             >
               Remover lead
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <Dialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+          <DialogContent onClick={(e) => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>Remover {lead.companyName}?</DialogTitle>
+              <DialogDescription>
+                Apaga o lead e seu histórico (notas, atividades) permanentemente — diferente de
+                "Descartar", que só marca o estágio e mantém tudo. Não pode ser desfeito.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmRemove(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={removeLeadMut.isPending}
+                onClick={() => {
+                  removeLeadMut.mutate(lead.id, {
+                    onSuccess: () => {
+                      pushRecentAction(`${lead.companyName} removido do pipeline`);
+                      toast.success("Lead removido do pipeline");
+                      setConfirmRemove(false);
+                    },
+                    onError: () => toast.error("Falha ao remover o lead"),
+                  });
+                }}
+              >
+                {removeLeadMut.isPending ? "Removendo..." : "Remover permanentemente"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Card>
   );
@@ -458,10 +498,16 @@ export function KanbanBoard({
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex h-full gap-3 overflow-x-auto p-4">
-        {STAGE_ORDER.map((s) => (
-          <KanbanColumn key={s} stage={s} leads={grouped[s]} density={density} />
-        ))}
+      {/* w-fit + mx-auto centers the columns when they fit the viewport;
+       * once they don't, w-fit keeps the row exactly content-width so the
+       * outer overflow-x-auto scrolls normally instead of clipping (which
+       * `justify-center` on the scroll container itself would do). */}
+      <div className="h-full overflow-x-auto p-4">
+        <div className="mx-auto flex h-full w-fit gap-3">
+          {STAGE_ORDER.map((s) => (
+            <KanbanColumn key={s} stage={s} leads={grouped[s]} density={density} />
+          ))}
+        </div>
       </div>
       <DragOverlay>
         {activeLead ? <KanbanCard lead={activeLead} density={density} overlay /> : null}
@@ -578,7 +624,7 @@ export function KanbanTopBar({
           setFilters({ ...filters, temperature: v as KanbanFilters["temperature"] })
         }
       >
-        <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Filtrar por temperatura">
+        <SelectTrigger className="h-8 w-[132px] text-xs" aria-label="Filtrar por temperatura">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -1,6 +1,35 @@
-import { MapPin, Star, Phone, TrendingUp, GitBranch, Search, MessageCircle } from "lucide-react";
+import {
+  MapPin,
+  Star,
+  Phone,
+  TrendingUp,
+  GitBranch,
+  Search,
+  MessageCircle,
+  RefreshCw,
+  Crosshair,
+  ZoomIn,
+  Circle as CircleIcon,
+  Moon,
+  Info,
+  ChevronUp,
+} from "lucide-react";
 import { DEMO_LEADS, DEMO_SEARCH, PIPELINE_STAGES } from "@/marketing/demo-data";
 import { cn } from "@/lib/utils";
+
+// Mirrors markerColor()/markerVisual() in components/app/map-popup.ts
+const MARKER_HEX = { hot: "#f97316", warm: "#eab308", cold: "#64748b", funnel: "#16a34a" };
+
+const MAP_PINS = [
+  { top: "22%", left: "46%", score: 89, temp: "hot" as const },
+  { top: "58%", left: "62%", score: 76, temp: "warm" as const },
+  { top: "40%", left: "24%", score: 81, temp: "hot" as const },
+  { top: "70%", left: "38%", score: 55, temp: "cold" as const },
+];
+const MAP_CLUSTERS = [
+  { top: "34%", left: "70%", count: 8 },
+  { top: "66%", left: "18%", count: 5 },
+];
 
 /**
  * Hero product demo — coded composition of real product surfaces.
@@ -41,47 +70,86 @@ export function HeroProductDemo() {
           </div>
 
           {/* Map */}
-          <div className="relative h-48 overflow-hidden rounded-lg bg-[oklch(0.955_0.012_156)] md:h-56">
-            {/* Grid pattern for map texture */}
-            <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle,_var(--border)_1px,_transparent_1px)] [background-size:20px_20px]" />
+          <div className="relative h-48 overflow-hidden rounded-lg bg-[oklch(0.965_0.01_140)] md:h-56">
+            {/* Terrain */}
+            <div className="absolute -left-6 -top-8 h-28 w-32 rounded-[45%] bg-[oklch(0.93_0.03_140)]" />
+            <div className="absolute -bottom-10 -right-10 h-32 w-40 rounded-[40%] bg-[oklch(0.92_0.03_230)]" />
 
-            {/* Roads (stylized) */}
-            <div className="absolute left-0 top-[30%] h-[2px] w-full bg-border/60" />
-            <div className="absolute left-0 top-[55%] h-[2px] w-full bg-border/60" />
-            <div className="absolute left-[35%] top-0 h-full w-[2px] bg-border/60" />
-            <div className="absolute left-[65%] top-0 h-full w-[2px] bg-border/60" />
+            {/* Roads (stylized, off-grid) */}
+            <div className="absolute left-0 top-[26%] h-[2px] w-full -rotate-[3deg] bg-border/70" />
+            <div className="absolute left-0 top-[62%] h-[2px] w-full rotate-[2deg] bg-border/70" />
+            <div className="absolute left-[40%] top-0 h-full w-[2px] rotate-[6deg] bg-border/70" />
+            <div className="absolute left-[72%] top-0 h-full w-[2px] -rotate-[4deg] bg-border/70" />
 
             {/* Radius circle */}
-            <div className="absolute left-[42%] top-[42%] h-[60%] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary/20 bg-primary-subtle/30" />
+            <div className="absolute left-[46%] top-[48%] h-[65%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary/20 bg-primary-subtle/20" />
 
-            {/* Center point */}
-            <div className="absolute left-[42%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow" />
+            {/* Center point (searched address) */}
+            <div className="absolute left-[46%] top-[48%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow" />
 
-            {/* Lead markers with scores */}
-            {[
-              { top: "30%", left: "48%", score: 89, temp: "hot" as const },
-              { top: "52%", left: "60%", score: 76, temp: "warm" as const },
-              { top: "38%", left: "32%", score: 64, temp: "warm" as const },
-              { top: "58%", left: "28%", score: 55, temp: "cold" as const },
-              { top: "46%", left: "68%", score: 81, temp: "hot" as const },
-            ].map((pin, i) => (
+            {/* Individual lead pins — mirrors markerVisual() in map-popup.ts */}
+            {MAP_PINS.map((pin, i) => (
               <div
                 key={i}
-                className={cn(
-                  "absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[10px] font-bold shadow",
-                  pin.temp === "hot" && "bg-hot text-hot-foreground animate-pulse-soft",
-                  pin.temp === "warm" && "bg-warm text-warm-foreground animate-float",
-                  pin.temp === "cold" && "bg-cold text-cold-foreground",
-                )}
+                className="absolute grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[9px] font-bold text-white shadow"
                 style={{
                   top: pin.top,
                   left: pin.left,
-                  animationDelay: `${i * 0.5}s`,
+                  background: MARKER_HEX[pin.temp],
+                  border: "2px solid #ffffff",
                 }}
               >
                 {pin.score}
               </div>
             ))}
+
+            {/* Cluster badges — flat green, count-only, like the real clusterer */}
+            {MAP_CLUSTERS.map((c, i) => (
+              <div
+                key={i}
+                className="absolute grid h-[26px] w-[26px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[10px] font-bold text-white shadow"
+                style={{
+                  top: c.top,
+                  left: c.left,
+                  background: MARKER_HEX.funnel,
+                  border: "2px solid #ffffff",
+                }}
+              >
+                {c.count}
+              </div>
+            ))}
+
+            {/* Results pill — mirrors "X de Y no raio" */}
+            <div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-lg border border-border bg-surface/95 px-2.5 py-1 text-[10px] font-medium shadow-elevated backdrop-blur">
+              {MAP_PINS.length + MAP_CLUSTERS.reduce((n, c) => n + c.count, 0)}{" "}
+              <span className="text-muted-foreground">de {DEMO_SEARCH.resultsCount} no raio</span>
+            </div>
+
+            {/* Consolidated control box */}
+            <div className="absolute right-2 top-2 flex flex-col gap-0.5 rounded-lg border border-border bg-surface/95 p-1 shadow-elevated backdrop-blur">
+              {[RefreshCw, Crosshair, ZoomIn].map((Icon, i) => (
+                <div
+                  key={i}
+                  className="grid h-6 w-6 place-items-center rounded text-muted-foreground"
+                >
+                  <Icon className="h-3 w-3" />
+                </div>
+              ))}
+              <div className="my-0.5 h-px bg-border" />
+              <div className="grid h-6 w-6 place-items-center rounded bg-primary text-primary-foreground">
+                <CircleIcon className="h-3 w-3" />
+              </div>
+              <div className="grid h-6 w-6 place-items-center rounded text-muted-foreground">
+                <Moon className="h-3 w-3" />
+              </div>
+            </div>
+
+            {/* Collapsible legend — shown collapsed, like the real default */}
+            <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-lg border border-border bg-surface/95 px-2 py-1 text-[9px] font-medium text-muted-foreground shadow-elevated backdrop-blur">
+              <Info className="h-2.5 w-2.5" />
+              Legenda
+              <ChevronUp className="h-2.5 w-2.5" />
+            </div>
           </div>
         </div>
 
