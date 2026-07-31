@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MarketingHeader } from "./MarketingHeader";
+import { MarketingPage } from "./MarketingLayout";
 import { HeroSection } from "./HeroSection";
 import { TrustStrip } from "./TrustStrip";
 import { ProblemSection } from "./ProblemSection";
@@ -18,7 +18,6 @@ import { PricingTeaser } from "./PricingTeaser";
 import { FounderOffer } from "./FounderOffer";
 import { FAQSection } from "./FAQSection";
 import { FinalCTA } from "./FinalCTA";
-import { MarketingFooter } from "./MarketingFooter";
 import { captureUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 
@@ -29,8 +28,7 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <MarketingHeader />
+    <MarketingPage>
       <HeroSection />
       <TrustStrip />
       <ProblemSection />
@@ -49,7 +47,6 @@ export function LandingPage() {
       <FounderOffer />
       <FAQSection />
       <FinalCTA />
-      <MarketingFooter />
-    </div>
+    </MarketingPage>
   );
 }

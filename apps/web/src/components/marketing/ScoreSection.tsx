@@ -1,41 +1,51 @@
-import { Section, SectionHeading } from "./Section";
-
-// Mesmos critérios/pontos de packages/domain/src/score.ts (v3.0.0) — mantenha em sincronia.
-const FACTORS = [
-  { label: "Não possui site", points: "+30" },
-  { label: "Telefone válido", points: "+20" },
-  { label: "WhatsApp", points: "+12" },
-  { label: "Instagram", points: "+5" },
-  { label: "Até 5 km de distância", points: "+8" },
-  { label: "Categoria identificada", points: "+3" },
-];
+import { Globe, Phone, MessageCircle, Star, MapPin, Tag, Camera } from "lucide-react";
+import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
+import { SCORE_CRITERIA, DEMO_LEADS } from "@/marketing/demo-data";
+const ICON_MAP = { Globe, Phone, MessageCircle, Star, MapPin, Tag, Camera } as const;
 
 export function ScoreSection() {
+  const lead = DEMO_LEADS[0];
   return (
-    <Section>
-      <div className="grid items-center gap-10 md:grid-cols-2">
-        <div>
-          <SectionHeading
-            eyebrow="Score"
-            title="Saiba por que cada empresa foi priorizada."
-            description="O score usa critérios comerciais fixos e documentados — não é uma caixa-preta. Cada ponto tem uma explicação."
-          />
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <div className="mb-4 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-foreground">78</span>
-            <span className="text-sm text-muted-foreground">/100</span>
+    <MarketingSection spacing="lg">
+      <MarketingContainer width="default">
+        <div className="grid items-center gap-10 md:grid-cols-2">
+          <div>
+            <SectionHeading
+              eyebrow="Score"
+              title="Saiba por que cada empresa foi priorizada."
+              description="O score usa critérios comerciais fixos e documentados — não é uma caixa-preta. Cada ponto tem uma explicação clara."
+            />
           </div>
-          <ul className="space-y-2.5">
-            {FACTORS.map((f) => (
-              <li key={f.label} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{f.label}</span>
-                <span className="font-mono font-semibold text-primary">{f.points}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-card">
+            <div className="mb-5 flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-foreground">{lead.score}</span>
+              <span className="text-sm text-muted-foreground">/100</span>
+              <span className="ml-auto rounded-md bg-hot-soft px-2.5 py-1 text-xs font-semibold text-hot">
+                Alta prioridade
+              </span>
+            </div>
+            <ul className="space-y-2.5">
+              {SCORE_CRITERIA.map((c) => {
+                const Icon = ICON_MAP[c.icon];
+                return (
+                  <li
+                    key={c.label}
+                    className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-surface-2"
+                  >
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                      {c.label}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-primary">
+                      +{c.points}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
-      </div>
-    </Section>
+      </MarketingContainer>
+    </MarketingSection>
   );
 }

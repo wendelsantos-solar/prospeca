@@ -76,7 +76,13 @@ function AuthGate({ children }: { children: ReactNode }) {
       preserveReturnTo(currentPath);
       navigate({ to: "/login" });
     }
-  }, [auth.loading, auth.isAuthenticated, navigate, routerState.location.pathname, routerState.location.search]);
+  }, [
+    auth.loading,
+    auth.isAuthenticated,
+    navigate,
+    routerState.location.pathname,
+    routerState.location.search,
+  ]);
 
   if (isRealMode) {
     const missing = realConfigMissing();

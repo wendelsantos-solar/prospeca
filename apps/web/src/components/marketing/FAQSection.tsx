@@ -1,7 +1,10 @@
-import { Section, SectionHeading } from "./Section";
+import { useState } from "react";
+import { Plus, Minus } from "lucide-react";
+import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
 import { track } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
-const FAQS: { q: string; a: string }[] = [
+const FAQS = [
   {
     q: "O Radar Local envia mensagens automaticamente?",
     a: "Não. Ele prepara a mensagem com os dados do lead e você revisa e envia pelo seu próprio WhatsApp — nada sai sem sua confirmação.",
@@ -55,44 +58,55 @@ const FAQS: { q: string; a: string }[] = [
     a: "Sim, cada plano tem uma franquia mensal de buscas e de leads processados — os limites ficam visíveis na sua conta.",
   },
   {
-    q: "O Radar Local substitui um CRM?",
-    a: "Ele cobre o essencial de organizar prospecção (Pipeline, notas, atividades) focado em negócios locais — não é um CRM completo pra operações de vendas complexas.",
-  },
-  {
-    q: "Como os dados são obtidos?",
-    a: "A partir de fontes públicas do Google (Places/Maps) sobre estabelecimentos comerciais.",
-  },
-  {
     q: "Como funciona a privacidade?",
     a: "Seguimos a LGPD — dados de contato têm origem pública e você pode solicitar remoção a qualquer momento pelo canal de contato do site.",
   },
 ];
 
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border">
+      <button
+        type="button"
+        onClick={() => {
+          const n = !open;
+          setOpen(n);
+          if (n) track("faq_opened", { question: q });
+        }}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-medium text-foreground transition-colors hover:text-primary"
+        aria-expanded={open}
+      >
+        <span>{q}</span>
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground transition-transform duration-200">
+          {open ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+        </span>
+      </button>
+      <div
+        className={cn(
+          "grid transition-all duration-200",
+          open ? "grid-rows-[1fr] pb-4" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <p className="text-sm leading-relaxed text-muted-foreground">{a}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FAQSection() {
   return (
-    <Section id="perguntas">
-      <SectionHeading title="Perguntas frequentes" center />
-      <div className="mx-auto mt-10 max-w-2xl divide-y divide-border">
-        {FAQS.map((item) => (
-          <details
-            key={item.q}
-            className="group py-4"
-            onToggle={(e) => {
-              if ((e.target as HTMLDetailsElement).open) track("faq_opened", { question: item.q });
-            }}
-          >
-            <summary className="cursor-pointer list-none text-sm font-medium text-foreground marker:content-none">
-              <span className="flex items-center justify-between gap-4">
-                {item.q}
-                <span className="shrink-0 text-muted-foreground transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </span>
-            </summary>
-            <p className="mt-2 text-sm text-muted-foreground">{item.a}</p>
-          </details>
-        ))}
-      </div>
-    </Section>
+    <MarketingSection id="perguntas" spacing="lg">
+      <MarketingContainer width="narrow">
+        <SectionHeading title="Perguntas frequentes" center />
+        <div className="mt-10">
+          {FAQS.map((item) => (
+            <FaqItem key={item.q} q={item.q} a={item.a} />
+          ))}
+        </div>
+      </MarketingContainer>
+    </MarketingSection>
   );
 }

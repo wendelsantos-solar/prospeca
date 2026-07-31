@@ -19,11 +19,18 @@ type FormData = z.infer<typeof schema>;
 function RecuperarSenhaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   if (sent) {
     return (
-      <AuthCard title="E-mail enviado" description="Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.">
+      <AuthCard
+        title="E-mail enviado"
+        description="Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha."
+      >
         <Button className="w-full" variant="outline" asChild>
           <Link to="/login">Voltar para o login</Link>
         </Button>
@@ -45,14 +52,27 @@ function RecuperarSenhaPage() {
   });
 
   return (
-    <AuthCard title="Recuperar senha" description="Informe seu e-mail para receber um link de redefinição." footer={<>Lembrou? <Link to="/login" className="text-primary hover:underline">Entrar</Link></>}>
+    <AuthCard
+      title="Recuperar senha"
+      description="Informe seu e-mail para receber um link de redefinição."
+      footer={
+        <>
+          Lembrou?{" "}
+          <Link to="/login" className="text-primary hover:underline">
+            Entrar
+          </Link>
+        </>
+      }
+    >
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
           <Input id="email" type="email" autoComplete="email" {...register("email")} />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
-        <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Enviando..." : "Enviar link"}</Button>
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Enviando..." : "Enviar link"}
+        </Button>
       </form>
     </AuthCard>
   );

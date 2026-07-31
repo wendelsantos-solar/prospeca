@@ -13,16 +13,25 @@ export const Route = createFileRoute("/redefinir-senha")({
   component: RedefinirSenhaPage,
 });
 
-const schema = z.object({
-  password: z.string().min(6, "Mínimo de 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((d) => d.password === d.confirmPassword, { message: "As senhas não conferem", path: ["confirmPassword"] });
+const schema = z
+  .object({
+    password: z.string().min(6, "Mínimo de 6 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"],
+  });
 type FormData = z.infer<typeof schema>;
 
 function RedefinirSenhaPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = handleSubmit(async (_data) => {
     setSubmitting(true);
@@ -41,15 +50,29 @@ function RedefinirSenhaPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="password">Nova senha</Label>
-          <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            {...register("password")}
+          />
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">Confirmar senha</Label>
-          <Input id="confirmPassword" type="password" autoComplete="new-password" {...register("confirmPassword")} />
-          {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
+          <Input
+            id="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            {...register("confirmPassword")}
+          />
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+          )}
         </div>
-        <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Redefinindo..." : "Redefinir senha"}</Button>
+        <Button type="submit" className="w-full" disabled={submitting}>
+          {submitting ? "Redefinindo..." : "Redefinir senha"}
+        </Button>
       </form>
     </AuthCard>
   );

@@ -1,5 +1,5 @@
 import { Code2, Share2, Megaphone, Users, Cpu, Building2 } from "lucide-react";
-import { Section, SectionHeading } from "./Section";
+import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
 
 const CASES = [
   {
@@ -36,22 +36,29 @@ const CASES = [
 
 export function UseCasesSection() {
   return (
-    <Section id="para-quem">
-      <SectionHeading
-        eyebrow="Para quem é"
-        title="Feito para quem vende serviço pra negócio local"
-        description="Freelancers, agências pequenas e consultores que prospectam empresas locais."
-        center
-      />
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {CASES.map((c) => (
-          <div key={c.title} className="rounded-xl border border-border bg-surface p-5">
-            <c.icon className="mb-3 h-5 w-5 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">{c.title}</h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">{c.description}</p>
-          </div>
-        ))}
-      </div>
-    </Section>
+    <MarketingSection id="para-quem" spacing="lg">
+      <MarketingContainer width="default">
+        <SectionHeading
+          eyebrow="Para quem é"
+          title="Feito para quem vende serviço pra negócio local"
+          description="Freelancers, agências pequenas e consultores que prospectam empresas locais."
+          center
+        />
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {CASES.map((c) => (
+            <div
+              key={c.title}
+              className="group rounded-xl border border-border bg-surface p-5 transition-colors hover:border-primary/20 hover:bg-surface-hover"
+            >
+              <div className="mb-3 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface-2 text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary-subtle">
+                <c.icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground">{c.title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{c.description}</p>
+            </div>
+          ))}
+        </div>
+      </MarketingContainer>
+    </MarketingSection>
   );
 }

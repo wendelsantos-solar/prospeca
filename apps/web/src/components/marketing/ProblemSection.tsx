@@ -1,5 +1,5 @@
 import { X, Check } from "lucide-react";
-import { Section, SectionHeading } from "./Section";
+import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
 
 const BEFORE = [
   "Procurar empresas manualmente no mapa",
@@ -11,7 +11,6 @@ const BEFORE = [
   "Não saber quem priorizar primeiro",
   "Abordar sem contexto nenhum",
 ];
-
 const AFTER = [
   "Buscar por nicho, cidade e raio em segundos",
   "Ver todas as empresas já organizadas numa lista",
@@ -25,35 +24,47 @@ const AFTER = [
 
 export function ProblemSection() {
   return (
-    <Section muted>
-      <SectionHeading
-        center
-        title="Prospectar clientes locais não deveria depender de horas no mapa e planilhas desorganizadas."
-      />
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">Antes do Radar Local</h3>
-          <ul className="space-y-3">
-            {BEFORE.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                {item}
-              </li>
-            ))}
-          </ul>
+    <MarketingSection muted spacing="lg">
+      <MarketingContainer width="default">
+        <SectionHeading
+          center
+          title="Prospectar clientes locais não deveria depender de horas no mapa e planilhas desorganizadas."
+        />
+        <div className="mt-12 grid gap-5 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface p-6">
+            <h3 className="mb-5 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <span className="grid h-6 w-6 place-items-center rounded bg-destructive-soft text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </span>
+              Antes do Radar Local
+            </h3>
+            <ul className="space-y-3">
+              {BEFORE.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive/60" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-xl border border-primary/20 bg-surface p-6">
+            <h3 className="mb-5 flex items-center gap-2 text-sm font-semibold text-primary">
+              <span className="grid h-6 w-6 place-items-center rounded bg-primary-soft text-primary">
+                <Check className="h-3.5 w-3.5" />
+              </span>
+              Com o Radar Local
+            </h3>
+            <ul className="space-y-3">
+              {AFTER.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-foreground">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <div className="rounded-xl border border-primary/30 bg-surface p-5">
-          <h3 className="mb-4 text-sm font-semibold text-primary">Depois do Radar Local</h3>
-          <ul className="space-y-3">
-            {AFTER.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-foreground">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </Section>
+      </MarketingContainer>
+    </MarketingSection>
   );
 }

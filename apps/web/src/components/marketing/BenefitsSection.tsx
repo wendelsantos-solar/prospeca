@@ -1,15 +1,34 @@
-import { Section, SectionHeading } from "./Section";
+import { Search, Target, MessageSquare, CalendarCheck, Layers, BarChart3 } from "lucide-react";
+import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
 
 const BENEFITS = [
-  { title: "Menos pesquisa manual", description: "Pare de copiar empresas uma por uma." },
-  { title: "Mais prioridade", description: "Comece pelos negócios com maior potencial." },
   {
+    icon: Search,
+    title: "Menos pesquisa manual",
+    description: "Pare de copiar empresas uma por uma do mapa.",
+  },
+  {
+    icon: Target,
+    title: "Mais prioridade",
+    description: "Comece pelos negócios com maior potencial comercial.",
+  },
+  {
+    icon: MessageSquare,
     title: "Abordagem contextual",
     description: "Use informações reais para personalizar sua mensagem.",
   },
-  { title: "Follow-up organizado", description: "Não perca retornos e oportunidades." },
-  { title: "Tudo em um lugar", description: "Busca, mapa, Pipeline e atividades conectados." },
   {
+    icon: CalendarCheck,
+    title: "Follow-up organizado",
+    description: "Não perca retornos e oportunidades por esquecimento.",
+  },
+  {
+    icon: Layers,
+    title: "Tudo em um lugar",
+    description: "Busca, mapa, Pipeline e atividades conectados.",
+  },
+  {
+    icon: BarChart3,
     title: "Resultado mensurável",
     description: "Acompanhe oportunidades, contatos e conversões.",
   },
@@ -17,16 +36,23 @@ const BENEFITS = [
 
 export function BenefitsSection() {
   return (
-    <Section>
-      <SectionHeading title="Por que usar o Radar Local" center />
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-        {BENEFITS.map((b) => (
-          <div key={b.title}>
-            <h3 className="text-sm font-semibold text-foreground">{b.title}</h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">{b.description}</p>
-          </div>
-        ))}
-      </div>
-    </Section>
+    <MarketingSection spacing="lg">
+      <MarketingContainer width="default">
+        <SectionHeading title="Por que usar o Radar Local" center />
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {BENEFITS.map((b) => (
+            <div key={b.title} className="flex gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-surface-2 text-primary">
+                <b.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">{b.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{b.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </MarketingContainer>
+    </MarketingSection>
   );
 }
