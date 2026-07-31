@@ -18,6 +18,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ParaAgenciasIndexRouteImport } from './routes/para-agencias/index'
+import { Route as ContatoIndexRouteImport } from './routes/contato/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppPainelRouteImport } from './routes/app.painel'
 import { Route as AppMapaRouteImport } from './routes/app.mapa'
@@ -71,6 +73,16 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParaAgenciasIndexRoute = ParaAgenciasIndexRouteImport.update({
+  id: '/para-agencias/',
+  path: '/para-agencias/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContatoIndexRoute = ContatoIndexRouteImport.update({
+  id: '/contato/',
+  path: '/contato/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -138,6 +150,8 @@ export interface FileRoutesByFullPath {
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
   '/app/': typeof AppIndexRoute
+  '/contato/': typeof ContatoIndexRoute
+  '/para-agencias/': typeof ParaAgenciasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +171,8 @@ export interface FileRoutesByTo {
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
   '/app': typeof AppIndexRoute
+  '/contato': typeof ContatoIndexRoute
+  '/para-agencias': typeof ParaAgenciasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,6 +194,8 @@ export interface FileRoutesById {
   '/app/mapa': typeof AppMapaRoute
   '/app/painel': typeof AppPainelRoute
   '/app/': typeof AppIndexRoute
+  '/contato/': typeof ContatoIndexRoute
+  '/para-agencias/': typeof ParaAgenciasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,6 +218,8 @@ export interface FileRouteTypes {
     | '/app/mapa'
     | '/app/painel'
     | '/app/'
+    | '/contato/'
+    | '/para-agencias/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -219,6 +239,8 @@ export interface FileRouteTypes {
     | '/app/mapa'
     | '/app/painel'
     | '/app'
+    | '/contato'
+    | '/para-agencias'
   id:
     | '__root__'
     | '/'
@@ -239,6 +261,8 @@ export interface FileRouteTypes {
     | '/app/mapa'
     | '/app/painel'
     | '/app/'
+    | '/contato/'
+    | '/para-agencias/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -251,6 +275,8 @@ export interface RootRouteChildren {
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  ContatoIndexRoute: typeof ContatoIndexRoute
+  ParaAgenciasIndexRoute: typeof ParaAgenciasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -316,6 +342,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/para-agencias/': {
+      id: '/para-agencias/'
+      path: '/para-agencias'
+      fullPath: '/para-agencias/'
+      preLoaderRoute: typeof ParaAgenciasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contato/': {
+      id: '/contato/'
+      path: '/contato'
+      fullPath: '/contato/'
+      preLoaderRoute: typeof ContatoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -420,6 +460,8 @@ const rootRouteChildren: RootRouteChildren = {
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  ContatoIndexRoute: ContatoIndexRoute,
+  ParaAgenciasIndexRoute: ParaAgenciasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
