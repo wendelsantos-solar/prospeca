@@ -1,0 +1,28 @@
+{
+  "name": "Radar Local",
+  "short_name": "Radar Local",
+  "description": "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
+  "start_url": "/app/mapa",
+  "display": "standalone",
+  "background_color": "#F9F7F2",
+  "theme_color": "#0D9E5A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
