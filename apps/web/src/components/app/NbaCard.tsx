@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { MessageCircle, PhoneCall, Mail, Sparkles, Clock, ArrowRight } from "lucide-react";
 import type { Lead } from "@/types";
 import { computeNba, type NbaChannel, type NbaPriority } from "@/lib/nba";
 import { CADENCE_STEPS } from "@/lib/cadence";
 import { buildContactMessage } from "@/lib/message-fill";
+import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
 import { useOutbound } from "@/hooks/useOutbound";
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
@@ -35,8 +37,17 @@ export function NbaCard({ lead }: { lead: Lead }) {
   const signature = useSettingsStore((s) => s.signature);
   const nba = computeNba(lead);
   const Icon = CHANNEL_ICON[nba.channel];
+  const [dialogOpen, setDialogOpen] = useState(false);
+  // Only the very first touch gets AI generation (roadmap 3.5) — cadence
+  // steps 2-4 already have their own fixed opener from cadence.ts and keep
+  // going straight to wa.me, unchanged.
+  const isFirstContact = lead.stage === "new" && nba.channel === "whatsapp";
 
   async function handleCta() {
+    if (isFirstContact) {
+      setDialogOpen(true);
+      return;
+    }
     if (nba.channel === "whatsapp") {
       // Cadence touches (contacted, step due) get an escalating opener
       // instead of resending the exact same first-contact template.
@@ -105,6 +116,14 @@ export function NbaCard({ lead }: { lead: Lead }) {
           <ArrowRight className="h-3 w-3" />
         </button>
       </div>
+      {isFirstContact && (
+        <PrepareMessageDialog
+          lead={lead}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          autoGenerate
+        />
+      )}
     </div>
   );
 }
