@@ -38,6 +38,8 @@ import {
   ChevronsLeftRight,
   CalendarClock,
   Inbox,
+  Navigation,
+  ListChecks,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -564,7 +566,10 @@ export function KanbanTopBar({
   setDensity,
   count,
   selected,
+  bulkMode,
+  onToggleBulkMode,
   onPrepareMessages,
+  onPlanRoute,
   filters,
   setFilters,
   cities,
@@ -576,7 +581,10 @@ export function KanbanTopBar({
   setDensity: (d: "compact" | "comfortable") => void;
   count: number;
   selected: number;
+  bulkMode: boolean;
+  onToggleBulkMode: () => void;
   onPrepareMessages: () => void;
+  onPlanRoute: () => void;
   filters: KanbanFilters;
   setFilters: (f: KanbanFilters) => void;
   cities: string[];
@@ -751,6 +759,25 @@ export function KanbanTopBar({
             </button>
           ))}
         </div>
+        <Button
+          size="sm"
+          variant={bulkMode ? "secondary" : "outline"}
+          onClick={onToggleBulkMode}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          {bulkMode ? "Cancelar seleção" : "Selecionar"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onPlanRoute}
+          disabled={selected === 0}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <Navigation className="h-3.5 w-3.5" />
+          Planejar rota
+        </Button>
         <Button
           size="sm"
           onClick={onPrepareMessages}

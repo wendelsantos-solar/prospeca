@@ -5,6 +5,7 @@ import { NavRail } from "@/components/app/NavRail";
 import { TopNav } from "@/components/app/TopNav";
 import { useLeadsStore } from "@/stores";
 import { BulkMessageDialog } from "@/components/app/BulkBar";
+import { RouteDialog } from "@/components/app/RouteDialog";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 
 // Lazy-load heavy dialogs — only download when user actually opens a lead or
@@ -167,6 +168,7 @@ function AppLayout() {
   // Supabase Realtime: keeps leads in sync across tabs/devices without polling
   useLeadsRealtimeSubscription();
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [routeOpen, setRouteOpen] = useState(false);
   const onboarding = useOnboarding();
   const [showOnboarding, setShowOnboarding] = useState(!onboarding.isCompleted);
 
@@ -209,6 +211,12 @@ function AppLayout() {
     return () => window.removeEventListener("open-bulk-messages", h);
   }, []);
 
+  useEffect(() => {
+    const h = () => setRouteOpen(true);
+    window.addEventListener("open-route-planner", h);
+    return () => window.removeEventListener("open-route-planner", h);
+  }, []);
+
   return (
     <AuthGate>
       <ErrorBoundary location="AppLayout">
@@ -235,6 +243,7 @@ function AppLayout() {
             <LeadDetailsDrawer />
           </Suspense>
           <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+          <RouteDialog open={routeOpen} onOpenChange={setRouteOpen} />
           <Suspense fallback={null}>
             <WonDialog />
           </Suspense>

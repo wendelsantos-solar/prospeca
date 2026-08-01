@@ -59,6 +59,8 @@ function KanbanPage() {
   const density = useUIStore((s) => s.density);
   const setDensity = useUIStore((s) => s.setDensity);
   const selected = useLeadsStore((s) => s.selectedIds);
+  const bulkMode = useLeadsStore((s) => s.bulkMode);
+  const setBulkMode = useLeadsStore((s) => s.setBulkMode);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [kFilters, setKFilters] = useState<KanbanFilters>(EMPTY_KANBAN_FILTERS);
@@ -110,7 +112,10 @@ function KanbanPage() {
           setDensity={setDensity}
           count={filtered.length}
           selected={selected.length}
+          bulkMode={bulkMode}
+          onToggleBulkMode={() => setBulkMode(!bulkMode)}
           onPrepareMessages={() => window.dispatchEvent(new CustomEvent("open-bulk-messages"))}
+          onPlanRoute={() => window.dispatchEvent(new CustomEvent("open-route-planner"))}
           filters={kFilters}
           setFilters={setKFilters}
           cities={cities}
