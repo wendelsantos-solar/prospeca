@@ -1,4 +1,4 @@
-import type { Lead, LeadStage, Search, PresenceFilter } from "@/types";
+import type { Lead, Search, PresenceFilter } from "@/types";
 import { MOCK_LEADS } from "@/mocks/leads";
 import { CITY_SUGGESTIONS } from "@/lib/constants";
 import { distanceKm } from "@/lib/geo";
@@ -88,28 +88,6 @@ export const searchService = {
     };
     void withoutSite;
     return { leads: final, search };
-  },
-};
-
-export const leadService = {
-  async updateStage(lead: Lead, stage: LeadStage, extra?: Partial<Lead>): Promise<Lead> {
-    await delay(150);
-    maybeFail(0.05, "Falha ao atualizar o estágio. Tente novamente.");
-    return {
-      ...lead,
-      stage,
-      ...extra,
-      timeline: [
-        ...lead.timeline,
-        {
-          id: `t-${Date.now()}`,
-          kind: "stage",
-          label: `Movido para ${stage}`,
-          at: new Date().toISOString(),
-        },
-      ],
-      lastInteractionAt: new Date().toISOString(),
-    };
   },
 };
 

@@ -82,12 +82,6 @@ export function useAuth(): AuthState {
   return state;
 }
 
-export async function getSessionOrNull(): Promise<Session | null> {
-  if (isDemoMode || !supabaseAvailable()) return null;
-  const { data } = await getSupabase().auth.getSession();
-  return data.session;
-}
-
 // ── Email/Password ───────────────────────────────────────────────────────
 export async function signIn(email: string, password: string) {
   const { error } = await getSupabase().auth.signInWithPassword({ email, password });
@@ -107,30 +101,6 @@ export async function signUp(
   });
   if (error) throw new Error(traduzErroAuth(error.message));
   return data;
-}
-
-export async function signOut() {
-  if (typeof window !== "undefined") {
-    try {
-      const p = window.location.pathname + window.location.search;
-      if (p.startsWith("/app")) preserveReturnTo(p);
-    } catch {
-      /* noop */
-    }
-  }
-  await getSupabase().auth.signOut();
-}
-
-export async function requestPasswordReset(email: string) {
-  const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/redefinir-senha`,
-  });
-  if (error) throw new Error(traduzErroAuth(error.message));
-}
-
-export async function updatePassword(newPassword: string) {
-  const { error } = await getSupabase().auth.updateUser({ password: newPassword });
-  if (error) throw new Error(traduzErroAuth(error.message));
 }
 
 // ── Google OAuth ─────────────────────────────────────────────────────────

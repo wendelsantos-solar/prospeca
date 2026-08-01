@@ -40,19 +40,3 @@ export function SummarySkeleton() {
     </div>
   );
 }
-
-export function DetailsSkeleton() {
-  return (
-    <div className="p-5 space-y-4" aria-busy="true">
-      <Skeleton className="h-6 w-56" />
-      <Skeleton className="h-4 w-40" />
-      <div className="flex gap-2">
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-8 w-24" />
-      </div>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-10 w-full" />
-      ))}
-    </div>
-  );
-}

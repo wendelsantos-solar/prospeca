@@ -147,11 +147,3 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>): v
     // Analytics should never break the app
   }
 }
-
-/**
- * Track a navigation event (page view).
- */
-export function trackPageView(page: string): void {
-  if (!isRealMode) return;
-  console.debug(`[analytics] page_view: ${page}`);
-}

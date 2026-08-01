@@ -214,5 +214,3 @@ export const DEMO_SEARCH = {
   radiusKm: 10,
   resultsCount: 34,
 };
-
-export const MESSAGE_TEMPLATE_DEMO = `Oi {nome_contato}! Vi que a {empresa} ainda não tem site — trabalho com isso aqui na região e queria entender se faz sentido pra vocês. Já atendi outras {categoria}s por aqui. Posso te mandar uns exemplos?`;

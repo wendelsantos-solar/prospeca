@@ -69,14 +69,6 @@ export function setActiveOrganizationId(organizationId: string): void {
   }
 }
 
-export function clearActiveOrganizationId(): void {
-  try {
-    globalThis.localStorage?.removeItem(ACTIVE_ORG_STORAGE_KEY);
-  } catch {
-    // no-op
-  }
-}
-
 /**
  * Fetch all organizations the current user belongs to.
  *
@@ -232,24 +224,4 @@ export function useTenant(): {
 export function useRefreshTenant() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: TENANT_QUERY_KEY });
-}
-
-/**
- * Helper to check if the current user can perform an action.
- * Use this for UI-level gating (real authorization is always server-side).
- */
-export function canPerformAction(
-  role: OrganizationRole,
-  action: "write" | "admin" | "manage_members",
-): boolean {
-  switch (action) {
-    case "write":
-      return role === "owner" || role === "admin" || role === "member";
-    case "admin":
-      return role === "owner" || role === "admin";
-    case "manage_members":
-      return role === "owner" || role === "admin";
-    default:
-      return false;
-  }
 }

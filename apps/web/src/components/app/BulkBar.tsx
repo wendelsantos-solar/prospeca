@@ -24,88 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useMemo } from "react";
-import { MessageCircle, Copy, X, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { MessageCircle, Copy, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { buildContactMessage } from "@/lib/message-fill";
-
-export function BulkBar({
-  visibleIds,
-  onOpenPrepare,
-}: {
-  visibleIds: string[];
-  onOpenPrepare: () => void;
-}) {
-  const bulkMode = useLeadsStore((s) => s.bulkMode);
-  const setBulkMode = useLeadsStore((s) => s.setBulkMode);
-  const selected = useLeadsStore((s) => s.selectedIds);
-  const clearSelection = useLeadsStore((s) => s.clearSelection);
-  const selectVisible = useLeadsStore((s) => s.selectVisible);
-  const bulkLimit = useSettingsStore((s) => s.bulkLimit);
-
-  if (!bulkMode) {
-    return (
-      <div className="flex justify-end p-2">
-        <Button
-          size="sm"
-          onClick={() => setBulkMode(true)}
-          className="gap-1.5 h-8 text-xs shadow-card"
-        >
-          <Check className="h-3.5 w-3.5" />
-          Iniciar prospecção em massa
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="sticky top-0 z-20 flex items-center gap-2 border-b bg-primary/95 px-4 py-2 text-primary-foreground backdrop-blur">
-      <span className="text-sm font-semibold tabular-nums" aria-live="polite">
-        {selected.length} de {bulkLimit} selecionados
-      </span>
-      <div className="ml-auto flex items-center gap-1.5">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="h-7 text-xs"
-          onClick={() => {
-            selectVisible(visibleIds, bulkLimit);
-            if (visibleIds.length > bulkLimit)
-              toast.info(`Selecionados os ${bulkLimit} primeiros (limite atingido)`);
-          }}
-        >
-          Selecionar visíveis
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-primary-foreground hover:bg-primary/70"
-          onClick={clearSelection}
-        >
-          Limpar
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          className="h-7 text-xs gap-1"
-          onClick={onOpenPrepare}
-          disabled={selected.length === 0}
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          Preparar mensagens
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-primary-foreground hover:bg-primary/70"
-          aria-label="Sair"
-          onClick={() => setBulkMode(false)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function BulkMessageDialog({
   open,

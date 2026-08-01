@@ -1,6 +1,3 @@
-export const APP_NAME = "Radar Local";
-export const APP_TAGLINE = "Encontre, qualifique e converta negócios locais";
-
 export const BULK_SELECTION_LIMIT = 10;
 
 export const STORAGE_KEY = "radar-local/v1";

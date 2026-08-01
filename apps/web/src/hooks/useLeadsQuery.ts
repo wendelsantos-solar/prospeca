@@ -175,19 +175,6 @@ export function useMoveLeadMutation() {
   });
 }
 
-export function useUpdateLeadMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<Lead> }) =>
-      getLeadRepository().update(id, input),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
-      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.id) });
-    },
-  });
-}
-
 export function useAddNoteMutation() {
   const queryClient = useQueryClient();
 
@@ -270,25 +257,6 @@ export function useCompleteActivityMutation() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
-      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
-    },
-  });
-}
-
-export function useUpdateActivityMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      leadId,
-      activityId,
-      input,
-    }: {
-      leadId: string;
-      activityId: string;
-      input: Partial<Pick<LeadActivity, "title" | "note" | "date" | "priority" | "type">>;
-    }) => getLeadRepository().updateActivity(leadId, activityId, input),
-    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });

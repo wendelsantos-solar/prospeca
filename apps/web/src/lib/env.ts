@@ -55,15 +55,6 @@ export function realConfigMissing(): string[] {
   return missing;
 }
 
-export const featureFlags: FeatureFlags = {
-  realSearch: isRealMode,
-  websiteEnrichment: false,
-  externalEnrichment: false,
-  bulkPreparation: true,
-  xlsxExport: false,
-  realtimeSearchProgress: isRealMode,
-};
-
 export interface IntegrationStatus {
   name: string;
   configured: boolean;
