@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { ActivityItem } from "@/components/app/ActivityItem";
+import { ErrorState } from "@/components/shared/ErrorState";
 import type { Lead, LeadActivity } from "@/types";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
@@ -35,7 +36,7 @@ function endOfDay(d: Date) {
 }
 
 function AgendaPage() {
-  const { data, isLoading } = useLeadsList({ quick: [] });
+  const { data, isLoading, error, refetch } = useLeadsList({ quick: [] });
   const leads = useMemo(() => data?.items ?? [], [data]);
   const [tab, setTab] = useState<Tab>("today");
 
@@ -152,6 +153,12 @@ function AgendaPage() {
               />
             ))}
           </div>
+        ) : error ? (
+          <ErrorState
+            title="Falha ao carregar a agenda"
+            description="Não foi possível carregar os leads. Verifique sua conexão."
+            onRetry={() => refetch()}
+          />
         ) : sorted.length === 0 ? (
           <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">

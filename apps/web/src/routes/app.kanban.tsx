@@ -3,6 +3,7 @@ import { lazy, Suspense, useDeferredValue, useMemo, useState } from "react";
 import { useLeadsStore, useUIStore } from "@/stores";
 import { applyFilters, sortLeads } from "@/lib/filters";
 import { LeadListSkeleton } from "@/components/shared/Skeletons";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 
 // Lazy-load KanbanBoard (dnd-kit ~100KB) — only when user visits this route
@@ -63,7 +64,7 @@ function KanbanPage() {
   const [kFilters, setKFilters] = useState<KanbanFilters>(EMPTY_KANBAN_FILTERS);
 
   // CRM real — leads now come from TanStack Query (Phase 3)
-  const { data, isLoading } = useLeadsList(filters, sort);
+  const { data, isLoading, error, refetch } = useLeadsList(filters, sort);
   const allLeads = useMemo(() => data?.items ?? [], [data]);
 
   const cities = useMemo(
@@ -85,6 +86,18 @@ function KanbanPage() {
 
   if ((searching || isLoading) && allLeads.length === 0) {
     return <LeadListSkeleton count={8} />;
+  }
+
+  if (error && allLeads.length === 0) {
+    return (
+      <div className="grid h-full place-items-center">
+        <ErrorState
+          title="Falha ao carregar os leads"
+          description="Não foi possível carregar o pipeline. Verifique sua conexão."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
   }
 
   return (

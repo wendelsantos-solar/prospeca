@@ -97,10 +97,25 @@ export async function signUp(
   const { data, error } = await getSupabase().auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName, ...extra } },
+    options: {
+      data: { full_name: fullName, ...extra },
+      emailRedirectTo: `${window.location.origin}/verificar-email`,
+    },
   });
   if (error) throw new Error(traduzErroAuth(error.message));
   return data;
+}
+
+export async function requestPasswordReset(email: string) {
+  const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/redefinir-senha`,
+  });
+  if (error) throw new Error(traduzErroAuth(error.message));
+}
+
+export async function updatePassword(newPassword: string) {
+  const { error } = await getSupabase().auth.updateUser({ password: newPassword });
+  if (error) throw new Error(traduzErroAuth(error.message));
 }
 
 // ── Google OAuth ─────────────────────────────────────────────────────────

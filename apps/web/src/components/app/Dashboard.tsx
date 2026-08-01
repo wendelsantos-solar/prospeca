@@ -321,16 +321,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
     [history, prevWin],
   );
 
-  // Taxa de resposta simulada, estável por conjunto de dados.
-  const responseRate =
-    a.byStage.contacted.length + a.byStage.won.length > 0
-      ? Math.min(72, 25 + ((a.byStage.won.length * 17 + a.byStage.contacted.length * 7) % 40))
-      : 0;
-  const prevResponseRate =
-    p.byStage.contacted.length + p.byStage.won.length > 0
-      ? Math.min(72, 25 + ((p.byStage.won.length * 17 + p.byStage.contacted.length * 7) % 40))
-      : 0;
-
   const daySeries = useMemo(() => {
     const byDay: Record<string, { leads: number; revenue: number; won: number }> = {};
     current.forEach((l) => {
@@ -660,10 +650,10 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 tooltip="Média de dias entre a descoberta e o fechamento."
               />
               <LocalMetricCard
-                label="Taxa de resposta"
-                value={formatPercent(responseRate / 100)}
-                delta={deltaPct(responseRate, prevResponseRate)}
-                tooltip="Taxa simulada de resposta às mensagens enviadas."
+                label="Taxa de conversão"
+                value={formatPercent(a.conv / 100)}
+                delta={deltaPct(a.conv, p.conv)}
+                tooltip="Percentual de leads que chegaram a Ganho."
               />
             </div>
 

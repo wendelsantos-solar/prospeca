@@ -25,6 +25,8 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
       .from("organization_members")
       .select("role, organization_id, organizations(name)")
       .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .order("organization_id", { ascending: true })
       .limit(1)
       .maybeSingle(),
   ]);

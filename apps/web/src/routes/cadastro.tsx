@@ -9,6 +9,7 @@ import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { AuthDivider } from "@/components/auth/AuthDivider";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { TermsGate } from "@/components/auth/TermsGate";
+import { SalesContactForm } from "@/components/marketing/SalesContactForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,10 @@ import { readUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
 import { Sparkles } from "lucide-react";
+
+// Bump whenever Termos de Uso / Política de Privacidade materially change —
+// stored per signup for the LGPD consent record.
+const TERMS_VERSION = "2026-08-01";
 
 const PAID: Record<string, string> = {
   solo: "Solo",
@@ -75,6 +80,11 @@ function SignUpPage() {
         intended_plan: plan ?? null,
         invitation_token: invitation ?? null,
         utm: readUtm() ?? undefined,
+        // LGPD: record that consent was given, when, and for which version of
+        // the legal docs — the checkbox alone (client-side, ungated by the
+        // server) isn't an audit trail.
+        terms_accepted_at: new Date().toISOString(),
+        terms_version: TERMS_VERSION,
       });
       track("signup_completed", { plan: plan ?? (hasInv ? "pilot" : "free") });
       if (isPaid) {
@@ -108,9 +118,14 @@ function SignUpPage() {
             <Sparkles className="h-6 w-6 text-primary" strokeWidth={1.75} />
           </div>
           <p className="text-body-sm text-muted-foreground">
-            Plano <span className="font-medium text-foreground">{PAID[selPlan] ?? selPlan}</span>.
-            Pagamentos não abertos.
+            Plano <span className="font-medium text-foreground">{PAID[selPlan] ?? selPlan}</span>{" "}
+            selecionado. Ainda não temos checkout automático — fale com a gente para combinar o
+            pagamento e ativar seu plano.
           </p>
+          <SalesContactForm
+            source={`cadastro_plano_${selPlan}`}
+            trigger={<Button className="w-full h-11">Falar com a gente</Button>}
+          />
           <Button
             variant="outline"
             className="w-full h-11"

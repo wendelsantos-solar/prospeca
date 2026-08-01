@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/shared/ErrorState";
 
 const Dashboard = lazy(() =>
   import("@/components/app/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -30,8 +31,23 @@ function PainelSkeleton() {
 
 function PainelPage() {
   // CRM real — leads from TanStack Query (Phase 3)
-  const { data } = useLeadsList(DEFAULT_FILTERS);
+  const { data, isLoading, error, refetch } = useLeadsList(DEFAULT_FILTERS);
   const leads = data?.items ?? [];
+
+  if (isLoading) return <PainelSkeleton />;
+
+  if (error) {
+    return (
+      <div className="grid h-full place-items-center">
+        <ErrorState
+          title="Falha ao carregar o painel"
+          description="Não foi possível carregar os leads. Verifique sua conexão."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto">
       <Suspense fallback={<PainelSkeleton />}>

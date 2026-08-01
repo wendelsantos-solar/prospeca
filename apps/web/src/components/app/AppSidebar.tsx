@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Filter, Download } from "lucide-react";
+import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Download } from "lucide-react";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
 import {
@@ -197,13 +197,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <button
-              onClick={() => toast.info("Filtros avançados em breve")}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Filter className="h-3 w-3" />
-              Filtros
-            </button>
             <div className="ml-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger

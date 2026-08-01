@@ -63,7 +63,7 @@ function HomeState() {
         </p>
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left">
           {[
-            "Descoberta e enriquecimento simulado de leads.",
+            "Descoberta e enriquecimento automático de leads.",
             "Mapa, Kanban e painel sincronizados.",
             "Preparação de mensagens em massa.",
           ].map((b) => (

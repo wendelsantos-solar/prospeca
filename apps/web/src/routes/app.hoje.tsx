@@ -7,6 +7,7 @@ import { buildTodayGroups, type TodayItem } from "@/lib/today";
 import { ActivityItem } from "@/components/app/ActivityItem";
 import { NbaCard } from "@/components/app/NbaCard";
 import { SavedFiltersBar } from "@/components/app/SavedFiltersBar";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { toast } from "sonner";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/app/hoje")({
 });
 
 function HojePage() {
-  const { data, isLoading } = useLeadsList({ quick: [] });
+  const { data, isLoading, error, refetch } = useLeadsList({ quick: [] });
   const filters = useLeadsStore((s) => s.filters);
   const leads = useMemo(() => applyFilters(data?.items ?? [], filters), [data, filters]);
   const completeMutation = useCompleteActivityMutation();
@@ -126,6 +127,12 @@ function HojePage() {
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface-2 px-5 py-4">
         {isLoading ? (
           <SkeletonList />
+        ) : error ? (
+          <ErrorState
+            title="Falha ao carregar seus itens de hoje"
+            description="Não foi possível carregar os leads. Verifique sua conexão."
+            onRetry={() => refetch()}
+          />
         ) : totalPending === 0 ? (
           <EmptyToday />
         ) : mode === "list" ? (

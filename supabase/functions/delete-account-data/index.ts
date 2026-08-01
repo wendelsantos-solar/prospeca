@@ -6,6 +6,10 @@ import { requireAuth } from "../_shared/auth.ts";
 
 const InputSchema = z.object({
   confirm: z.literal("EXCLUIR"),
+  // Irreversible cascading delete — required, never inferred. Most users end
+  // up with 2+ organizations (auto-created Free org + any invited org), so
+  // guessing which one to delete is not acceptable here.
+  organizationId: z.string().uuid(),
   deleteAuthAccount: z.boolean().default(false),
 });
 
@@ -15,11 +19,11 @@ Deno.serve(async (req) => {
   const requestId = newRequestId();
 
   try {
-    const ctx = await requireAuth(req);
     const parsed = InputSchema.safeParse(await req.json());
     if (!parsed.success) {
       throw new AppError("VALIDATION_ERROR", 'Confirmação obrigatória: envie confirm="EXCLUIR".');
     }
+    const ctx = await requireAuth(req, parsed.data.organizationId);
     if (ctx.role !== "owner") {
       throw new AppError("FORBIDDEN", "Apenas o proprietário pode excluir os dados.");
     }

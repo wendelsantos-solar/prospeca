@@ -5,6 +5,7 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
+import { sendEmail } from "../_shared/email.ts";
 
 const InputSchema = z.object({
   name: z.string().min(2).max(120),
@@ -67,6 +68,35 @@ Deno.serve(async (req) => {
       utm: input.utm ?? null,
     });
     if (error) throw new AppError("INTERNAL_ERROR", "Falha ao enviar sua mensagem.");
+
+    // Writing the row alone leaves this silent — nobody was reading
+    // sales_contacts anywhere (not even the admin panel). This is the manual
+    // payment path for paid signups until checkout exists, so a real person
+    // has to actually see it.
+    const notifyTo = Deno.env.get("SALES_NOTIFY_EMAIL");
+    if (notifyTo) {
+      await sendEmail({
+        to: notifyTo,
+        subject: `Novo contato de vendas — ${input.source ?? "site"}: ${input.name}`,
+        html: `
+          <p><strong>${input.name}</strong> (${input.email})${input.company ? ` — ${input.company}` : ""}</p>
+          ${input.whatsapp ? `<p>WhatsApp: ${input.whatsapp}</p>` : ""}
+          ${input.teamSize ? `<p>Equipe: ${input.teamSize}</p>` : ""}
+          ${input.sellsWhat ? `<p>Vende: ${input.sellsWhat}</p>` : ""}
+          ${input.prospectingVolume ? `<p>Volume de prospecção: ${input.prospectingVolume}</p>` : ""}
+          <p>Origem: ${input.source ?? "desconhecida"}</p>
+          <p>Mensagem:</p>
+          <p>${input.message}</p>
+        `,
+      });
+    } else {
+      logEvent({
+        level: "warn",
+        requestId,
+        operation: "submit-sales-contact",
+        status: "no_notify_email",
+      });
+    }
 
     logEvent({ requestId, operation: "submit-sales-contact", status: "ok" });
     return json({ ok: true }, 200, {}, req);

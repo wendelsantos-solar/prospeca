@@ -11,6 +11,9 @@ function PrivacyPolicyPage() {
       <p className="text-sm text-muted-foreground mb-8">Última atualização: Julho de 2026</p>
 
       <div className="prose prose-sm max-w-none space-y-4 text-muted-foreground">
+        {/* TODO(founder): a LGPD exige identificar o controlador (razão social,
+        CNPJ, endereço) — não fabricar estes dados. Preencher aqui e no rodapé
+        de contato (seção 11) assim que a empresa estiver formalizada. */}
         <h2 className="text-base font-semibold text-foreground">1. Introdução</h2>
         <p>
           Esta Política de Privacidade descreve como o Radar Local (&ldquo;nós&rdquo;,
@@ -89,13 +92,17 @@ function PrivacyPolicyPage() {
             <strong>Supabase:</strong> infraestrutura de banco de dados e autenticação;
           </li>
           <li>
-            <strong>Google Places API:</strong> busca de informações públicas de empresas;
-          </li>
-          <li>
-            <strong>Stripe (futuro):</strong> processamento de pagamentos.
+            <strong>Google Places API:</strong> busca de informações públicas de empresas.
           </li>
         </ul>
         <p>Não vendemos, alugamos ou compartilhamos dados pessoais para fins de marketing.</p>
+
+        <h2 className="text-base font-semibold text-foreground">7.1 Pagamentos</h2>
+        <p>
+          Quando o processamento de pagamentos for habilitado, dados de cobrança (nome, e-mail,
+          dados do cartão ou PIX) serão processados diretamente pelo provedor de pagamentos
+          escolhido, que nunca compartilha o número completo do cartão conosco.
+        </p>
 
         <h2 className="text-base font-semibold text-foreground">8. Segurança</h2>
         <p>
@@ -127,13 +134,6 @@ function PrivacyPolicyPage() {
             privacidade@radarlocal.com.br
           </a>
         </p>
-
-        <div className="mt-8 rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs text-muted-foreground">
-            <strong>Aviso:</strong> Esta Política de Privacidade é um modelo. Recomenda-se revisão
-            por profissional jurídico especializado em LGPD antes do lançamento comercial.
-          </p>
-        </div>
       </div>
     </div>
   );

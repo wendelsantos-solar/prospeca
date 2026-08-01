@@ -41,7 +41,15 @@ export async function requireAuth(req: Request, organizationId?: string): Promis
     .eq("user_id", userData.user.id);
   if (organizationId) membershipQuery = membershipQuery.eq("organization_id", organizationId);
 
-  const { data: memberships } = await membershipQuery.limit(1);
+  // Deterministic order is required: without it, Postgres returns whichever
+  // row it likes for users with 2+ memberships (the common case — every
+  // invited/pilot user also has an auto-created Free org), so `.limit(1)`
+  // below would silently target an arbitrary organization on every call that
+  // doesn't pass an explicit organizationId. Same fix as apps/web/src/lib/tenant.ts.
+  const { data: memberships } = await membershipQuery
+    .order("created_at", { ascending: true })
+    .order("organization_id", { ascending: true })
+    .limit(1);
   const membership = memberships?.[0];
   if (!membership) throw new AppError("FORBIDDEN", "Usuário não pertence a esta organização.");
 

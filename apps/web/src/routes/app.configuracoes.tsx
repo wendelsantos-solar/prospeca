@@ -47,6 +47,7 @@ import {
 import { integrationStatuses, isRealMode, isDemoMode } from "@/lib/env";
 import { invokeFunction, supabaseAvailable, getSupabase } from "@/lib/supabase";
 import { UsageCostCard } from "@/components/app/UsageCostCard";
+import { SalesContactForm } from "@/components/marketing/SalesContactForm";
 import { useUIStore, useSettingsStore, useMessageStore, useLeadsStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
 import { clearAllState } from "@/lib/storage";
@@ -434,6 +435,13 @@ function DadosSection() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Same query key as PerfilSection — react-query dedupes/reuses the cached
+  // fetch. Deletion is irreversible, so we always pass the organization id
+  // explicitly instead of letting the backend guess it (see requireAuth()).
+  const { data: account } = useQuery({
+    queryKey: ["account-context"],
+    queryFn: fetchAccountContext,
+  });
 
   const exportBackup = () => {
     try {
@@ -484,9 +492,16 @@ function DadosSection() {
   };
 
   const requestAccountDeletion = async () => {
+    if (!account) {
+      toast.error("Não foi possível confirmar sua organização. Recarregue a página.");
+      return;
+    }
     setDeleting(true);
     try {
-      await invokeFunction("delete-account-data", { confirm: "EXCLUIR" });
+      await invokeFunction("delete-account-data", {
+        confirm: "EXCLUIR",
+        organizationId: account.organizationId,
+      });
       toast.success("Conta excluída. Você será desconectado.");
       setDeleteOpen(false);
       await getSupabase().auth.signOut();
@@ -649,9 +664,17 @@ function PlanoSection() {
           ))}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        Pagamentos ainda não estão abertos — fale com a gente se quiser migrar de plano.
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">Ainda sem checkout automático.</p>
+        <SalesContactForm
+          source="configuracoes_plano"
+          trigger={
+            <button className="text-xs font-medium text-primary underline underline-offset-2 hover:text-primary-hover">
+              Falar com a gente para migrar de plano
+            </button>
+          }
+        />
+      </div>
     </div>
   );
 }
