@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { signIn, consumeReturnTo } from "@/hooks/useAuth";
 import { track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
+import { setRememberMe } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -37,6 +38,7 @@ function LoginPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { rememberMe: true } });
 
@@ -53,6 +55,10 @@ function LoginPage() {
     setSubmitting(true);
     track("email_login_started");
     try {
+      // Must be set before signIn()/getSupabase() create the client — the
+      // storage backend (localStorage vs sessionStorage) is fixed at
+      // creation time.
+      setRememberMe(data.rememberMe ?? true);
       await signIn(data.email, data.password);
       track("email_login_completed");
       navigate({ to: consumeReturnTo() ?? "/app/mapa" });
@@ -83,7 +89,10 @@ function LoginPage() {
       }
     >
       <div className="space-y-5">
-        <GoogleAuthButton onStart={() => setGoogleLoading(true)} />
+        <GoogleAuthButton
+          onStart={() => setGoogleLoading(true)}
+          onError={() => setGoogleLoading(false)}
+        />
         <AuthDivider />
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -124,10 +133,17 @@ function LoginPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Checkbox
-              id="rememberMe"
-              disabled={submitting || googleLoading}
-              {...register("rememberMe")}
+            <Controller
+              name="rememberMe"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="rememberMe"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={submitting || googleLoading}
+                />
+              )}
             />
             <Label
               htmlFor="rememberMe"

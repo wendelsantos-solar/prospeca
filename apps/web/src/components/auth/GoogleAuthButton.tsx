@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { googleAuthEnabled, googleAuthVisible } from "@/hooks/useAuth";
 import { track } from "@/lib/analytics";
@@ -8,12 +9,16 @@ interface GoogleAuthButtonProps {
   label?: string;
   className?: string;
   onStart?: () => void;
+  /** Called when the redirect never happens (e.g. misconfigured provider,
+   * network error) — use this to undo whatever onStart() disabled. */
+  onError?: () => void;
 }
 
 export function GoogleAuthButton({
   label = "Continuar com Google",
   className,
   onStart,
+  onError,
 }: GoogleAuthButtonProps) {
   const [state, setState] = useState<"idle" | "loading">("idle");
   const visible = googleAuthVisible();
@@ -32,9 +37,10 @@ export function GoogleAuthButton({
         error_category: err instanceof Error ? "provider" : "unknown",
       });
       setState("idle");
-      throw err;
+      onError?.();
+      toast.error(err instanceof Error ? err.message : "Falha ao conectar com o Google.");
     }
-  }, [state, enabled, onStart]);
+  }, [state, enabled, onStart, onError]);
 
   if (!visible) return null;
   const loading = state === "loading";

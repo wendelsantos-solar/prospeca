@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RotateCcw, History } from "lucide-react";
 import { getSearchRepository } from "@/repositories";
@@ -22,6 +23,7 @@ function HistoryPage() {
     data: history,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: queryKeys.searches.list({}),
     queryFn: () => getSearchRepository().listHistory(),
@@ -65,9 +67,11 @@ function HistoryPage() {
         )}
 
         {error && (
-          <p className="text-sm text-destructive">
-            Falha ao carregar o histórico. Tente novamente.
-          </p>
+          <ErrorState
+            title="Falha ao carregar o histórico"
+            description="Não foi possível carregar o histórico. Verifique sua conexão."
+            onRetry={() => refetch()}
+          />
         )}
 
         {history && history.length === 0 && (

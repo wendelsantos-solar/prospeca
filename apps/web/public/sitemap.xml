@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Placeholder domain (matches the "seudominio.com" convention already used in
-  docs/DEPLOYMENT.md) — replace with the real production domain before launch.
-  See docs/MARKETING_SITE.md.
+  Domain inferred from docs/ENVIRONMENTS.md and the existing
+  suporte@/privacidade@radarlocal.com.br addresses — confirm it matches
+  wherever this actually gets deployed before submitting to Search Console.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.seudominio.com/</loc>
+    <loc>https://radarlocal.com.br/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.seudominio.com/precos</loc>
+    <loc>https://radarlocal.com.br/precos</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.seudominio.com/cadastro</loc>
+    <loc>https://radarlocal.com.br/cadastro</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.seudominio.com/login</loc>
+    <loc>https://radarlocal.com.br/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>

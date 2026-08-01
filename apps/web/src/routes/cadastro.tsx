@@ -165,7 +165,11 @@ function SignUpPage() {
       }
     >
       <div className="space-y-5">
-        <GoogleAuthButton label="Cadastrar com Google" onStart={() => setGoogleLoading(true)} />
+        <GoogleAuthButton
+          label="Cadastrar com Google"
+          onStart={() => setGoogleLoading(true)}
+          onError={() => setGoogleLoading(false)}
+        />
         <AuthDivider label="ou cadastre-se com e-mail" />
         <form onSubmit={onSubmit} className="space-y-4">
           {isPaid && (

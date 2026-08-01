@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { SalesContactForm } from "./SalesContactForm";
 import { track } from "@/lib/analytics";
 
 /**
@@ -13,14 +14,18 @@ export function TestimonialsSection() {
         <p className="text-base text-foreground">
           Estamos construindo o Radar Local junto com profissionais que vendem para negócios locais.
         </p>
-        <Button
-          variant="outline"
-          className="mt-5"
-          onClick={() => track("founder_offer_viewed", { source: "testimonials" })}
-          asChild
-        >
-          <a href="#fundadores">Participar do acesso antecipado</a>
-        </Button>
+        <SalesContactForm
+          source="testimonials"
+          trigger={
+            <Button
+              variant="outline"
+              className="mt-5"
+              onClick={() => track("founder_offer_viewed", { source: "testimonials" })}
+            >
+              Participar do acesso antecipado
+            </Button>
+          }
+        />
       </div>
     </div>
   );

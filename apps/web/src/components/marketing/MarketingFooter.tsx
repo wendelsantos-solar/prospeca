@@ -38,9 +38,9 @@ export function MarketingFooter() {
                 </a>
               </li>
               <li>
-                <a href="/#agencias" className="text-muted-foreground hover:text-foreground">
+                <Link to="/para-agencias" className="text-muted-foreground hover:text-foreground">
                   Para agências
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

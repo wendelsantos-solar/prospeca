@@ -3,6 +3,33 @@ import { env, isRealMode, realConfigMissing } from "./env";
 
 let client: SupabaseClient | null = null;
 
+// "Manter conectado" preference — read at client-creation time, so it must
+// be set (see setRememberMe below) *before* the first getSupabase() call of
+// the session. Login is the only place that writes it; everywhere else
+// (signup, OAuth) defaults to "remembered", matching the previous
+// always-persist behavior.
+const REMEMBER_KEY = "radar-local:rememberMe";
+
+export function setRememberMe(remember: boolean): void {
+  try {
+    window.localStorage.setItem(REMEMBER_KEY, String(remember));
+  } catch {
+    /* noop */
+  }
+}
+
+function authStorage(): Storage | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    // Default (no preference recorded yet, e.g. signup/OAuth) persists —
+    // same behavior as before this was configurable.
+    const remembered = window.localStorage.getItem(REMEMBER_KEY) !== "false";
+    return remembered ? window.localStorage : window.sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Browser Supabase client (anon key only — RLS enforced).
  * Throws in real mode with missing config instead of silently degrading.
@@ -17,7 +44,7 @@ export function getSupabase(): SupabaseClient {
     throw new Error("Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
   }
   client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: { persistSession: true, autoRefreshToken: true, storage: authStorage() },
   });
   return client;
 }
