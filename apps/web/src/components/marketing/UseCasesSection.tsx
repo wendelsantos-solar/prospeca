@@ -30,7 +30,7 @@ const CASES = [
   {
     icon: Building2,
     title: "Agências",
-    description: "Distribua oportunidades, acompanhe a equipe e organize múltiplas campanhas.",
+    description: "Centralize a prospecção da agência em um pipeline único, do contato ao fechamento.",
   },
 ];
 
@@ -53,8 +53,8 @@ export function UseCasesSection() {
               <div className="mb-3 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface-2 text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary-subtle">
                 <c.icon className="h-5 w-5" />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">{c.title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{c.description}</p>
+              <h3 className="text-body font-semibold text-foreground">{c.title}</h3>
+              <p className="mt-1.5 text-body text-muted-foreground">{c.description}</p>
             </div>
           ))}
         </div>
