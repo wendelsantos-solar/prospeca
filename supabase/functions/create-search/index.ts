@@ -1,30 +1,15 @@
 // create-search: validates input, checks quota, geocodes if needed,
 // creates the search row and triggers async execution.
-import { z } from "npm:zod@3";
+import { CreateSearchInputSchema } from "@leads/contracts/schemas";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { captureError } from "../_shared/error-tracking.ts";
 import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
-import { readPoint } from "../_shared/geo.ts";
+import { readPoint } from "@leads/geo";
 
-const InputSchema = z.object({
-  query: z.string().min(2).max(120),
-  category: z.string().max(80).optional(),
-  location: z.object({
-    label: z.string().min(2).max(200),
-    placeId: z.string().optional(),
-    latitude: z.number().min(-90).max(90).optional(),
-    longitude: z.number().min(-180).max(180).optional(),
-  }),
-  radiusMeters: z.number().int().min(100).max(100000),
-  presenceFilter: z.enum(["without_website", "with_website", "all"]),
-  maxResults: z.number().int().min(1).max(500).optional(),
-  // Force refresh: bypass the cache and re-fetch from Google (paid). Guarded by
-  // a per-search cooldown in execute-search. Default false.
-  forceRefresh: z.boolean().optional(),
-});
+const InputSchema = CreateSearchInputSchema;
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);

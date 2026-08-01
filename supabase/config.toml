@@ -380,6 +380,8 @@ policy = "per_worker"
 inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
+# Import map for resolving monorepo packages at edge function runtime.
+import_map_path = "./import_map.json"
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"

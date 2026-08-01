@@ -10,6 +10,9 @@ import type {
   DashboardPeriod,
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
+import type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult } from "@leads/contracts";
+
+export type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult };
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -38,42 +41,6 @@ export interface MoveLeadInput {
 }
 
 export type UpdateLeadInput = Partial<Omit<Lead, "id" | "notes" | "activities" | "timeline">>;
-
-export interface CreateSearchInput {
-  query: string;
-  category?: string;
-  location: {
-    label: string;
-    placeId?: string;
-    latitude?: number;
-    longitude?: number;
-  };
-  radiusMeters: number;
-  presenceFilter: "without_website" | "with_website" | "all";
-  maxResults?: number;
-  /** Bypass the cache and re-fetch from Google (paid). Guarded by a per-search
-   * cooldown server-side. Default false. */
-  forceRefresh?: boolean;
-}
-
-export interface SearchStatusSnapshot {
-  id: string;
-  status:
-    | "queued"
-    | "geocoding"
-    | "searching"
-    | "importing"
-    | "enriching"
-    | "completed"
-    | "partial"
-    | "failed"
-    | "cancelled";
-  foundCount: number;
-  importedCount: number;
-  enrichedCount: number;
-  providerRequestCount: number;
-  errorMessage?: string | null;
-}
 
 export interface DashboardOverview {
   totalLeads: number;
@@ -112,36 +79,6 @@ export interface LeadRepository {
   /** LGPD opt-out: value_hash set of suppressed contacts for the org. */
   listSuppressionHashes(): Promise<string[]>;
   addSuppression(entries: { type: string; value_hash: string; reason?: string }[]): Promise<void>;
-}
-
-/** One discovered business for a search — read from search_results ⋈ places.
- * Not a lead: a lead only exists once the user adds it to the funnel. */
-export interface DiscoveryResult {
-  placeId: string;
-  name: string;
-  category: string | null;
-  latitude: number;
-  longitude: number;
-  /** Street + number, derived from the Google address (see `lib/address.ts`). */
-  address: string | null;
-  neighborhood: string | null;
-  city: string | null;
-  /** UF. */
-  state: string | null;
-  phone: string | null;
-  website: string | null;
-  hasWebsite: boolean;
-  /** Contact signals filled by discovery enrichment (website scrape). Null until enriched. */
-  email: string | null;
-  instagram: string | null;
-  whatsapp: string | null;
-  rating: number | null;
-  reviewCount: number | null;
-  distanceKm: number;
-  score: number;
-  temperature: "hot" | "warm" | "cold";
-  /** Non-null once this business has been materialized as a lead (in the funnel). */
-  importedLeadId: string | null;
 }
 
 export interface SearchRepository {

@@ -3,7 +3,7 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "../_shared/score.ts";
+import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "@leads/domain/score";
 
 const InputSchema = z.object({ leadIds: z.array(z.string().uuid()).min(1).max(100) });
 

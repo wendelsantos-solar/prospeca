@@ -1,10 +1,10 @@
 // search-pipeline: pure business rules extracted from execute-search (C2).
 // Testable without Supabase or paid API calls — injectable via adapter ports.
 
-import { calculateScore, temperatureFromScore, type ScoreBreakdown } from "../_shared/score.ts";
-import { scoreInputFromPlace } from "../_shared/score-input.ts";
-import { hasRealWebsite } from "../_shared/normalize.ts";
-import { haversineMeters, type LatLng } from "../_shared/geo.ts";
+import { calculateScore, temperatureFromScore, type ScoreBreakdown } from "@leads/domain/score";
+import { scoreInputFromPlace } from "@leads/domain/score-input";
+import { hasRealWebsite } from "@leads/domain/normalize";
+import { haversineMeters, type LatLng } from "@leads/geo";
 import type { GooglePlace } from "../_shared/google.ts";
 
 // ── Ports (injected by the handler) ──────────────────────────────────
@@ -145,7 +145,7 @@ export function selectPlaces(input: PipelineInput): {
     now,
     refreshAfter,
   } = input;
-  const [centerLng, centerLat] = center;
+  const [centerLng, centerLat] = [center.longitude, center.latitude];
 
   const placeRows: Record<string, unknown>[] = [];
   const resultMeta: ProcessedPlace[] = [];
@@ -159,7 +159,12 @@ export function selectPlaces(input: PipelineInput): {
     const lat = place.location?.latitude ?? null;
     const lng = place.location?.longitude ?? null;
     const distance =
-      lat != null && lng != null ? haversineMeters(centerLat, centerLng, lat, lng) : null;
+      lat != null && lng != null
+        ? haversineMeters(
+            { latitude: centerLat, longitude: centerLng },
+            { latitude: lat, longitude: lng },
+          )
+        : null;
     const inside = distance != null ? distance <= radiusMeters : false;
 
     // Radius cut.

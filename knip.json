@@ -23,6 +23,10 @@
     "packages/geo": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "packages/contracts": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
     }
   },
   "ignore": ["supabase/**", ".lovable/**", ".turbo/**"]

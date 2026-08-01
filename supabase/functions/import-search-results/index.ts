@@ -1,31 +1,24 @@
 // import-search-results: turns selected search results into CRM leads.
 // Dedupe: provider_place_id → normalized phone → website domain.
 // Never overwrites commercial data on existing leads.
-import { z } from "npm:zod@3";
+import { ImportSearchResultsSchema } from "@leads/contracts/schemas";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient, requireAuth } from "../_shared/auth.ts";
-import { readPoint } from "../_shared/geo.ts";
+import { readPoint } from "@leads/geo";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
-import { scoreInputFromRow, type PlaceRow } from "../_shared/score-input.ts";
+import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import {
   hasRealWebsite,
   instagramHandleFromUrl,
   normalizeCompanyName,
   normalizeDomain,
   normalizePhone,
-} from "../_shared/normalize.ts";
-import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "../_shared/score.ts";
-import { parseAddress } from "../_shared/address.ts";
+} from "@leads/domain/normalize";
+import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "@leads/domain/score";
+import { parseAddress } from "@leads/domain/address";
 
-const InputSchema = z.object({
-  searchId: z.string().uuid(),
-  // Empty array + importAll=true imports every allowed result.
-  placeIds: z.array(z.string().uuid()).max(200).default([]),
-  importAll: z.boolean().default(false),
-  // Estágio-alvo ao materializar o lead. Duplicado nunca rebaixa (só promove).
-  stage: z.enum(["new", "qualified", "contacted"]).default("new"),
-});
+const InputSchema = ImportSearchResultsSchema;
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);

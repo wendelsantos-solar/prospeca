@@ -1,5 +1,8 @@
 {
   "imports": {
+    "@leads/contracts": "./packages/contracts/src/index.ts",
+    "@leads/contracts/schemas": "./packages/contracts/src/schemas.ts",
+    "@leads/contracts/providers": "./packages/contracts/src/providers.ts",
     "@leads/domain": "./packages/domain/src/index.ts",
     "@leads/domain/score": "./packages/domain/src/score.ts",
     "@leads/domain/score-input": "./packages/domain/src/score-input.ts",

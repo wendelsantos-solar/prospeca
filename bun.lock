@@ -27,6 +27,7 @@
         "@googlemaps/js-api-loader": "^2.1.1",
         "@googlemaps/markerclusterer": "^2.6.2",
         "@hookform/resolvers": "^5.2.2",
+        "@leads/contracts": "workspace:*",
         "@leads/domain": "workspace:*",
         "@radix-ui/react-checkbox": "^1.3.3",
         "@radix-ui/react-dialog": "^1.1.15",
@@ -84,6 +85,17 @@
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.56.1",
         "vite": "^8.0.16",
+      },
+    },
+    "packages/contracts": {
+      "name": "@leads/contracts",
+      "version": "0.0.0",
+      "dependencies": {
+        "@leads/geo": "workspace:*",
+        "zod": "^3.24.2",
+      },
+      "devDependencies": {
+        "typescript": "^5.8.3",
       },
     },
     "packages/domain": {
@@ -264,6 +276,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@leads/contracts": ["@leads/contracts@workspace:packages/contracts"],
 
     "@leads/domain": ["@leads/domain@workspace:packages/domain"],
 

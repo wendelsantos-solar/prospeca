@@ -13,12 +13,12 @@ import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
-import { categoryKey, placesCacheKey } from "../_shared/cache.ts";
+import { categoryKey, placesCacheKey } from "@leads/domain/cache";
 import { shouldForceRefresh } from "../_shared/refresh.ts";
-import { hasRealWebsite } from "../_shared/normalize.ts";
-import { readPoint } from "../_shared/geo.ts";
-import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
-import { scoreInputFromPlace } from "../_shared/score-input.ts";
+import { hasRealWebsite } from "@leads/domain/normalize";
+import { readPoint } from "@leads/geo";
+import { calculateScore, temperatureFromScore } from "@leads/domain/score";
+import { scoreInputFromPlace } from "@leads/domain/score-input";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
 

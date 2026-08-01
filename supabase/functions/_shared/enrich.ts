@@ -1,8 +1,8 @@
 // Website enricher — extracts contact signals from a lead's OWN website only.
 // No search-engine scraping, no third-party crawling. SSRF-guarded, timed out,
 // single page. Returns explicit not_found signals rather than fabricating data.
-import { assertSafeUrl, SsrfBlockedError } from "./ssrf.ts";
-import { instagramHandleFromUrl, normalizeDomain } from "./normalize.ts";
+import { assertSafeUrl, SsrfBlockedError } from "@leads/domain/ssrf";
+import { instagramHandleFromUrl, normalizeDomain } from "@leads/domain/normalize";
 
 export type EnrichmentField = "website" | "phone" | "whatsapp" | "email" | "instagram" | "address";
 

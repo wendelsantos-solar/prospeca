@@ -2,37 +2,12 @@
 // them. Fase 1: built and testable, but not yet wired into create-search /
 // execute-search (those still gate on the pre-existing quota.ts). Wiring
 // them up is Fase 2 work, done alongside real Stripe plans.
-//
-// FeatureKey duplicated from packages/domain/src/entitlements.ts — Deno
-// can't import that package — keep both lists in sync.
+import type { FeatureKey, UsageMetric } from "@leads/domain/entitlements";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { AppError } from "./http.ts";
 
-export type FeatureKey =
-  | "lead_search"
-  | "advanced_filters"
-  | "pipeline"
-  | "saved_searches"
-  | "search_monitoring"
-  | "csv_export"
-  | "xlsx_export"
-  | "message_templates"
-  | "cadences"
-  | "automations"
-  | "advanced_analytics"
-  | "team_management"
-  | "custom_permissions"
-  | "api_access";
-
-export type UsageMetric =
-  | "users"
-  | "searchesPerMonth"
-  | "processedLeadsPerMonth"
-  | "savedSearches"
-  | "activeMonitors"
-  | "pipelines"
-  | "messageTemplates"
-  | "exportRowsPerMonth";
+// Re-export domain types for convenience.
+export type { FeatureKey, UsageMetric };
 
 const UNLIMITED = -1;
 

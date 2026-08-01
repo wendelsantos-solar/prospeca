@@ -1,5 +1,6 @@
-export type LeadStage = "new" | "qualified" | "contacted" | "won" | "discarded";
-export type LeadTemperature = "hot" | "warm" | "cold";
+import type { LeadStage, LeadTemperature, DashboardPeriod } from "@leads/contracts";
+export type { LeadStage, LeadTemperature, DashboardPeriod };
+export { LEAD_STAGES, LEAD_TEMPERATURES, DASHBOARD_PERIODS } from "@leads/contracts";
 export type LeadChannel = "phone" | "whatsapp" | "email" | "instagram" | "website";
 export type PresenceFilter = "no-website" | "with-website" | "all";
 export type ActivityType =
@@ -175,5 +176,3 @@ export interface AnalyticsMetric {
 
 export type CreateLeadNoteInput = Omit<LeadNote, "id" | "createdAt">;
 export type CreateLeadActivityInput = Omit<LeadActivity, "id">;
-
-export type DashboardPeriod = "today" | "7d" | "30d" | "90d" | "year" | "custom";

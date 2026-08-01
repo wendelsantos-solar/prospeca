@@ -14,8 +14,8 @@ import { AppError, handleOptions, json, logEvent, newRequestId } from "../_share
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit } from "../_shared/quota.ts";
 import { enrichFromWebsite } from "../_shared/enrich.ts";
-import { calculateScore, temperatureFromScore } from "../_shared/score.ts";
-import { scoreInputFromRow, type PlaceRow } from "../_shared/score-input.ts";
+import { calculateScore, temperatureFromScore } from "@leads/domain/score";
+import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 
 const InputSchema = z.union([
   z.object({ searchId: z.string().uuid() }),
