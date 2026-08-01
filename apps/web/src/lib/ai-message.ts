@@ -11,7 +11,9 @@ export type GenerateContactMessageResult =
  * `{ ok: false, reason: "generation_failed" }` so the caller can silently
  * keep the template draft instead of showing a blocking error.
  */
-export async function generateContactMessage(leadId: string): Promise<GenerateContactMessageResult> {
+export async function generateContactMessage(
+  leadId: string,
+): Promise<GenerateContactMessageResult> {
   try {
     return await invokeFunction<GenerateContactMessageResult>("generate-contact-message", {
       leadId,
