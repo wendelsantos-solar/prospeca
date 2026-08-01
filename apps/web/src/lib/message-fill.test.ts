@@ -42,4 +42,16 @@ describe("buildContactMessage", () => {
   it("leaves missing contact fields empty instead of printing undefined", () => {
     expect(buildContactMessage("[{{bairro}}][{{telefone}}]", { companyName: "X" })).toBe("[][]");
   });
+
+  it("prepends a cadence opener before the templated body when given", () => {
+    expect(buildContactMessage("Oi", CONTACT, {}, "Passando para retomar o contato.")).toBe(
+      "Passando para retomar o contato.\n\nOi",
+    );
+  });
+
+  it("puts the opener before the body but the signature stays last", () => {
+    expect(
+      buildContactMessage("Oi", CONTACT, { signature: "Radar Local" }, "Retomando o contato."),
+    ).toBe("Retomando o contato.\n\nOi\n\nRadar Local");
+  });
 });

@@ -1,4 +1,5 @@
 import type { Lead } from "@/types";
+import { CADENCE_STEPS, currentCadenceStep, type CadenceStep } from "./cadence";
 
 export type NbaPriority = "high" | "medium" | "low";
 export type NbaChannel = "whatsapp" | "call" | "email" | "system";
@@ -10,6 +11,9 @@ export interface Nba {
   priority: NbaPriority;
   daysSinceContact: number | null;
   cta: string;
+  /** Set only in the "contacted" cadence branch — lets the UI show step
+   * progress and pre-fill the draft with the step's opening line. */
+  cadenceStep?: CadenceStep;
 }
 
 function daysSince(iso?: string): number | null {
@@ -79,7 +83,7 @@ export function computeNba(lead: Lead): Nba {
   }
 
   if (lead.stage === "contacted") {
-    if (days === null || days < 2) {
+    if (days === null || days < CADENCE_STEPS[0].dueAtDay) {
       return {
         action: "Aguardar resposta",
         reason: "Contato recente. Aguarde a resposta antes de insistir.",
@@ -89,33 +93,16 @@ export function computeNba(lead: Lead): Nba {
         cta: "Agendar retorno",
       };
     }
-    if (days <= 5) {
-      return {
-        action: "Fazer follow-up pelo WhatsApp",
-        reason: `Sem retorno há ${days} dias. Um follow-up curto e cordial pode destravar.`,
-        channel: lead.whatsapp ? "whatsapp" : "call",
-        priority: "high",
-        daysSinceContact: days,
-        cta: "Preparar follow-up",
-      };
-    }
-    if (days <= 10) {
-      return {
-        action: "Tentar ligação",
-        reason: `${days} dias sem resposta por mensagem. Uma ligação aumenta a chance de conexão.`,
-        channel: "call",
-        priority: "high",
-        daysSinceContact: days,
-        cta: "Ligar agora",
-      };
-    }
+    const step = currentCadenceStep(lead)!;
+    const isLast = step.order === CADENCE_STEPS.length;
     return {
-      action: "Última tentativa ou descartar",
-      reason: `${days} dias sem resposta. Envie uma última mensagem ou mova para descartado.`,
-      channel: lead.whatsapp ? "whatsapp" : "call",
-      priority: "medium",
+      action: step.label,
+      reason: `${days} dias sem resposta — toque ${step.order} de ${CADENCE_STEPS.length} da cadência (${step.label.toLowerCase()}).`,
+      channel: step.channel === "call" ? "call" : lead.whatsapp ? "whatsapp" : "call",
+      priority: isLast ? "medium" : "high",
       daysSinceContact: days,
-      cta: "Última tentativa",
+      cta: step.channel === "call" ? "Ligar agora" : "Preparar follow-up",
+      cadenceStep: step,
     };
   }
 

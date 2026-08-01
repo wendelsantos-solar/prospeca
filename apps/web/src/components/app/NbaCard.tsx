@@ -1,8 +1,10 @@
 import { MessageCircle, PhoneCall, Mail, Sparkles, Clock, ArrowRight } from "lucide-react";
 import type { Lead } from "@/types";
 import { computeNba, type NbaChannel, type NbaPriority } from "@/lib/nba";
+import { CADENCE_STEPS } from "@/lib/cadence";
+import { buildContactMessage } from "@/lib/message-fill";
 import { useOutbound } from "@/hooks/useOutbound";
-import { useLeadsStore } from "@/stores";
+import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 const CHANNEL_ICON: Record<NbaChannel, React.ComponentType<{ className?: string }>> = {
@@ -27,12 +29,35 @@ const PRIORITY_LABEL: Record<NbaPriority, string> = {
 export function NbaCard({ lead }: { lead: Lead }) {
   const setDetails = useLeadsStore((s) => s.setDetails);
   const { openWhatsApp } = useOutbound();
+  const template = useMessageStore((s) => s.template);
+  const senderName = useSettingsStore((s) => s.senderName);
+  const userName = useSettingsStore((s) => s.userName);
+  const signature = useSettingsStore((s) => s.signature);
   const nba = computeNba(lead);
   const Icon = CHANNEL_ICON[nba.channel];
 
   async function handleCta() {
-    // Refused (no WhatsApp / opt-out) → fall back to the drawer, as before.
-    if (nba.channel === "whatsapp" && (await openWhatsApp(lead))) return;
+    if (nba.channel === "whatsapp") {
+      // Cadence touches (contacted, step due) get an escalating opener
+      // instead of resending the exact same first-contact template.
+      const message = nba.cadenceStep?.messageOpener
+        ? buildContactMessage(
+            template,
+            {
+              companyName: lead.companyName,
+              category: lead.category,
+              city: lead.city,
+              neighborhood: lead.neighborhood,
+              phone: lead.phone,
+              instagram: lead.instagram,
+              website: lead.website,
+            },
+            { senderName, userName, signature },
+            nba.cadenceStep.messageOpener,
+          )
+        : undefined;
+      if (await openWhatsApp(lead, message ? { message } : undefined)) return;
+    }
     setDetails(lead.id);
   }
 
@@ -55,6 +80,11 @@ export function NbaCard({ lead }: { lead: Lead }) {
             >
               {PRIORITY_LABEL[nba.priority]}
             </span>
+            {nba.cadenceStep && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                Toque {nba.cadenceStep.order} de {CADENCE_STEPS.length}
+              </span>
+            )}
           </div>
           <div className="mt-1 text-[14px] font-semibold text-foreground">{nba.action}</div>
           <p className="mt-0.5 text-[12px] text-muted-foreground">{nba.reason}</p>

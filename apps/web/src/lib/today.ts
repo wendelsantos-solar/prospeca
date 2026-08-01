@@ -1,4 +1,5 @@
 import type { Lead, LeadActivity } from "@/types";
+import { currentCadenceStep, nextCadenceStep, cadenceStepDueDate } from "./cadence";
 
 export type TodayGroupId = "overdue" | "today" | "upcoming" | "first_reach" | "no_next";
 
@@ -76,6 +77,44 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
           lead,
           label: "Primeira abordagem pendente",
         });
+      } else if (lead.stage === "contacted" && lead.lastInteractionAt) {
+        // No activity was explicitly scheduled, but a contacted lead always
+        // has a cadence step ticking in the background (see lib/cadence.ts)
+        // — surface it here instead of dumping it in the generic bucket.
+        const due = currentCadenceStep(lead);
+        const step = due ?? nextCadenceStep(lead);
+        const dueDate = step ? cadenceStepDueDate(lead, step) : null;
+        if (step && dueDate) {
+          const item: TodayItem = {
+            id: `${lead.id}:cadence:${step.id}`,
+            groupId: "today",
+            lead,
+            label: `Cadência: ${step.label}`,
+            dueAt: dueDate,
+          };
+          const dueTime = new Date(dueDate);
+          if (dueTime < todayStart) {
+            overdue.push({ ...item, groupId: "overdue" });
+          } else if (dueTime <= todayEnd) {
+            today.push({ ...item, groupId: "today" });
+          } else if (dueTime <= in7) {
+            upcoming.push({ ...item, groupId: "upcoming" });
+          } else {
+            noNext.push({
+              id: `${lead.id}:no_next`,
+              groupId: "no_next",
+              lead,
+              label: "Sem próxima ação definida",
+            });
+          }
+        } else {
+          noNext.push({
+            id: `${lead.id}:no_next`,
+            groupId: "no_next",
+            lead,
+            label: "Sem próxima ação definida",
+          });
+        }
       } else {
         noNext.push({
           id: `${lead.id}:no_next`,

@@ -34,8 +34,12 @@ export function buildContactMessage(
   template: string,
   contact: MessageContact,
   sender: MessageSender = {},
+  /** Cadence step opening line (see lib/cadence.ts) — prepended before the
+   * templated body so a follow-up doesn't read as the exact same first
+   * message resent. */
+  opener?: string,
 ): string {
-  const base = fillTemplate(template, {
+  const filled = fillTemplate(template, {
     empresa: contact.companyName,
     categoria: contact.category ? categoryLabel(contact.category).toLowerCase() : "",
     cidade: contact.city ?? "",
@@ -47,5 +51,6 @@ export function buildContactMessage(
     minha_empresa: sender.companyName ?? "",
     responsavel: "",
   });
+  const base = opener ? `${opener}\n\n${filled}` : filled;
   return sender.signature ? `${base}\n\n${sender.signature}` : base;
 }
