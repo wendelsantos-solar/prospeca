@@ -14,9 +14,9 @@ export function HeroSection() {
           <h1 className="text-[2.25rem] leading-[1.1] font-semibold tracking-tight text-foreground md:text-[3rem] lg:text-[3.5rem]">
             Encontre empresas que precisam do serviço que você vende.
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-            Pesquise empresas por nicho e região, identifique oportunidades com baixa presença
-            digital e organize toda a sua prospecção em um só lugar.
+          <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground md:text-section-title">
+            Pesquise por nicho e região, veja o score que explica quem priorizar primeiro e
+            organize toda a prospecção — da descoberta ao fechamento — em um só lugar.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
@@ -43,7 +43,7 @@ export function HeroSection() {
               </a>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="mt-4 text-caption text-muted-foreground">
             Sem cartão de crédito. Configure sua primeira busca em poucos minutos.
           </p>
         </div>

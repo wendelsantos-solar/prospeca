@@ -1,26 +1,26 @@
 import { Search, Target, MessageCircle, CalendarDays, BadgeCheck } from "lucide-react";
 
 const STEPS = [
-  { icon: Search, label: "Encontre", description: "Pesquise empresas por nicho, cidade e raio." },
+  { icon: Search, label: "Encontre", description: "Pesquise por nicho, cidade e raio de busca." },
   {
     icon: Target,
     label: "Priorize",
-    description: "Veja quais negócios têm mais potencial e por quê.",
+    description: "O score explica quem vale seu tempo primeiro — sem caixa-preta.",
   },
   {
     icon: MessageCircle,
     label: "Aborde",
-    description: "Prepare mensagens com dados reais do lead.",
+    description: "Mensagem pronta com os dados reais do lead.",
   },
   {
     icon: CalendarDays,
     label: "Acompanhe",
-    description: "Organize retornos e atividades sem perder o fio.",
+    description: "Pipeline com próxima ação e lembrete, sem perder o fio.",
   },
   {
     icon: BadgeCheck,
     label: "Converta",
-    description: "Feche negócio com contexto do início ao fim.",
+    description: "Do primeiro contato ao fechamento, com contexto completo.",
   },
 ];
 
@@ -33,8 +33,8 @@ export function TrustStrip() {
             <div className="mb-3 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary-subtle">
               <step.icon className="h-5 w-5" />
             </div>
-            <div className="text-sm font-semibold text-foreground">{step.label}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{step.description}</div>
+            <div className="text-body font-semibold text-foreground">{step.label}</div>
+            <div className="mt-1 text-caption text-muted-foreground">{step.description}</div>
           </div>
         ))}
       </div>
