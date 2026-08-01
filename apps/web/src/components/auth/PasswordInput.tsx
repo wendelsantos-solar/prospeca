@@ -29,7 +29,7 @@ function getStrength(pw: string): { label: string; color: string } | null {
 
 export function PasswordInput({
   showRequirements = false,
-  value = "",
+  value,
   wrapperClassName,
   error,
   className,
@@ -39,8 +39,8 @@ export function PasswordInput({
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
   const [caps, setCaps] = useState(false);
-  const reqs = showRequirements ? getRequirements(value) : [];
-  const strength = showRequirements ? getStrength(value) : null;
+  const reqs = showRequirements ? getRequirements(value ?? "") : [];
+  const strength = showRequirements ? getStrength(value ?? "") : null;
 
   return (
     <div className={cn("space-y-1.5", wrapperClassName)}>
@@ -55,7 +55,7 @@ export function PasswordInput({
           )}
           autoComplete={showRequirements ? "new-password" : "current-password"}
           spellCheck={false}
-          value={value}
+          {...(value !== undefined ? { value } : {})}
           disabled={disabled}
           onKeyUp={(e) => setCaps(e.getModifierState("CapsLock"))}
           {...props}
