@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchBillingPlans, formatPriceCents, type BillingPlan } from "@/lib/billing-plans";
 import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
+import { SalesContactForm } from "./SalesContactForm";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     "200 leads processados",
     "Pipeline completo",
     "Exportação CSV",
-    "Suporte prioritário",
+    "Onboarding assistido",
   ],
   agency: [
     "100 buscas por mês",
@@ -44,39 +45,54 @@ function PricingCard({ plan, highlighted }: { plan: BillingPlan; highlighted?: b
       )}
     >
       {highlighted && (
-        <span className="mb-3 w-fit rounded-full bg-primary-soft px-3 py-0.5 text-xs font-semibold text-primary">
+        <span className="mb-3 w-fit rounded-full bg-primary-soft px-3 py-0.5 text-caption font-semibold text-primary">
           Mais escolhido
         </span>
       )}
       <h3 className="text-base font-semibold text-foreground">{plan.name}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{plan.description ?? ""}</p>
+      <p className="mt-1 text-body text-muted-foreground">{plan.description ?? ""}</p>
       <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-3xl font-bold text-foreground">
+        <span className="text-display font-bold text-foreground">
           {formatPriceCents(plan.monthlyPriceCents)}
         </span>
         {!isFree && plan.monthlyPriceCents !== null && (
-          <span className="text-sm text-muted-foreground">/mês</span>
+          <span className="text-body text-muted-foreground">/mês</span>
         )}
       </div>
       <ul className="mt-5 flex-1 space-y-2.5">
         {features.map((f) => (
-          <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+          <li key={f} className="flex items-center gap-2 text-body text-muted-foreground">
             <Check className="h-4 w-4 shrink-0 text-primary" />
             {f}
           </li>
         ))}
       </ul>
       <div className="mt-6">
-        <Button
-          className="w-full"
-          variant={highlighted ? "default" : "outline"}
-          asChild
-          onClick={() => track("plan_selected", { plan: plan.code })}
-        >
-          <Link to="/cadastro" search={{ plan: plan.code }}>
-            {isFree ? "Começar grátis" : "Testar grátis"}
-          </Link>
-        </Button>
+        {isFree ? (
+          <Button
+            className="w-full"
+            variant={highlighted ? "default" : "outline"}
+            asChild
+            onClick={() => track("plan_selected", { plan: plan.code })}
+          >
+            <Link to="/cadastro" search={{ plan: plan.code }}>
+              Começar grátis
+            </Link>
+          </Button>
+        ) : (
+          <SalesContactForm
+            source={`landing_pricing_${plan.code}`}
+            trigger={
+              <Button
+                className="w-full"
+                variant={highlighted ? "default" : "outline"}
+                onClick={() => track("plan_selected", { plan: plan.code })}
+              >
+                Solicitar acesso ao piloto
+              </Button>
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -91,7 +107,7 @@ export function PricingTeaser() {
         <SectionHeading
           eyebrow="Preços"
           title="Um plano pra cada estágio da sua prospecção"
-          description="Comece de graça. Faça upgrade quando fizer sentido."
+          description="Comece de graça. Peça acesso ao piloto pago quando fizer sentido."
           center
         />
         {shown.length > 0 && (
