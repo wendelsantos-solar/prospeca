@@ -1,64 +1,55 @@
-# Deploy — Radar Local
+# Deployment
 
-## Pré-requisitos
+Deployment model is unchanged by the monorepo refactor (see ADR-001): the web
+app builds as a TanStack Start (Nitro) output; the backend is Supabase.
 
-- Projeto Supabase criado (com PostGIS disponível).
-- Projeto Google Cloud com billing e APIs ativas (ver GOOGLE_PLACES_SETUP.md).
-- Supabase CLI autenticada.
-
-## Passos
-
-### 1. Banco
+## Web (apps/web)
 
 ```bash
-supabase link --project-ref <ref>
-supabase db push          # aplica supabase/migrations/
+bun install
+bun run build            # turbo -> apps/web build (Nitro output in apps/web/.output)
 ```
 
-### 2. Secrets das Edge Functions
+Deploy the Nitro output to the existing host. Build-time env (root `.env`):
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_DATA_MODE=real`,
+`VITE_MAP_TILE_URL`, `VITE_MAP_ATTRIBUTION`. Google browser key optional.
+
+## Database (Supabase)
+
+Migrations are additive and versioned. Apply in order; never drop existing
+tables/columns.
 
 ```bash
-supabase secrets set \
-  GOOGLE_MAPS_SERVER_KEY=<server-key> \
-  APP_URL=https://app.seudominio.com \
-  APP_ENV=production
-# SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY são injetadas
-# automaticamente pelo Supabase nas functions.
+supabase db push          # apply supabase/migrations to the linked project
 ```
 
-### 3. Edge Functions
+Fase 5 migration `20260720000001_lead_sources_enrichment.sql` is additive
+(`create table if not exists`, `add column if not exists`) and safe to apply to
+production. PostGIS is already enabled.
+
+## Edge Functions
 
 ```bash
-supabase functions deploy create-search execute-search geocode-location \
-  get-search-status cancel-search import-search-results \
-  refresh-place-details calculate-lead-score create-export delete-account-data
+supabase functions deploy               # all functions
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... APP_URL=... APP_ENV=production
 ```
 
-### 4. Frontend
-
-`.env` de produção:
-
-```env
-VITE_SUPABASE_URL=https://<ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon>
-VITE_GOOGLE_MAPS_BROWSER_KEY=<browser-key>
-VITE_DATA_MODE=real
-```
+Provider selection (default = Google, no change on deploy):
 
 ```bash
-bun run build
-# deploy do output (Vite/TanStack Start) na hospedagem escolhida
+# Opt in per capability, only after verifying with `supabase functions serve`:
+supabase secrets set USE_OSM_GEOCODER=true
+supabase secrets set USE_OSM_PLACES=true
+supabase secrets set GEOCODER_USER_AGENT="leads-platform/1.0 (you@example.com)"
+supabase secrets set OVERPASS_USER_AGENT="leads-platform/1.0 (you@example.com)"
 ```
 
-## Checklist de produção
+The system runs with `GOOGLE_MAPS_SERVER_KEY` absent once OSM flags are on.
 
-- [ ] `VITE_DATA_MODE=real` (nunca demo).
-- [ ] Chave browser restrita ao domínio de produção.
-- [ ] Chave server restrita às APIs necessárias.
-- [ ] RLS testada (usuário A não vê dados da org B).
-- [ ] E-mails de auth configurados (confirmação, reset) com domínio próprio.
-- [ ] Redirect URLs do Supabase Auth incluem `https://app.../redefinir-senha`.
-- [ ] Alertas de billing no Google Cloud (orçamento + limite).
-- [ ] Limites de quota por plano revisados em `organizations`.
-- [ ] Cron para retomar buscas `queued` órfãs (Supabase cron → execute-search).
-- [ ] Limpeza periódica de `idempotency_keys` e `geocode_cache` expirados.
+## Rollback
+
+- Code: `git revert` or redeploy the previous build; `backup/pre-monorepo-lead-platform`
+  branch points at the pre-refactor state.
+- Providers: set the `USE_OSM_*` flags back to `false` (instant, no deploy needed
+  if using `supabase secrets set`).
+- DB: additive migrations require no rollback; new tables can be left in place.
