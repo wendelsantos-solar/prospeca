@@ -17,6 +17,7 @@ import { signUp } from "@/hooks/useAuth";
 import { readUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
+import { passwordSchema } from "@/lib/password-policy";
 import { Sparkles } from "lucide-react";
 
 // Bump whenever Termos de Uso / Política de Privacidade materially change —
@@ -42,7 +43,7 @@ const schema = z
   .object({
     fullName: z.string().min(2, "Informe seu nome"),
     email: z.string().min(1, "Informe seu e-mail").email("E-mail inválido"),
-    password: z.string().min(8, "Mínimo de 8 caracteres"),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirme sua senha"),
   })
   .refine((d) => d.password === d.confirmPassword, {

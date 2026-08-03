@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
   await sendEmail({
     to: notifyTo,
-    subject: `Radar Local — ${rows.length} erro(s) nos últimos ~35min`,
+    subject: `Prospeca — ${rows.length} erro(s) nos últimos ~35min`,
     html: `<p>${rows.length} erro(s) registrados, agrupados abaixo:</p><ul>${lines.join("")}</ul>`,
   });
 

@@ -7,6 +7,7 @@ import type {
   Search,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
+  RecordContactInput,
   DashboardPeriod,
 } from "@/types";
 import { MOCK_LEADS } from "@/mocks/leads";
@@ -65,7 +66,6 @@ export class DemoLeadRepository implements LeadRepository {
       closedService: input.closedService,
       closedAt: input.closedAt,
       discardReason: input.discardReason,
-      lastInteractionAt: new Date().toISOString(),
     });
   }
 
@@ -85,6 +85,51 @@ export class DemoLeadRepository implements LeadRepository {
     demoLeads = demoLeads.map((l) =>
       l.id === leadId ? { ...l, activities: [activity, ...l.activities] } : l,
     );
+    return activity;
+  }
+
+  async recordContact(leadId: string, input: RecordContactInput): Promise<LeadActivity> {
+    const stepOrder: Record<string, number> = {
+      "followup-1": 1,
+      "call-1": 2,
+      "followup-2": 3,
+      "last-attempt": 4,
+    };
+    const activity: LeadActivity = {
+      id: `contact-${Date.now()}`,
+      type: input.channel === "whatsapp" || input.channel === "email" ? "message" : "call",
+      title: input.title,
+      note: input.note,
+      date: input.occurredAt,
+      occurredAt: input.occurredAt,
+      completedAt: input.occurredAt,
+      done: true,
+      outcome: input.outcome,
+      cadenceStepId: input.cadenceStepId,
+    };
+    let found = false;
+    demoLeads = demoLeads.map((lead) => {
+      if (lead.id !== leadId) return lead;
+      found = true;
+      const nextStep = input.cadenceStepId ? (stepOrder[input.cadenceStepId] ?? 0) : 0;
+      const cadenceStep = Math.max(lead.cadenceStep ?? 0, nextStep);
+      const cadenceSucceeded = ["answered", "meeting", "proposal", "won"].includes(input.outcome);
+      return {
+        ...lead,
+        stage: lead.stage === "won" || lead.stage === "discarded" ? lead.stage : "contacted",
+        lastInteractionAt: input.occurredAt,
+        cadenceStartedAt: lead.cadenceStartedAt ?? input.occurredAt,
+        cadenceStep,
+        cadenceCompletedAt:
+          cadenceStep >= 4 || cadenceSucceeded ? input.occurredAt : lead.cadenceCompletedAt,
+        lastOutcome: input.outcome,
+        respondedAt: input.outcome === "answered" ? input.occurredAt : lead.respondedAt,
+        meetingAt: input.outcome === "meeting" ? input.occurredAt : lead.meetingAt,
+        proposalAt: input.outcome === "proposal" ? input.occurredAt : lead.proposalAt,
+        activities: [activity, ...lead.activities],
+      };
+    });
+    if (!found) throw new Error("Lead não encontrado.");
     return activity;
   }
 
@@ -234,8 +279,8 @@ export class DemoSearchRepository implements SearchRepository {
     return { enriched: 0 };
   }
 
-  async addToFunnel(): Promise<{ enrichableLeadIds: string[] }> {
-    return { enrichableLeadIds: [] };
+  async addToFunnel(): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }> {
+    return { enrichableLeadIds: [], leadIds: [] };
   }
 
   async enrichLead(): Promise<void> {

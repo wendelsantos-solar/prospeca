@@ -4,11 +4,15 @@
 
 import { handleOptions, corsHeaders } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
+import { evaluatePilotConfiguration } from "../_shared/pilot-readiness.ts";
 
 interface HealthStatus {
   status: "ok" | "degraded" | "down";
   uptime: number;
-  checks: Record<string, { status: "ok" | "fail"; latencyMs?: number; error?: string }>;
+  checks: Record<
+    string,
+    { status: "ok" | "fail"; latencyMs?: number; error?: string; missing?: string[] }
+  >;
 }
 
 const startTime = Date.now();
@@ -25,6 +29,9 @@ Deno.serve((req: Request) => {
   }
   if (path === "/health-check/ready" || path === "/ready") {
     return ready();
+  }
+  if (path === "/health-check/pilot-ready" || path === "/pilot-ready") {
+    return pilotReady();
   }
 
   return new Response(JSON.stringify({ error: "Not found" }), {
@@ -48,8 +55,17 @@ function health(): Response {
 }
 
 /** Dependências — verifica banco (se aplicável). */
-async function ready(): Promise<Response> {
-  const checks: HealthStatus["checks"] = {};
+function ready(): Promise<Response> {
+  return databaseReadiness({});
+}
+
+/** Banco + configuração de todas as capacidades vendidas no piloto pago. */
+function pilotReady(): Promise<Response> {
+  return databaseReadiness(evaluatePilotConfiguration(Deno.env.toObject()));
+}
+
+async function databaseReadiness(initialChecks: HealthStatus["checks"]): Promise<Response> {
+  const checks: HealthStatus["checks"] = { ...initialChecks };
 
   // Database check
   try {

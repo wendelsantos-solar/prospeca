@@ -1,4 +1,4 @@
-# Site comercial — Radar Local
+# Site comercial — Prospeca
 
 Status: **Fase 1 implementada** (Home + `/precos` + form de vendas). Rotas
 `/para-agencias`, `/recursos`, `/contato`, `/blog`, `/guias`, `/casos`, E2E e

@@ -1,6 +1,6 @@
 # Sistema de Ícones V2 — Auditoria
 
-Estado atual dos ícones no Radar Local, levantado em 2025.
+Estado atual dos ícones no Prospeca, levantado em 2025.
 
 ## Biblioteca
 

@@ -1,4 +1,4 @@
-# SaaS Readiness Report — Radar Local
+# SaaS Readiness Report — Prospeca
 
 **Data:** 2026-07-30
 **Avaliador:** Auditoria automatizada + revisão de código

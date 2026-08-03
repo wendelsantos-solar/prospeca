@@ -67,7 +67,13 @@ export function NbaCard({ lead }: { lead: Lead }) {
             nba.cadenceStep.messageOpener,
           )
         : undefined;
-      if (await openWhatsApp(lead, message ? { message } : undefined)) return;
+      if (
+        await openWhatsApp(lead, {
+          ...(message ? { message } : {}),
+          cadenceStepId: nba.cadenceStep?.id,
+        })
+      )
+        return;
     }
     setDetails(lead.id);
   }

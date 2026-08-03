@@ -1,14 +1,7 @@
 // execute-search: internal worker. Calls Google Places (Text Search),
 // paginates within limits, upserts places, links search_results,
 // validates distance with PostGIS, updates progress. Service-role only.
-import {
-  AppError,
-  handleOptions,
-  json,
-  logEvent,
-  newRequestId,
-  captureAndRespond,
-} from "../_shared/http.ts";
+import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { captureError } from "../_shared/error-tracking.ts";

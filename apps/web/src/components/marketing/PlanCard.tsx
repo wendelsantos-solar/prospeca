@@ -10,16 +10,14 @@ import { track } from "@/lib/analytics";
 const PLAN_TAGLINE: Record<string, string> = {
   free: "Para testar a plataforma.",
   solo: "Para freelancers e profissionais autônomos.",
-  professional: "Para quem prospecta de forma recorrente.",
+  professional: "Piloto fundador com onboarding assistido.",
   agency: "Para pequenas equipes.",
   team: "Recursos e volume sob medida.",
 };
 
 const PLAN_CTA_LABEL: Record<string, string> = {
   free: "Começar grátis",
-  solo: "Começar no Solo",
-  professional: "Testar o Profissional",
-  agency: "Escolher Agência",
+  professional: "Solicitar acesso ao piloto",
 };
 
 const LIMIT_LABELS: [key: string, label: string][] = [
@@ -81,7 +79,7 @@ export function PlanCard({
       </ul>
 
       <div className="mt-6">
-        {plan.code === "team" ? (
+        {plan.code !== "free" ? (
           <SalesContactForm
             source={`pricing_${plan.code}`}
             trigger={
@@ -90,7 +88,7 @@ export function PlanCard({
                 variant={highlighted ? "default" : "outline"}
                 onClick={() => track("plan_selected", { plan: plan.code })}
               >
-                Falar com vendas
+                {PLAN_CTA_LABEL[plan.code] ?? "Solicitar acesso"}
               </Button>
             }
           />

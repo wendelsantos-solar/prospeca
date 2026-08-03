@@ -1,4 +1,4 @@
-# Data Privacy & Retention — Radar Local
+# Data Privacy & Retention — Prospeca
 
 **Data:** 2026-07-30
 **Status:** Em conformidade parcial. Termos legais pendentes.

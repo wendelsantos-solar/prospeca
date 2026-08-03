@@ -1,4 +1,4 @@
-# Copy da landing — Radar Local
+# Copy da landing — Prospeca
 
 Referência rápida do texto usado em `/` e `/precos`. A fonte real é o
 componente (arquivo indicado) — este doc é pra revisão/tradução, não pra
@@ -24,7 +24,7 @@ linha de descrição.
 ## Problema (`ProblemSection.tsx`)
 
 Título: "Prospectar clientes locais não deveria depender de horas no mapa
-e planilhas desorganizadas." Comparação "Antes/Depois do Radar Local",
+e planilhas desorganizadas." Comparação "Antes/Depois do Prospeca",
 8 itens de cada lado.
 
 ## Como funciona (`HowItWorksSection.tsx`)
@@ -103,7 +103,7 @@ antecipado."
 
 ## Oferta fundadores (`FounderOffer.tsx`)
 
-Título: "Faça parte dos primeiros clientes do Radar Local." Só renderiza
+Título: "Faça parte dos primeiros clientes do Prospeca." Só renderiza
 com `founder_offer.is_active = true` — sem números inventados.
 
 ## FAQ (`FAQSection.tsx`)

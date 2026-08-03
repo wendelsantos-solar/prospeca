@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useDeferredValue, useMemo, useState } from "react";
 import { useLeadsStore, useUIStore } from "@/stores";
 import { applyFilters, sortLeads } from "@/lib/filters";
-import { LeadListSkeleton } from "@/components/shared/Skeletons";
+import { KanbanSkeleton, LeadListSkeleton } from "@/components/shared/Skeletons";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 
@@ -49,7 +49,7 @@ function applyKanbanFilters(leads: import("@/types").Lead[], f: KanbanFilters) {
 
 export const Route = createFileRoute("/app/kanban")({
   component: KanbanPage,
-  head: () => ({ meta: [{ title: "Kanban — Radar Local" }] }),
+  head: () => ({ meta: [{ title: "Kanban — Prospeca" }] }),
 });
 
 function KanbanPage() {
@@ -104,7 +104,7 @@ function KanbanPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Suspense fallback={null}>
+      <Suspense fallback={<KanbanSkeleton />}>
         <KanbanTopBar
           search={search}
           setSearch={setSearch}

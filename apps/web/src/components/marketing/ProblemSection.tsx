@@ -36,7 +36,7 @@ export function ProblemSection() {
               <span className="grid h-6 w-6 place-items-center rounded bg-destructive-soft text-destructive">
                 <X className="h-3.5 w-3.5" />
               </span>
-              Antes do Radar Local
+              Antes da Prospeca
             </h3>
             <ul className="space-y-3">
               {BEFORE.map((item) => (
@@ -52,7 +52,7 @@ export function ProblemSection() {
               <span className="grid h-6 w-6 place-items-center rounded bg-primary-soft text-primary">
                 <Check className="h-3.5 w-3.5" />
               </span>
-              Com o Radar Local
+              Com a Prospeca
             </h3>
             <ul className="space-y-3">
               {AFTER.map((item) => (

@@ -1,4 +1,5 @@
 import type { LeadStage, LeadTemperature, DashboardPeriod } from "@leads/contracts";
+import type { ScoreBreakdown } from "@leads/domain";
 export type { LeadStage, LeadTemperature, DashboardPeriod };
 export { LEAD_STAGES, LEAD_TEMPERATURES, DASHBOARD_PERIODS } from "@leads/contracts";
 export type LeadChannel = "phone" | "whatsapp" | "email" | "instagram" | "website";
@@ -11,6 +12,15 @@ export type ActivityType =
   | "proposal"
   | "visit"
   | "other";
+export type ContactChannel = "whatsapp" | "call" | "email";
+export type ContactOutcome =
+  | "sent"
+  | "answered"
+  | "no_answer"
+  | "meeting"
+  | "proposal"
+  | "won"
+  | "lost";
 
 export interface LeadNote {
   id: string;
@@ -30,6 +40,18 @@ export interface LeadActivity {
   priority?: "low" | "medium" | "high";
   done?: boolean;
   completedAt?: string;
+  occurredAt?: string;
+  outcome?: ContactOutcome;
+  cadenceStepId?: string;
+}
+
+export interface RecordContactInput {
+  channel: ContactChannel;
+  title: string;
+  outcome: ContactOutcome;
+  occurredAt: string;
+  note?: string;
+  cadenceStepId?: string;
 }
 
 export interface TimelineEvent {
@@ -60,7 +82,7 @@ export interface Lead {
   rating?: number;
   reviewCount?: number;
   score: number;
-  scoreBreakdown?: Record<string, unknown>;
+  scoreBreakdown?: ScoreBreakdown;
   temperature: LeadTemperature;
   stage: LeadStage;
   estimatedValue?: number;
@@ -69,6 +91,13 @@ export interface Lead {
   closedAt?: string;
   discardReason?: string;
   lastInteractionAt?: string;
+  cadenceStartedAt?: string;
+  cadenceStep?: number;
+  cadenceCompletedAt?: string;
+  lastOutcome?: ContactOutcome;
+  respondedAt?: string;
+  meetingAt?: string;
+  proposalAt?: string;
   discoveredAt: string;
   openingHours?: string[];
   nextActivity?: LeadActivity;

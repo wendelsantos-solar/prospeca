@@ -1,4 +1,4 @@
-# Observability — Radar Local
+# Observability — Prospeca
 
 **Data:** 2026-07-30
 **Status:** Fundação implementada, melhorias pendentes

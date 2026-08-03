@@ -1,4 +1,4 @@
-# RLS Security Audit — Radar Local
+# RLS Security Audit — Prospeca
 
 **Data:** 2026-07-30
 **Fonte:** `supabase/migrations/20260719000005_rls.sql` + migrations de billing

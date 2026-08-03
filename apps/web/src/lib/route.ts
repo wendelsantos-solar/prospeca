@@ -72,3 +72,18 @@ export function buildGoogleMapsRouteUrl(orderedStops: RouteStop[], origin?: LatL
 
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
+
+/**
+ * Waze Deep Links accept one destination per navigation session. The route UI
+ * therefore exposes this action on every ordered stop instead of pretending a
+ * multi-stop itinerary can be transferred to Waze.
+ */
+export function buildWazeNavigationUrl(stop: RouteStop): string {
+  const params = new URLSearchParams({
+    ll: `${stop.lat},${stop.lng}`,
+    navigate: "yes",
+    utm_source: "radar_local",
+  });
+
+  return `https://www.waze.com/ul?${params.toString()}`;
+}

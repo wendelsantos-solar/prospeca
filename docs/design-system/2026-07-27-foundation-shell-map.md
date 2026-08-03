@@ -5,7 +5,7 @@
 
 ## Objetivo
 
-Reformular a linguagem visual e a **posição** dos elementos do Radar Local, provando a direção V2 end-to-end na tela flagship (Mapa). Não é troca de cor/fonte: é reorganização do shell e da hierarquia. Mockup aprovado: `scratchpad/mapa-v2.html` (artifact publicado).
+Reformular a linguagem visual e a **posição** dos elementos do Prospeca, provando a direção V2 end-to-end na tela flagship (Mapa). Não é troca de cor/fonte: é reorganização do shell e da hierarquia. Mockup aprovado: `scratchpad/mapa-v2.html` (artifact publicado).
 
 ## Direção visual (aprovada)
 

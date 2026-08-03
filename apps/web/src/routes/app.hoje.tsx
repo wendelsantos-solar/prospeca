@@ -15,7 +15,7 @@ import { icons } from "@/design-system/icons/icon-registry";
 export const Route = createFileRoute("/app/hoje")({
   head: () => ({
     meta: [
-      { title: "Hoje — Radar Local" },
+      { title: "Hoje — Prospeca" },
       {
         name: "description",
         content:

@@ -1,4 +1,4 @@
-# Marketing SEO — Radar Local
+# Marketing SEO — Prospeca
 
 Configuração de SEO para o site público.
 
@@ -13,12 +13,12 @@ Configuração de SEO para o site público.
 
 | Rota             | Title                                                                  | Description                                             |
 | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
-| `/`              | Radar Local — Encontre empresas que precisam do serviço que você vende | Pesquise empresas locais por nicho e região...          |
-| `/precos`        | Preços — Radar Local                                                   | Planos do Radar Local: comece de graça...               |
-| `/para-agencias` | Para Agências — Radar Local                                            | Prospecção local em equipe com Pipeline colaborativo... |
-| `/contato`       | Contato — Radar Local                                                  | Entre em contato com o Radar Local...                   |
-| `/cadastro`      | Criar conta — Radar Local                                              | (herda do root)                                         |
-| `/login`         | Entrar — Radar Local                                                   | (herda do root)                                         |
+| `/`              | Prospeca — Encontre empresas que precisam do serviço que você vende | Pesquise empresas locais por nicho e região...          |
+| `/precos`        | Preços — Prospeca                                                   | Planos do Prospeca: comece de graça...               |
+| `/para-agencias` | Para Agências — Prospeca                                            | Prospecção local em equipe com Pipeline colaborativo... |
+| `/contato`       | Contato — Prospeca                                                  | Entre em contato com o Prospeca...                   |
+| `/cadastro`      | Criar conta — Prospeca                                              | (herda do root)                                         |
+| `/login`         | Entrar — Prospeca                                                   | (herda do root)                                         |
 
 ## Índices
 

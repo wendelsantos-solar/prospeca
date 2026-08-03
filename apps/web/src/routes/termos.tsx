@@ -1,25 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/termos")({
+  head: () => ({
+    meta: [
+      { title: "Termos de Uso — Prospeca" },
+      {
+        name: "description",
+        content:
+          "Termos de Uso da Prospeca: regras de cadastro, planos, uso aceitável e cancelamento.",
+      },
+      { property: "og:title", content: "Termos de Uso — Prospeca" },
+    ],
+    links: [{ rel: "canonical", href: "/termos" }],
+  }),
   component: TermsOfUsePage,
 });
 
 function TermsOfUsePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <h1 className="text-2xl font-bold mb-6">Termos de Uso — Radar Local</h1>
+      <h1 className="text-2xl font-bold mb-6">Termos de Uso — Prospeca</h1>
       <p className="text-sm text-muted-foreground mb-8">Última atualização: Julho de 2026</p>
 
       <div className="prose prose-sm max-w-none space-y-4 text-muted-foreground">
         <h2 className="text-base font-semibold text-foreground">1. Aceitação dos Termos</h2>
         <p>
-          Ao acessar e usar o Radar Local (&ldquo;Plataforma&rdquo;), você concorda com estes Termos
-          de Uso. Se você não concordar, não utilize a Plataforma.
+          Ao acessar e usar a Prospeca (&ldquo;Plataforma&rdquo;), você concorda com estes Termos de
+          Uso. Se você não concordar, não utilize a Plataforma.
         </p>
 
         <h2 className="text-base font-semibold text-foreground">2. Descrição do Serviço</h2>
         <p>
-          O Radar Local é uma plataforma de inteligência comercial e prospecção local que permite
+          A Prospeca é uma plataforma de inteligência comercial e prospecção local que permite
           pesquisar empresas por nicho e localização, analisar oportunidades e organizar leads.
         </p>
 
@@ -49,7 +61,7 @@ function TermsOfUsePage() {
         <h2 className="text-base font-semibold text-foreground">6. Dados de Terceiros</h2>
         <p>
           Os dados de empresas exibidos na Plataforma são obtidos de fontes públicas (Google Places)
-          e enriquecidos automaticamente. O Radar Local não garante a precisão ou atualização desses
+          e enriquecidos automaticamente. A Prospeca não garante a precisão ou atualização desses
           dados. Você é responsável pelo uso que faz dessas informações, incluindo a conformidade
           com a LGPD ao contatar os titulares dos dados.
         </p>
@@ -67,7 +79,7 @@ function TermsOfUsePage() {
           8. Limitação de Responsabilidade
         </h2>
         <p>
-          A Plataforma é fornecida &ldquo;como está&rdquo;. O Radar Local não se responsabiliza por
+          A Plataforma é fornecida &ldquo;como está&rdquo;. A Prospeca não se responsabiliza por
           decisões comerciais tomadas com base nos dados exibidos, indisponibilidade temporária ou
           perda de dados por motivos fora de nosso controle.
         </p>
@@ -88,8 +100,8 @@ function TermsOfUsePage() {
         <h2 className="text-base font-semibold text-foreground">11. Contato</h2>
         <p>
           Dúvidas sobre estes Termos? Entre em contato:{" "}
-          <a href="mailto:suporte@radarlocal.com.br" className="text-primary underline">
-            suporte@radarlocal.com.br
+          <a href="mailto:suporte@prospeca.com.br" className="text-primary underline">
+            suporte@prospeca.com.br
           </a>
         </p>
       </div>

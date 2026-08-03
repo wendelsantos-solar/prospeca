@@ -1,4 +1,4 @@
-# Planos e entitlements — Radar Local
+# Planos e entitlements — Prospeca
 
 Fonte da verdade: tabela `billing_plans` (seed em
 `supabase/migrations/20260729000002_billing_foundation.sql`). Os valores

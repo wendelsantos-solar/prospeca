@@ -1,4 +1,4 @@
-# Arquitetura — Radar Local
+# Arquitetura — Prospeca
 
 ## Visão geral
 

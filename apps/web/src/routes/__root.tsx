@@ -45,7 +45,7 @@ function NotFoundComponent() {
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            Voltar ao início
           </Link>
         </div>
       </div>
@@ -64,7 +64,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Algo deu errado. Tente novamente ou volte ao início.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -74,13 +74,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            Tentar novamente
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            Voltar ao início
           </a>
         </div>
       </div>
@@ -93,20 +93,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Radar Local — Encontre, qualifique e converta negócios locais" },
+      { title: "Prospeca — Encontre, qualifique e converta negócios locais" },
       {
         name: "description",
         content:
           "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
       },
-      { property: "og:title", content: "Radar Local" },
+      { property: "og:title", content: "Prospeca" },
       { property: "og:description", content: "Encontre, qualifique e converta negócios locais." },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "/og-image.svg" },
+      { property: "og:locale", content: "pt_BR" },
+      { property: "og:image", content: "/og-image.png" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: "/og-image.svg" },
+      { name: "twitter:title", content: "Prospeca" },
+      {
+        name: "twitter:description",
+        content: "Encontre, qualifique e converta negócios locais.",
+      },
+      { name: "twitter:image", content: "/og-image.png" },
+      { name: "theme-color", content: "#0D9E5A" },
     ],
     links: [
       {
@@ -126,7 +133,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
-          name: "Radar Local",
+          name: "Prospeca",
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description:
@@ -136,6 +143,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             price: "0",
             priceCurrency: "BRL",
           },
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Prospeca",
+          url: "/",
+          logo: "/favicon-512.png",
         }),
       },
     ],

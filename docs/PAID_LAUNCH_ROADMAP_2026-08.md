@@ -25,7 +25,7 @@ Commit `5cbbe8b`. Cada um destes, se um prospect ou cliente pagante encontrar, m
 
 Commit `6cd9738`.
 
-10. ✅ Sitemap.xml — domínio placeholder trocado por `radarlocal.com.br` (inferido dos e-mails já usados no código; confirma antes de submeter no Search Console).
+10. ✅ Sitemap.xml — domínio placeholder trocado por `prospeca.com.br` (inferido dos e-mails já usados no código; confirma antes de submeter no Search Console).
 11. ⬜ **OG image é SVG** — WhatsApp/LinkedIn não renderizam bem. Precisa de um PNG gerado a partir do SVG atual; não fiz por não ter ferramenta de conversão de imagem disponível nesta sessão.
 12. ✅ Link morto `#fundadores` (testimonials) — agora abre `SalesContactForm` direto.
 13. ✅ Footer "Para agências" — aponta pra rota certa `/para-agencias`.

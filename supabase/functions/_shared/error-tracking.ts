@@ -75,8 +75,7 @@ async function persistError(
 ): Promise<void> {
   try {
     const admin = adminClient();
-    // deno-lint-ignore no-explicit-any
-    const { error: insertError } = await admin.from("error_events").insert({
+    const errorEvent = {
       source: "edge-function",
       location: ctx.location,
       message: sanitizeMessage(err),
@@ -88,7 +87,11 @@ async function persistError(
       release: RELEASE,
       environment: ENVIRONMENT,
       user_agent: null,
-    } as any);
+    };
+    // This module deliberately does not import a generated Database type. The
+    // Supabase client therefore infers inserts as `never`; the payload is still
+    // fully explicit above and checked by Postgres at the persistence seam.
+    const { error: insertError } = await admin.from("error_events").insert(errorEvent as never);
 
     if (insertError) {
       // Last resort: log to console so at least the function logs capture it.

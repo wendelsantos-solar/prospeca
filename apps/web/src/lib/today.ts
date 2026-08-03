@@ -77,10 +77,11 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
           lead,
           label: "Primeira abordagem pendente",
         });
-      } else if (lead.stage === "contacted" && lead.lastInteractionAt) {
+      } else if (lead.stage === "contacted" && lead.cadenceStartedAt) {
         // No activity was explicitly scheduled, but a contacted lead always
-        // has a cadence step ticking in the background (see lib/cadence.ts)
-        // — surface it here instead of dumping it in the generic bucket.
+        // has a cadence step ticking after a confirmed first contact (see
+        // lib/cadence.ts) — surface it instead of using card movement as
+        // evidence that a customer interaction happened.
         const due = currentCadenceStep(lead);
         const step = due ?? nextCadenceStep(lead);
         const dueDate = step ? cadenceStepDueDate(lead, step) : null;

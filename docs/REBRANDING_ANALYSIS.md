@@ -1,4 +1,4 @@
-# Análise de Rebranding — Radar Local
+# Análise de Rebranding — Prospeca
 
 > Data: 30 de julho de 2026
 > Objetivo: novo nome mais profissional, mantendo o segmento (prospecção B2B local)
@@ -11,7 +11,7 @@
 - **Nome atual:** Radar Local
 - **Produto:** Plataforma SaaS de prospecção comercial local (Google Places, scoring, pipeline Kanban)
 - **Público:** Profissionais que vendem para negócios locais (agências, criadores de sites, consultores, etc.)
-- **Motivação:** Nome "Radar Local" soa genérico e "local" pode passar impressão de algo pequeno
+- **Motivação:** Nome "Prospeca" soa genérico e "local" pode passar impressão de algo pequeno
 
 ---
 

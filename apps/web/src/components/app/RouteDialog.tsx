@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { useLeadsStore } from "@/stores";
 import { useLeadsList, useDiscoveryResults } from "@/hooks/useLeadsQuery";
-import { optimizeVisitOrder, buildGoogleMapsRouteUrl, type OrderedStop } from "@/lib/route";
+import {
+  optimizeVisitOrder,
+  buildGoogleMapsRouteUrl,
+  buildWazeNavigationUrl,
+  type OrderedStop,
+} from "@/lib/route";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -95,6 +100,10 @@ export function RouteDialog({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const openStopInWaze = (stop: OrderedStop) => {
+    window.open(buildWazeNavigationUrl(stop), "_blank", "noopener,noreferrer");
+  };
+
   if (targets.length === 0) return null;
 
   return (
@@ -103,7 +112,7 @@ export function RouteDialog({
         <DialogHeader>
           <DialogTitle>Planejar rota ({targets.length})</DialogTitle>
           <DialogDescription>
-            Ordem sugerida por proximidade — ajuste no Google Maps se precisar.
+            Google Maps recebe a rota completa; no Waze, abra cada parada na ordem sugerida.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,9 +146,19 @@ export function RouteDialog({
                   <p className="truncate text-sm font-semibold">{t.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.address}</p>
                 </div>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
+                <span className="shrink-0 text-micro text-muted-foreground">
                   {i === 0 && !origin ? "início" : `+${stop.legKm.toFixed(1)}km`}
                 </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 shrink-0 px-2 text-caption"
+                  onClick={() => openStopInWaze(stop)}
+                  aria-label={`Abrir ${t.name} no Waze`}
+                >
+                  Waze
+                </Button>
               </div>
             );
           })}

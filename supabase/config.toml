@@ -386,6 +386,11 @@ import_map_path = "./import_map.json"
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Public liveness/readiness probe for external uptime monitors. Responses never
+# include secret values; /pilot-ready only reports the names of missing config.
+[functions.health-check]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

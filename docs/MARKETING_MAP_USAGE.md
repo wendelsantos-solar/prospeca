@@ -1,6 +1,6 @@
 # Marketing Map Usage
 
-Documenta a abordagem do Radar Local para demonstrar o mapa na landing page.
+Documenta a abordagem do Prospeca para demonstrar o mapa na landing page.
 
 ## Abordagem escolhida
 

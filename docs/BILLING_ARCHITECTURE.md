@@ -1,4 +1,4 @@
-# Arquitetura de billing — Radar Local
+# Arquitetura de billing — Prospeca
 
 Status: **Fase 1 (fundação) implementada.** Provedor de pagamento ainda não
 conectado — ver "Roadmap" abaixo.

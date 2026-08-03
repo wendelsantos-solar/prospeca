@@ -1,4 +1,4 @@
-# Security Audit — Radar Local (Update 2026-07-30)
+# Security Audit — Prospeca (Update 2026-07-30)
 
 **Data:** 2026-07-30
 **Base:** Auditoria anterior (2026-07-23) + novas implementações

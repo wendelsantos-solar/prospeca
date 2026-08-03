@@ -102,7 +102,11 @@ function humanize(value: string): string {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .toLocaleLowerCase("pt-BR")
+    .replace(
+      /(^|\s)(\p{L})/gu,
+      (_, prefix: string, letter: string) => `${prefix}${letter.toLocaleUpperCase("pt-BR")}`,
+    );
 }
 
 /** Rótulo PT-BR para uma categoria OSM crua. Vazio/nulo -> "". */

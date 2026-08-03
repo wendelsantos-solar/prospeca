@@ -1,13 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/privacidade")({
+  head: () => ({
+    meta: [
+      { title: "Política de Privacidade — Prospeca" },
+      {
+        name: "description",
+        content:
+          "Como a Prospeca trata dados pessoais, conforme a LGPD: coleta, uso, retenção e seus direitos.",
+      },
+      { property: "og:title", content: "Política de Privacidade — Prospeca" },
+    ],
+    links: [{ rel: "canonical", href: "/privacidade" }],
+  }),
   component: PrivacyPolicyPage,
 });
 
 function PrivacyPolicyPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <h1 className="text-2xl font-bold mb-6">Política de Privacidade — Radar Local</h1>
+      <h1 className="text-2xl font-bold mb-6">Política de Privacidade — Prospeca</h1>
       <p className="text-sm text-muted-foreground mb-8">Última atualização: Julho de 2026</p>
 
       <div className="prose prose-sm max-w-none space-y-4 text-muted-foreground">
@@ -16,7 +28,7 @@ function PrivacyPolicyPage() {
         de contato (seção 11) assim que a empresa estiver formalizada. */}
         <h2 className="text-base font-semibold text-foreground">1. Introdução</h2>
         <p>
-          Esta Política de Privacidade descreve como o Radar Local (&ldquo;nós&rdquo;,
+          Esta Política de Privacidade descreve como a Prospeca (&ldquo;nós&rdquo;,
           &ldquo;nosso&rdquo;) coleta, usa, armazena e compartilha dados pessoais, em conformidade
           com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018).
         </p>
@@ -130,8 +142,8 @@ function PrivacyPolicyPage() {
         </p>
         <p>
           E-mail:{" "}
-          <a href="mailto:privacidade@radarlocal.com.br" className="text-primary underline">
-            privacidade@radarlocal.com.br
+          <a href="mailto:privacidade@prospeca.com.br" className="text-primary underline">
+            privacidade@prospeca.com.br
           </a>
         </p>
       </div>

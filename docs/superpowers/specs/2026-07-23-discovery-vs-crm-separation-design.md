@@ -1,4 +1,4 @@
-# Radar Local — Separação Descoberta × CRM (design)
+# Prospeca — Separação Descoberta × CRM (design)
 
 **Data:** 2026-07-23
 **Áreas:** `execute-search`, `import-search-results`, novo read-path de descoberta, `/app/mapa`, `/app/kanban`, `/app/painel`, migração de dados

@@ -1,28 +1,21 @@
-// Configuração do Playwright (testes E2E).
-//
-// `@playwright/test` NÃO está instalado por padrão — os E2E não rodam no gate
-// de CI ainda. Para habilitar:
-//   bun add -D @playwright/test && bunx playwright install chromium
-//   bunx playwright test
-//
-// `testMatch` usa `*.e2e.ts` (não `*.spec.ts`) de propósito: `bun test` varre o
-// monorepo e captura `*.spec.ts` como teste unitário, tentava importar
-// `@playwright/test` e quebrava o gate com
-// "Cannot find module '@playwright/test'". A extensão `.e2e.ts` fica fora do
-// matcher do bun.
 import { defineConfig } from "@playwright/test";
 
-const APP_URL = process.env.E2E_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.E2E_APP_URL ?? "http://127.0.0.1:8080";
 
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.e2e.ts",
-  // Isolamento cross-tenant não pode rodar em paralelo com estado compartilhado
-  // de sessão: um worker por vez até os testes criarem os próprios fixtures.
   workers: 1,
   fullyParallel: false,
-  // Nunca reaproveitar credencial de produção nos E2E: aponte E2E_APP_URL e as
-  // contas de teste para staging (ver docs/ENVIRONMENTS.md).
+  retries: process.env.CI ? 1 : 0,
+  webServer: process.env.E2E_APP_URL
+    ? undefined
+    : {
+        command: "VITE_DATA_MODE=demo bun run dev -- --host 127.0.0.1",
+        url: APP_URL,
+        timeout: 120_000,
+        reuseExistingServer: false,
+      },
   use: {
     baseURL: APP_URL,
     trace: "on-first-retry",

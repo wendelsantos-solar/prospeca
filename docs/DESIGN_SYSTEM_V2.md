@@ -1,4 +1,4 @@
-# Design System V2 — Radar Local
+# Design System V2 — Prospeca
 
 Estado atual, não um plano — ver `docs/DESIGN_SYSTEM_V2_AUDIT.md` pro
 que já existe vs. o que falta. Este doc documenta os tokens e convenções

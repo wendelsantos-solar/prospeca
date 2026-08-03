@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Radar } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores";
@@ -9,6 +8,8 @@ import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { buildTodayGroups } from "@/lib/today";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
+import { LogoMark } from "@/components/shared/LogoMark";
+import { UserMenu } from "./UserMenu";
 
 interface NavItem {
   to: string;
@@ -66,10 +67,10 @@ export function NavRail() {
     >
       <Link
         to="/app/mapa"
-        aria-label="Radar Local — início"
+        aria-label="Prospeca — início"
         className="mb-3.5 grid h-[38px] w-[38px] place-items-center rounded-[11px] bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-card"
       >
-        <Radar className="h-5 w-5" strokeWidth={2} />
+        <LogoMark className="h-5 w-5" />
       </Link>
 
       <div className="flex flex-1 flex-col items-center gap-1">
@@ -130,20 +131,7 @@ export function NavRail() {
             decorative
           />
         </button>
-        <Link
-          to="/app/configuracoes"
-          aria-label="Configurações"
-          title="Configurações"
-          className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
-        >
-          <AppIcon icon={icons.navigation.settings} size="md" tone="inherit" decorative />
-        </Link>
-        <div
-          aria-hidden
-          className="mt-1 grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-info-soft text-[13px] font-semibold text-info"
-        >
-          WS
-        </div>
+        <UserMenu className="mt-1" />
       </div>
     </nav>
   );

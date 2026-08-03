@@ -6,6 +6,7 @@ import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { escapeHtml } from "../_shared/html.ts";
 
 const InputSchema = z.object({
   name: z.string().min(2).max(120),
@@ -75,18 +76,24 @@ Deno.serve(async (req) => {
     // has to actually see it.
     const notifyTo = Deno.env.get("SALES_NOTIFY_EMAIL");
     if (notifyTo) {
+      const safe = Object.fromEntries(
+        Object.entries(input).map(([key, value]) => [
+          key,
+          typeof value === "string" ? escapeHtml(value) : value,
+        ]),
+      ) as typeof input;
       await sendEmail({
         to: notifyTo,
         subject: `Novo contato de vendas — ${input.source ?? "site"}: ${input.name}`,
         html: `
-          <p><strong>${input.name}</strong> (${input.email})${input.company ? ` — ${input.company}` : ""}</p>
-          ${input.whatsapp ? `<p>WhatsApp: ${input.whatsapp}</p>` : ""}
-          ${input.teamSize ? `<p>Equipe: ${input.teamSize}</p>` : ""}
-          ${input.sellsWhat ? `<p>Vende: ${input.sellsWhat}</p>` : ""}
-          ${input.prospectingVolume ? `<p>Volume de prospecção: ${input.prospectingVolume}</p>` : ""}
-          <p>Origem: ${input.source ?? "desconhecida"}</p>
+          <p><strong>${safe.name}</strong> (${safe.email})${safe.company ? ` — ${safe.company}` : ""}</p>
+          ${safe.whatsapp ? `<p>WhatsApp: ${safe.whatsapp}</p>` : ""}
+          ${safe.teamSize ? `<p>Equipe: ${safe.teamSize}</p>` : ""}
+          ${safe.sellsWhat ? `<p>Vende: ${safe.sellsWhat}</p>` : ""}
+          ${safe.prospectingVolume ? `<p>Volume de prospecção: ${safe.prospectingVolume}</p>` : ""}
+          <p>Origem: ${safe.source ?? "desconhecida"}</p>
           <p>Mensagem:</p>
-          <p>${input.message}</p>
+          <p>${safe.message}</p>
         `,
       });
     } else {

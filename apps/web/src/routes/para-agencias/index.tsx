@@ -12,13 +12,13 @@ import { FinalCTA } from "@/components/marketing/FinalCTA";
 export const Route = createFileRoute("/para-agencias/")({
   head: () => ({
     meta: [
-      { title: "Para Agências — Radar Local" },
+      { title: "Para Agências — Prospeca" },
       {
         name: "description",
         content:
-          "Radar Local para agências: múltiplos usuários, pipelines colaborativos, relatórios por usuário e gestão de equipe para prospecção de negócios locais.",
+          "Prospeca para agências: múltiplos usuários, pipelines colaborativos, relatórios por usuário e gestão de equipe para prospecção de negócios locais.",
       },
-      { property: "og:title", content: "Para Agências — Radar Local" },
+      { property: "og:title", content: "Para Agências — Prospeca" },
       {
         property: "og:description",
         content: "Prospecção local em equipe com Pipeline colaborativo e gestão de leads.",
@@ -35,6 +35,7 @@ function AgenciasPage() {
       <MarketingSection spacing="sm" className="pt-24 md:pt-28">
         <MarketingContainer width="default">
           <SectionHeading
+            as="h1"
             eyebrow="Para agências"
             title="Prospecção local em equipe, com Pipeline colaborativo e dados centralizados"
             description="Para agências e consultorias que prospectam para múltiplos clientes ou gerenciam equipes de prospecção."
@@ -45,7 +46,7 @@ function AgenciasPage() {
       <AgencySection />
       <MarketingSection spacing="md">
         <MarketingContainer width="narrow">
-          <SectionHeading title="Como equipes usam o Radar Local" center />
+          <SectionHeading title="Como equipes usam a Prospeca" center />
           <div className="mt-8 grid gap-6 sm:grid-cols-2">
             {[
               {

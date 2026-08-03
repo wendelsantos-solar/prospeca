@@ -1,4 +1,4 @@
-# Programa Pilot — Radar Local
+# Programa Pilot — Prospeca
 
 **Data:** 2026-07-30
 **Status:** Configurado (plano Pilot no banco), operacionalização pendente
@@ -7,7 +7,7 @@
 
 ## Objetivo
 
-Validar o Radar Local com 5-10 usuários reais antes do lançamento comercial.
+Validar o Prospeca com 5-10 usuários reais antes do lançamento comercial.
 Coletar feedback, medir ativação e confirmar disposição a pagar.
 
 ## Plano Pilot

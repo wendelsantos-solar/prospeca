@@ -33,7 +33,7 @@ export async function sendEmail(input: EmailInput): Promise<void> {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: Deno.env.get("SMTP_FROM") ?? "Radar Local <suporte@radarlocal.com.br>",
+          from: Deno.env.get("SMTP_FROM") ?? "Prospeca <suporte@prospeca.com.br>",
           to: input.to,
           subject: input.subject,
           html: input.html,

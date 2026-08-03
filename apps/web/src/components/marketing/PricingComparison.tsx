@@ -2,11 +2,8 @@ import { Check, Minus } from "lucide-react";
 import type { BillingPlan } from "@/lib/billing-plans";
 
 const SUPPORT_LABEL: Record<string, string> = {
-  free: "Comunidade",
-  solo: "Padrão",
-  professional: "Prioritário",
-  agency: "Prioritário",
-  team: "Dedicado + SLA opcional",
+  free: "Autoatendimento",
+  professional: "Onboarding assistido",
 };
 
 function formatLimit(value: number | undefined): string {
@@ -41,11 +38,6 @@ const ROWS: Row[] = [
   },
   { category: "Busca", label: "Buscas salvas", render: (p) => formatLimit(p.limits.savedSearches) },
   {
-    category: "Busca",
-    label: "Monitoramento de buscas",
-    render: (p) => <BoolCell value={p.features.search_monitoring} />,
-  },
-  {
     category: "Volume",
     label: "Leads processados/mês",
     render: (p) => formatLimit(p.limits.processedLeadsPerMonth),
@@ -62,47 +54,20 @@ const ROWS: Row[] = [
       ),
   },
   {
-    category: "Automação",
-    label: "Cadências",
-    render: (p) => <BoolCell value={p.features.cadences} />,
-  },
-  {
-    category: "Automação",
-    label: "Automações",
-    render: (p) => <BoolCell value={p.features.automations} />,
-  },
-  {
-    category: "Análises",
-    label: "Análises avançadas",
-    render: (p) => <BoolCell value={p.features.advanced_analytics} />,
-  },
-  { category: "Equipe", label: "Usuários", render: (p) => formatLimit(p.limits.users) },
-  {
-    category: "Equipe",
-    label: "Gestão de equipe",
-    render: (p) => <BoolCell value={p.features.team_management} />,
-  },
-  {
-    category: "Equipe",
-    label: "Permissões personalizadas",
-    render: (p) => <BoolCell value={p.features.custom_permissions} />,
-  },
-  {
     category: "Exportação",
     label: "CSV",
     render: (p) => <BoolCell value={p.features.csv_export} />,
   },
   {
     category: "Exportação",
-    label: "Excel (XLSX)",
-    render: (p) => <BoolCell value={p.features.xlsx_export} />,
-  },
-  {
-    category: "Exportação",
     label: "Linhas de exportação/mês",
     render: (p) => formatLimit(p.limits.exportRowsPerMonth),
   },
-  { category: "Suporte", label: "Nível de suporte", render: (p) => SUPPORT_LABEL[p.code] ?? "—" },
+  {
+    category: "Suporte",
+    label: "Ativação",
+    render: (p) => SUPPORT_LABEL[p.code] ?? "—",
+  },
 ];
 
 export function PricingComparison({ plans }: { plans: BillingPlan[] }) {

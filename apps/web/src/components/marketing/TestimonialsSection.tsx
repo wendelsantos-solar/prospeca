@@ -12,7 +12,7 @@ export function TestimonialsSection() {
     <div className="border-y border-border bg-surface-2 py-14">
       <div className="mx-auto max-w-xl px-4 text-center md:px-6">
         <p className="text-base text-foreground">
-          Estamos construindo o Radar Local junto com profissionais que vendem para negócios locais.
+          Estamos construindo a Prospeca junto com profissionais que vendem para negócios locais.
         </p>
         <SalesContactForm
           source="testimonials"

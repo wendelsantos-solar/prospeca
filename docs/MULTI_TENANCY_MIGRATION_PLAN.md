@@ -1,4 +1,4 @@
-# Multi-Tenancy Migration Plan — Radar Local
+# Multi-Tenancy Migration Plan — Prospeca
 
 **Data:** 2026-07-30
 **Complemento de:** `docs/MULTI_TENANCY_DECISION.md`
@@ -8,7 +8,7 @@
 ## 1. Conclusão de partida: não há migração estrutural a fazer
 
 O §12 do plano de readiness assume o caso "as tabelas atuais não possuem tenant".
-**Não é o caso do Radar Local.** Evidência:
+**Não é o caso do Prospeca.** Evidência:
 
 - `supabase/migrations/20260719000001_core.sql` (a **primeira** migration) já cria
   `organizations` e `organization_members`.

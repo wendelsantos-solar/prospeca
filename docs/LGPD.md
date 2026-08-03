@@ -1,4 +1,4 @@
-# LGPD — Radar Local
+# LGPD — Prospeca
 
 ## Natureza dos dados
 

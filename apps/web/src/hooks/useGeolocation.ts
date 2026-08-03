@@ -1,11 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type GeoStatus = "idle" | "prompting" | "granted" | "denied" | "error";
 
-const supported = typeof navigator !== "undefined" && "geolocation" in navigator;
-
 export function useGeolocation(onSuccess: (coords: { lat: number; lng: number }) => void) {
   const [status, setStatus] = useState<GeoStatus>("idle");
+  // The server and the client's first render must agree. Browser capability is
+  // detected after hydration; computing it at module load caused React to
+  // discard the SSR tree whenever the GPS button appeared only on the client.
+  const [supported, setSupported] = useState(false);
+
+  useEffect(() => {
+    setSupported("geolocation" in navigator);
+  }, []);
 
   const request = useCallback(() => {
     if (!supported) {
@@ -23,7 +29,7 @@ export function useGeolocation(onSuccess: (coords: { lat: number; lng: number })
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     );
-  }, [onSuccess]);
+  }, [onSuccess, supported]);
 
   return { status, request, supported };
 }

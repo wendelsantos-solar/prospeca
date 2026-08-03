@@ -35,11 +35,17 @@ export async function requireAuth(req: Request, organizationId?: string): Promis
   if (error || !userData.user) throw new AppError("UNAUTHORIZED", "Sessão inválida ou expirada.");
 
   const admin = adminClient();
+  // The browser sends its explicitly selected workspace. This value is never
+  // trusted on its own: the membership query below must still prove access.
+  const requestedOrganizationId =
+    organizationId ?? req.headers.get("x-organization-id") ?? undefined;
   let membershipQuery = admin
     .from("organization_members")
     .select("organization_id, role")
     .eq("user_id", userData.user.id);
-  if (organizationId) membershipQuery = membershipQuery.eq("organization_id", organizationId);
+  if (requestedOrganizationId) {
+    membershipQuery = membershipQuery.eq("organization_id", requestedOrganizationId);
+  }
 
   // Deterministic order is required: without it, Postgres returns whichever
   // row it likes for users with 2+ memberships (the common case — every

@@ -7,6 +7,7 @@ import type {
   Search,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
+  RecordContactInput,
   DashboardPeriod,
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
@@ -69,6 +70,8 @@ export interface LeadRepository {
   removeNote(leadId: string, noteId: string): Promise<void>;
   toggleNotePin(leadId: string, noteId: string): Promise<LeadNote>;
   createActivity(leadId: string, input: CreateLeadActivityInput): Promise<LeadActivity>;
+  /** Confirms a real commercial touch and atomically advances cadence state. */
+  recordContact(leadId: string, input: RecordContactInput): Promise<LeadActivity>;
   completeActivity(leadId: string, activityId: string, done: boolean): Promise<LeadActivity>;
   updateActivity(
     leadId: string,
@@ -99,7 +102,7 @@ export interface SearchRepository {
     searchId: string,
     placeId: string,
     stage: "new" | "contacted",
-  ): Promise<{ enrichableLeadIds: string[] }>;
+  ): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }>;
   enrichLead(leadId: string): Promise<void>;
 }
 

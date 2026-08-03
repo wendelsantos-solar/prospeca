@@ -30,7 +30,8 @@ const CASES = [
   {
     icon: Building2,
     title: "Agências",
-    description: "Centralize a prospecção da agência em um pipeline único, do contato ao fechamento.",
+    description:
+      "Centralize a prospecção da agência em um pipeline único, do contato ao fechamento.",
   },
 ];
 

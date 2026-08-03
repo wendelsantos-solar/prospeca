@@ -28,7 +28,7 @@ export function FounderOffer() {
     <Section id="fundadores" muted>
       <SectionHeading
         eyebrow="Oferta por tempo limitado"
-        title="Faça parte dos primeiros clientes do Radar Local."
+        title="Faça parte dos primeiros clientes da Prospeca."
         center
       />
       <div className="mx-auto mt-8 max-w-md rounded-xl border border-primary/30 bg-surface p-6 text-center">

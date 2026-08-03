@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Radar } from "lucide-react";
+import { LogoMark } from "@/components/shared/LogoMark";
 import { SalesContactForm } from "./SalesContactForm";
 
 export function MarketingFooter() {
@@ -9,8 +9,8 @@ export function MarketingFooter() {
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2">
-              <Radar className="h-5 w-5 text-primary" />
-              <span className="text-sm font-semibold tracking-tight">Radar Local</span>
+              <LogoMark className="h-5 w-5 text-primary" />
+              <span className="text-sm font-semibold tracking-tight">Prospeca</span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Inteligência comercial local para prospecção B2B.
@@ -83,7 +83,7 @@ export function MarketingFooter() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Radar Local. Todos os direitos reservados.
+          © {new Date().getFullYear()} Prospeca. Todos os direitos reservados.
         </div>
       </div>
     </footer>

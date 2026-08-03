@@ -2,9 +2,10 @@ import { test, expect } from "bun:test";
 import { currentCadenceStep, nextCadenceStep, cadenceStepDueDate, CADENCE_STEPS } from "./cadence";
 import type { Lead } from "@/types";
 
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+const NOW = new Date("2026-08-01T12:00:00.000Z");
+const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86400000).toISOString();
 
-const base = (o: Partial<Lead>): Lead => ({
+const base = (overrides: Partial<Lead>): Lead => ({
   id: "1",
   companyName: "X",
   category: "c",
@@ -18,61 +19,60 @@ const base = (o: Partial<Lead>): Lead => ({
   score: 50,
   temperature: "warm",
   stage: "contacted",
-  discoveredAt: new Date().toISOString(),
+  cadenceStep: 0,
+  discoveredAt: NOW.toISOString(),
   notes: [],
   activities: [],
   timeline: [],
-  ...o,
+  ...overrides,
 });
 
-test("currentCadenceStep is null for non-contacted leads", () => {
-  expect(currentCadenceStep(base({ stage: "new", lastInteractionAt: daysAgo(5) }))).toBeNull();
+test("a cadência não começa até o primeiro contato ser confirmado", () => {
+  const lead = base({ cadenceStartedAt: undefined });
+  expect(currentCadenceStep(lead, NOW)).toBeNull();
+  expect(nextCadenceStep(lead, NOW)).toBeNull();
 });
 
-test("currentCadenceStep is null with no lastInteractionAt", () => {
-  expect(currentCadenceStep(base({ lastInteractionAt: undefined }))).toBeNull();
+test("a primeira etapa fica próxima antes de D+2 e vencida a partir de D+2", () => {
+  const future = base({ cadenceStartedAt: daysAgo(1) });
+  expect(currentCadenceStep(future, NOW)).toBeNull();
+  expect(nextCadenceStep(future, NOW)?.order).toBe(1);
+
+  const due = base({ cadenceStartedAt: daysAgo(2) });
+  expect(currentCadenceStep(due, NOW)?.order).toBe(1);
 });
 
-test("currentCadenceStep is null before the first step's day threshold", () => {
-  expect(currentCadenceStep(base({ lastInteractionAt: daysAgo(1) }))).toBeNull();
+test("uma etapa atrasada não é pulada sem confirmação", () => {
+  const lead = base({ cadenceStartedAt: daysAgo(10), cadenceStep: 0 });
+  expect(currentCadenceStep(lead, NOW)?.order).toBe(1);
 });
 
-test("currentCadenceStep returns step 1 right at its day threshold", () => {
-  const step = currentCadenceStep(base({ lastInteractionAt: daysAgo(2) }));
-  expect(step?.order).toBe(1);
+test("depois de confirmar uma etapa, a próxima usa a âncora original", () => {
+  const lead = base({ cadenceStartedAt: daysAgo(5), cadenceStep: 1 });
+  expect(currentCadenceStep(lead, NOW)?.order).toBe(2);
+  expect(cadenceStepDueDate(lead, CADENCE_STEPS[1])).toBe("2026-07-31T12:00:00.000Z");
 });
 
-test("currentCadenceStep returns the latest step whose threshold has passed, not the first", () => {
-  // 8 days in: step 1 (day 2) and step 2 (day 4) have both passed, but not
-  // step 3 (day 7 — wait, 8 >= 7, so step 3 applies). Use 5 days to land
-  // strictly between step 2 (day 4) and step 3 (day 7).
-  const step = currentCadenceStep(base({ lastInteractionAt: daysAgo(5) }));
-  expect(step?.order).toBe(2);
+test("a cadência termina depois do último toque confirmado", () => {
+  const lead = base({
+    cadenceStartedAt: daysAgo(30),
+    cadenceStep: CADENCE_STEPS.length,
+    cadenceCompletedAt: NOW.toISOString(),
+  });
+  expect(currentCadenceStep(lead, NOW)).toBeNull();
+  expect(nextCadenceStep(lead, NOW)).toBeNull();
 });
 
-test("currentCadenceStep returns the last step once past every threshold", () => {
-  const step = currentCadenceStep(base({ lastInteractionAt: daysAgo(30) }));
-  expect(step?.order).toBe(CADENCE_STEPS.length);
+test("uma resposta encerra a cadência mesmo antes do último toque", () => {
+  const lead = base({
+    cadenceStartedAt: daysAgo(5),
+    cadenceStep: 1,
+    cadenceCompletedAt: NOW.toISOString(),
+  });
+  expect(currentCadenceStep(lead, NOW)).toBeNull();
+  expect(nextCadenceStep(lead, NOW)).toBeNull();
 });
 
-test("nextCadenceStep returns the step still ahead, not the one already due", () => {
-  const step = nextCadenceStep(base({ lastInteractionAt: daysAgo(1) }));
-  expect(step?.order).toBe(1);
-});
-
-test("nextCadenceStep is null once the last step is due (nothing left to schedule)", () => {
-  const step = nextCadenceStep(base({ lastInteractionAt: daysAgo(30) }));
-  expect(step).toBeNull();
-});
-
-test("cadenceStepDueDate anchors on lastInteractionAt + the step's day offset", () => {
-  const anchor = daysAgo(0);
-  const due = cadenceStepDueDate({ lastInteractionAt: anchor } as Lead, CADENCE_STEPS[0]);
-  const expected = new Date(anchor);
-  expected.setDate(expected.getDate() + CADENCE_STEPS[0].dueAtDay);
-  expect(due).toBe(expected.toISOString());
-});
-
-test("cadenceStepDueDate is null without a lastInteractionAt", () => {
-  expect(cadenceStepDueDate({ lastInteractionAt: undefined } as Lead, CADENCE_STEPS[0])).toBeNull();
+test("cadenceStepDueDate exige a âncora persistida", () => {
+  expect(cadenceStepDueDate(base({ cadenceStartedAt: undefined }), CADENCE_STEPS[0])).toBeNull();
 });

@@ -21,7 +21,7 @@ export function OpportunitySection() {
             <SectionHeading
               eyebrow="Oportunidades"
               title="Uma lista de empresas não é suficiente."
-              description="O Radar Local analisa os sinais disponíveis e ajuda você a identificar quais negócios merecem atenção primeiro."
+              description="A Prospeca analisa os sinais disponíveis e ajuda você a identificar quais negócios merecem atenção primeiro."
             />
             <Button className="mt-6" asChild>
               <Link to="/cadastro">

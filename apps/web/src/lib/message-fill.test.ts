@@ -34,9 +34,7 @@ describe("buildContactMessage", () => {
   });
 
   it("appends the signature after a blank line", () => {
-    expect(buildContactMessage("Oi", CONTACT, { signature: "Radar Local" })).toBe(
-      "Oi\n\nRadar Local",
-    );
+    expect(buildContactMessage("Oi", CONTACT, { signature: "Prospeca" })).toBe("Oi\n\nProspeca");
   });
 
   it("leaves missing contact fields empty instead of printing undefined", () => {
@@ -51,7 +49,7 @@ describe("buildContactMessage", () => {
 
   it("puts the opener before the body but the signature stays last", () => {
     expect(
-      buildContactMessage("Oi", CONTACT, { signature: "Radar Local" }, "Retomando o contato."),
-    ).toBe("Retomando o contato.\n\nOi\n\nRadar Local");
+      buildContactMessage("Oi", CONTACT, { signature: "Prospeca" }, "Retomando o contato."),
+    ).toBe("Retomando o contato.\n\nOi\n\nProspeca");
   });
 });

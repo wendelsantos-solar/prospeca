@@ -92,13 +92,15 @@ test("discarded lead → excluded entirely", () => {
   expect(totalItems).toBe(0);
 });
 
-test("contacted lead 3 days since interaction, no scheduled activity → overdue cadence reminder, not no_next", () => {
+test("contacted lead 3 days since confirmed contact, no scheduled activity → overdue cadence reminder, not no_next", () => {
   // Day 3 is past the first cadence step's D+2 threshold, so its due date
   // (lastInteractionAt + 2 days) already fell in the past.
+  const confirmedAt = new Date(Date.now() - 3 * 86400000).toISOString();
   const lead = base({
     id: "lead6",
     stage: "contacted",
-    lastInteractionAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    lastInteractionAt: confirmedAt,
+    cadenceStartedAt: confirmedAt,
     activities: [baseActivity({ id: "a1", done: true })], // completed activity
   });
   const groups = buildTodayGroups([lead]);
@@ -109,13 +111,15 @@ test("contacted lead 3 days since interaction, no scheduled activity → overdue
   expect(noNext?.items.length ?? 0).toBe(0);
 });
 
-test("contacted lead 0 days since interaction, no scheduled activity → upcoming cadence reminder", () => {
+test("contacted lead 0 days since confirmed contact, no scheduled activity → upcoming cadence reminder", () => {
   // Too soon for step 1 (D+2) to be due yet, but its due date is within
   // the 7-day upcoming window.
+  const confirmedAt = new Date().toISOString();
   const lead = base({
     id: "lead6b",
     stage: "contacted",
-    lastInteractionAt: new Date().toISOString(),
+    lastInteractionAt: confirmedAt,
+    cadenceStartedAt: confirmedAt,
     activities: [],
   });
   const groups = buildTodayGroups([lead]);
@@ -124,11 +128,12 @@ test("contacted lead 0 days since interaction, no scheduled activity → upcomin
   expect(upcoming?.items[0].label).toContain("Cadência");
 });
 
-test("contacted lead with no lastInteractionAt at all → falls back to no_next", () => {
+test("contacted lead without a confirmed cadence anchor → falls back to no_next", () => {
   const lead = base({
     id: "lead6c",
     stage: "contacted",
-    lastInteractionAt: undefined,
+    lastInteractionAt: new Date().toISOString(),
+    cadenceStartedAt: undefined,
     activities: [],
   });
   const groups = buildTodayGroups([lead]);

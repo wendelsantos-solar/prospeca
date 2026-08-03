@@ -15,6 +15,12 @@ import { digitsOnly } from "./format";
 
 /** Anything with contact fields: a funnel Lead or a discovery result. */
 export interface OutboundContact {
+  id?: string | null;
+  importedLeadId?: string | null;
+  stage?: "new" | "qualified" | "contacted" | "won" | "discarded";
+  cadenceStartedAt?: string;
+  cadenceStep?: number;
+  cadenceCompletedAt?: string;
   whatsapp?: string | null;
   phone?: string | null;
   email?: string | null;

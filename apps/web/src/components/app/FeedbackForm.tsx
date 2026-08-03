@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -24,11 +24,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { invokeFunction, getSupabase } from "@/lib/supabase";
+import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { isRealMode } from "@/lib/env";
 import { getRecentActions } from "@/lib/recent-actions";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // --- Constants ---------------------------------------------------------------
 
@@ -71,6 +73,12 @@ const PLACEHOLDERS: Record<FeedbackType, string> = {
 
 const STORAGE_BUCKET = "feedback-attachments";
 const SCREENSHOT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const SCREENSHOT_EXTENSIONS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 
 // --- Props -------------------------------------------------------------------
 
@@ -104,6 +112,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
   }, [type]);
 
   const resetForm = () => {
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     setType("feedback");
     setSentiment(null);
     setGoal("");
@@ -120,8 +129,8 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Apenas imagens são aceitas.");
+    if (!SCREENSHOT_EXTENSIONS[file.type]) {
+      toast.error("Use uma imagem PNG, JPEG, WebP ou GIF.");
       return;
     }
     if (file.size > SCREENSHOT_MAX_SIZE) {
@@ -129,6 +138,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
       return;
     }
 
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     setScreenshot(file);
     setScreenshotPreview(URL.createObjectURL(file));
   };
@@ -144,8 +154,16 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
     if (!screenshot) return null;
 
     const supabase = getSupabase();
-    const ext = screenshot.name.split(".").pop() ?? "png";
-    const path = `${crypto.randomUUID()}.${ext}`;
+    const [organizationId, userResult] = await Promise.all([
+      resolveActiveOrganizationId(),
+      supabase.auth.getUser(),
+    ]);
+    const userId = userResult.data.user?.id;
+    if (!userId) throw new Error("Sua sessão expirou. Entre novamente para enviar o feedback.");
+
+    const ext = SCREENSHOT_EXTENSIONS[screenshot.type];
+    if (!ext) throw new Error("Formato de imagem não aceito.");
+    const path = `${organizationId}/${userId}/${crypto.randomUUID()}.${ext}`;
 
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, screenshot, {
       contentType: screenshot.type,
@@ -154,14 +172,10 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
 
     if (error) {
       console.warn("FeedbackForm: screenshot upload failed", error);
-      return null;
+      throw new Error("Não foi possível enviar a imagem. Remova o anexo ou tente novamente.");
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
-
-    return publicUrl;
+    return data.path;
   }, [screenshot]);
 
   // --- Submit ----------------------------------------------------------------
@@ -171,12 +185,11 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
 
     if (isRealMode) {
       setSubmitting(true);
+      let screenshotPath: string | null = null;
       try {
-        // Upload screenshot first (fire-and-forget if fails)
-        let screenshotUrl: string | null = null;
         if (screenshot) {
           setUploading(true);
-          screenshotUrl = await uploadScreenshot();
+          screenshotPath = await uploadScreenshot();
           setUploading(false);
         }
 
@@ -189,7 +202,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
             goal: goal || undefined,
             email: email.trim() || undefined,
             canContact: canContact,
-            screenshotUrl: screenshotUrl ?? undefined,
+            screenshotPath: screenshotPath ?? undefined,
             recentActions: getRecentActions(),
             currentPage: currentPage ?? window.location.pathname,
             appVersion: (import.meta as { env?: Record<string, string> }).env?.VITE_APP_VERSION as
@@ -205,6 +218,10 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
         setOpen(false);
         onSuccess?.();
       } catch (err) {
+        // Avoid leaving an unattached private object when the function fails.
+        if (screenshotPath) {
+          void getSupabase().storage.from(STORAGE_BUCKET).remove([screenshotPath]);
+        }
         const msg = err instanceof Error ? err.message : "Erro ao enviar. Tente novamente.";
         toast.error(msg);
       } finally {
@@ -241,24 +258,28 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar feedback</DialogTitle>
-          <DialogDescription>Sua opinião ajuda a melhorar o Radar Local.</DialogDescription>
+          <DialogDescription>Sua opinião ajuda a melhorar a Prospeca.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           {/* ---- Type selector ---- */}
           <div>
             <Label className="mb-1.5 block">Tipo</Label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Tipo de feedback">
               {FEEDBACK_TYPES.map((ft) => (
-                <Badge
+                <button
                   key={ft.value}
-                  variant={type === ft.value ? "default" : "secondary"}
-                  className="cursor-pointer select-none"
+                  type="button"
                   onClick={() => setType(ft.value)}
+                  aria-pressed={type === ft.value}
+                  className={cn(
+                    badgeVariants({ variant: type === ft.value ? "default" : "secondary" }),
+                    "cursor-pointer select-none",
+                  )}
                 >
                   <AppIcon icon={ft.icon} size="xs" tone="inherit" decorative />
                   <span className="ml-1">{ft.label}</span>
-                </Badge>
+                </button>
               ))}
             </div>
           </div>
@@ -272,6 +293,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
                   key={s.value}
                   type="button"
                   onClick={() => setSentiment(sentiment === s.value ? null : s.value)}
+                  aria-pressed={sentiment === s.value}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
                     sentiment === s.value
                       ? "border-primary bg-primary/10 text-primary"
@@ -327,7 +349,7 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
               <div className="relative inline-block group">
                 <img
                   src={screenshotPreview}
-                  alt="Screenshot preview"
+                  alt="Prévia do screenshot anexado"
                   className="max-h-32 rounded-lg border border-border object-cover"
                 />
                 <button
@@ -423,7 +445,9 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
 
           {/* ---- Actions ---- */}
           <div className="flex justify-between items-center pt-1">
-            <p className="text-[10px] text-muted-foreground">Enviado anonimamente para a equipe</p>
+            <p className="text-[10px] text-muted-foreground">
+              Enviado de forma privada para a equipe
+            </p>
             <div className="flex gap-2">
               <Button
                 variant="outline"

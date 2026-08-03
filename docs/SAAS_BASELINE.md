@@ -1,4 +1,4 @@
-# SaaS Baseline — Radar Local
+# SaaS Baseline — Prospeca
 
 **Data:** 2026-07-30
 **Objetivo:** Registrar o estado verificável do projeto ANTES das correções desta

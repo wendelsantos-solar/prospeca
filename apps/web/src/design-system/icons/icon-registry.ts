@@ -135,7 +135,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 /**
- * Registro central de ícones do Radar Local.
+ * Registro central de ícones da Prospeca.
  *
  * Cada domínio agrupa os ícones por função. Componentes devem consumir este
  * registro em vez de importar ícones diretamente. Isso garante que o mesmo

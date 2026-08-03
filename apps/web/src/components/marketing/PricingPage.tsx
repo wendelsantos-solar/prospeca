@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MarketingPage, MarketingSection, MarketingContainer, Eyebrow } from "./MarketingLayout";
 import { PlanCard } from "./PlanCard";
@@ -6,11 +6,10 @@ import { PricingComparison } from "./PricingComparison";
 import { FounderOffer } from "./FounderOffer";
 import { FAQSection } from "./FAQSection";
 import { fetchBillingPlans } from "@/lib/billing-plans";
-import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function PricingPage() {
-  const [interval, setInterval_] = useState<"monthly" | "annual">("monthly");
   const { data: plans, isLoading } = useQuery({
     queryKey: ["billing-plans"],
     queryFn: fetchBillingPlans,
@@ -24,54 +23,30 @@ export function PricingPage() {
       <MarketingSection spacing="sm" className="pt-24 md:pt-28">
         <MarketingContainer width="default">
           <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow>Preços</Eyebrow>
+            <Eyebrow>Acesso antecipado</Eyebrow>
             <h1 className="text-[2rem] leading-tight font-semibold tracking-tight text-foreground md:text-[2.5rem]">
-              Um plano pra cada estágio da sua prospecção
+              Comece grátis ou participe do piloto fundador
             </h1>
             <p className="mt-3 text-base text-muted-foreground">
-              Comece de graça. Faça upgrade quando fizer sentido.
+              O plano pago tem ativação assistida e escopo transparente enquanto validamos o produto
+              com os primeiros clientes.
             </p>
           </div>
-          <div
-            className="mx-auto mt-8 grid w-fit grid-cols-2 gap-1 rounded-lg border border-border bg-surface-2 p-1"
-            role="group"
-            aria-label="Ciclo de cobrança"
-          >
-            {(
-              [
-                { v: "monthly", l: "Mensal" },
-                { v: "annual", l: "Anual — economize até 2 meses" },
-              ] as const
-            ).map((o) => (
-              <button
-                key={o.v}
-                onClick={() => setInterval_(o.v)}
-                aria-pressed={interval === o.v}
-                className={cn(
-                  "rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                  interval === o.v
-                    ? "bg-surface text-foreground shadow-card"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {o.l}
-              </button>
-            ))}
-          </div>
+          {isLoading && <PricingCardsSkeleton />}
           {!isLoading && plans && (
-            <div className="mx-auto mt-10 grid max-w-6xl gap-4 md:grid-cols-3 lg:grid-cols-5">
+            <div className="mx-auto mt-10 grid max-w-3xl gap-4 md:grid-cols-2">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.code}
                   plan={plan}
-                  interval={interval}
+                  interval="monthly"
                   highlighted={plan.code === "professional"}
                 />
               ))}
             </div>
           )}
           <p className="mx-auto mt-6 max-w-lg text-center text-xs text-muted-foreground">
-            Os limites e valores podem ser ajustados durante o período de acesso antecipado.
+            Sem contratação automática: confirmamos o escopo e ativamos o plano pago com você.
           </p>
         </MarketingContainer>
       </MarketingSection>
@@ -90,5 +65,29 @@ export function PricingPage() {
       <FounderOffer />
       <FAQSection />
     </MarketingPage>
+  );
+}
+
+function PricingCardsSkeleton() {
+  return (
+    <div
+      className="mx-auto mt-10 grid max-w-3xl gap-4 md:grid-cols-2"
+      aria-busy="true"
+      aria-label="Carregando planos"
+    >
+      {[0, 1].map((key) => (
+        <div key={key} className="rounded-xl border border-border bg-surface p-6">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="mt-3 h-4 w-48" />
+          <Skeleton className="mt-6 h-9 w-24" />
+          <div className="mt-6 space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-3/5" />
+          </div>
+          <Skeleton className="mt-8 h-10 w-full" />
+        </div>
+      ))}
+    </div>
   );
 }

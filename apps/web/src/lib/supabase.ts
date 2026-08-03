@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env, isRealMode, realConfigMissing } from "./env";
+import { getStoredActiveOrganizationId } from "./active-organization";
 
 let client: SupabaseClient | null = null;
 
@@ -63,6 +64,8 @@ export async function invokeFunction<T>(
   const supabase = getSupabase();
   const headers: Record<string, string> = {};
   if (opts?.idempotencyKey) headers["x-idempotency-key"] = opts.idempotencyKey;
+  const activeOrganizationId = getStoredActiveOrganizationId();
+  if (activeOrganizationId) headers["x-organization-id"] = activeOrganizationId;
 
   const MAX_RETRIES = 2;
   let lastError: unknown;

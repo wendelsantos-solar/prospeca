@@ -25,7 +25,7 @@ Itens que **parecem** removíveis mas foram **preservados** por dúvida razoáve
 
 ## 3. `docs/DEPLOYMENT.md` vs `docs/deployment.md`
 
-**Suspeita:** o `DEPLOYMENT.md` (maiúsculo, PT, "Deploy — Radar Local") parece **superado** pelo `deployment.md` (minúsculo, EN, era monorepo, referencia ADR-001).
+**Suspeita:** o `DEPLOYMENT.md` (maiúsculo, PT, "Deploy — Prospeca") parece **superado** pelo `deployment.md` (minúsculo, EN, era monorepo, referencia ADR-001).
 **Risco de remoção:** médio — o autor do refactor pode estar consolidando docs; apagar pode perder conteúdo (ex.: comandos específicos de Edge Functions no arquivo antigo).
 **Como validar:** comparar os dois; migrar qualquer conteúdo único do antigo para o novo + ADRs, então remover o antigo.
 **Recomendação:** consolidar (novo absorve o antigo), depois remover `DEPLOYMENT.md`. Não apagar sem consolidar.

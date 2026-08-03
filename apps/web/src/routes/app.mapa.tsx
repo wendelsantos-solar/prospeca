@@ -24,7 +24,7 @@ const MapView = lazy(() =>
 
 export const Route = createFileRoute("/app/mapa")({
   component: MapaPage,
-  head: () => ({ meta: [{ title: "Mapa — Radar Local" }] }),
+  head: () => ({ meta: [{ title: "Mapa — Prospeca" }] }),
 });
 
 function CenteredLoader({ label }: { label: string }) {
@@ -67,7 +67,10 @@ function HomeState() {
             "Mapa, Kanban e painel sincronizados.",
             "Preparação de mensagens em massa.",
           ].map((b) => (
-            <li key={b} className="rounded-lg border bg-surface p-3 text-xs text-muted-foreground">
+            <li
+              key={b}
+              className="rounded-lg border bg-surface p-3 text-caption text-muted-foreground"
+            >
               {b}
             </li>
           ))}

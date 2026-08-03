@@ -38,7 +38,7 @@ export function BenefitsSection() {
   return (
     <MarketingSection spacing="lg">
       <MarketingContainer width="default">
-        <SectionHeading title="Por que usar o Radar Local" center />
+        <SectionHeading title="Por que usar a Prospeca" center />
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((b) => (
             <div key={b.title} className="flex gap-3">

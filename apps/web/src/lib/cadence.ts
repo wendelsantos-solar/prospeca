@@ -51,9 +51,11 @@ export const CADENCE_STEPS: CadenceStep[] = [
   },
 ];
 
-function daysSince(iso?: string): number | null {
+type CadenceLead = Pick<Lead, "stage" | "cadenceStartedAt" | "cadenceStep" | "cadenceCompletedAt">;
+
+function daysSince(iso: string | undefined, now: Date): number | null {
   if (!iso) return null;
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return Math.floor((now.getTime() - new Date(iso).getTime()) / 86400000);
 }
 
 /**
@@ -61,32 +63,30 @@ function daysSince(iso?: string): number | null {
  * whose day threshold has passed. Null when too soon, no anchor date, or
  * the lead isn't in `contacted`.
  */
-export function currentCadenceStep(lead: Lead): CadenceStep | null {
-  if (lead.stage !== "contacted") return null;
-  const days = daysSince(lead.lastInteractionAt);
+export function currentCadenceStep(lead: CadenceLead, now = new Date()): CadenceStep | null {
+  if (lead.stage !== "contacted" || lead.cadenceCompletedAt) return null;
+  const days = daysSince(lead.cadenceStartedAt, now);
   if (days === null) return null;
-  let due: CadenceStep | null = null;
-  for (const step of CADENCE_STEPS) {
-    if (days >= step.dueAtDay) due = step;
-  }
-  return due;
+  const pending = CADENCE_STEPS.find((step) => step.order > (lead.cadenceStep ?? 0));
+  return pending && days >= pending.dueAtDay ? pending : null;
 }
 
 /** The step still ahead (not yet due) — for showing "coming up" in the UI. */
-export function nextCadenceStep(lead: Lead): CadenceStep | null {
-  if (lead.stage !== "contacted") return null;
-  const days = daysSince(lead.lastInteractionAt);
-  if (days === null) return CADENCE_STEPS[0];
-  return CADENCE_STEPS.find((step) => days < step.dueAtDay) ?? null;
+export function nextCadenceStep(lead: CadenceLead, now = new Date()): CadenceStep | null {
+  if (lead.stage !== "contacted" || lead.cadenceCompletedAt) return null;
+  const days = daysSince(lead.cadenceStartedAt, now);
+  if (days === null) return null;
+  const pending = CADENCE_STEPS.find((step) => step.order > (lead.cadenceStep ?? 0));
+  return pending && days < pending.dueAtDay ? pending : null;
 }
 
-/** ISO due date for `step`, anchored on the lead's last interaction. */
+/** ISO due date for `step`, anchored on the confirmed first contact. */
 export function cadenceStepDueDate(
-  lead: Pick<Lead, "lastInteractionAt">,
+  lead: Pick<Lead, "cadenceStartedAt">,
   step: CadenceStep,
 ): string | null {
-  if (!lead.lastInteractionAt) return null;
-  const d = new Date(lead.lastInteractionAt);
+  if (!lead.cadenceStartedAt) return null;
+  const d = new Date(lead.cadenceStartedAt);
   d.setDate(d.getDate() + step.dueAtDay);
   return d.toISOString();
 }

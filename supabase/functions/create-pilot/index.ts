@@ -137,10 +137,10 @@ Deno.serve(async (req: Request) => {
     const inviteUrl = `${appUrl}/cadastro?invitation=${token}`;
     sendEmail({
       to: body.email,
-      subject: `Convite — Radar Local (Programa Pilot)`,
+      subject: `Convite — Prospeca (Programa Pilot)`,
       html: `
-        <h2>Você foi convidado para o Radar Local!</h2>
-        <p>Olá! Você foi selecionado para participar do programa <strong>Pilot</strong> do Radar Local — uma plataforma de inteligência comercial e prospecção local.</p>
+        <h2>Você foi convidado para a Prospeca!</h2>
+        <p>Olá! Você foi selecionado para participar do programa <strong>Pilot</strong> da Prospeca — uma plataforma de inteligência comercial e prospecção local.</p>
         <p><strong>Seu acesso é gratuito por ${body.durationDays} dias.</strong></p>
         <p>
           <a href="${inviteUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;">

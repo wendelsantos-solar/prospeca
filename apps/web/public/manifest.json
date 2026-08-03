@@ -1,6 +1,6 @@
 {
-  "name": "Radar Local",
-  "short_name": "Radar Local",
+  "name": "Prospeca",
+  "short_name": "Prospeca",
   "description": "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
   "start_url": "/app/mapa",
   "display": "standalone",

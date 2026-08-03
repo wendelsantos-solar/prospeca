@@ -6,11 +6,12 @@ import type {
   Search,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
+  RecordContactInput,
   DashboardPeriod,
 } from "@/types";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
-import { parseAddress } from "@leads/domain";
+import { parseAddress, type ScoreBreakdown } from "@leads/domain";
 import type {
   CreateSearchInput,
   DashboardOverview,
@@ -46,7 +47,7 @@ interface LeadRow {
   rating: number | null;
   review_count: number | null;
   score: number;
-  score_breakdown: Record<string, unknown> | null;
+  score_breakdown: ScoreBreakdown | null;
   temperature: Lead["temperature"];
   stage: Lead["stage"];
   estimated_value: number | null;
@@ -55,6 +56,13 @@ interface LeadRow {
   closed_at: string | null;
   discard_reason: string | null;
   last_interaction_at: string | null;
+  cadence_started_at: string | null;
+  cadence_step: number;
+  cadence_completed_at: string | null;
+  last_outcome: Lead["lastOutcome"] | null;
+  responded_at: string | null;
+  meeting_at: string | null;
+  proposal_at: string | null;
   created_at: string;
   lead_notes?: NoteRow[];
   lead_activities?: ActivityRow[];
@@ -77,6 +85,9 @@ interface ActivityRow {
   status: string;
   scheduled_at: string | null;
   completed_at: string | null;
+  occurred_at: string | null;
+  outcome: LeadActivity["outcome"] | null;
+  cadence_step_id: string | null;
 }
 
 const ACTIVITY_TYPE_TO_UI: Record<string, LeadActivity["type"]> = {
@@ -119,6 +130,9 @@ function mapActivity(row: ActivityRow): LeadActivity {
     done: row.status === "completed",
     date: row.scheduled_at ?? "",
     completedAt: row.completed_at ?? undefined,
+    occurredAt: row.occurred_at ?? undefined,
+    outcome: row.outcome ?? undefined,
+    cadenceStepId: row.cadence_step_id ?? undefined,
   };
 }
 
@@ -157,6 +171,13 @@ function mapLead(row: LeadRow): Lead {
     closedAt: row.closed_at ?? undefined,
     discardReason: row.discard_reason ?? undefined,
     lastInteractionAt: row.last_interaction_at ?? undefined,
+    cadenceStartedAt: row.cadence_started_at ?? undefined,
+    cadenceStep: row.cadence_step ?? 0,
+    cadenceCompletedAt: row.cadence_completed_at ?? undefined,
+    lastOutcome: row.last_outcome ?? undefined,
+    respondedAt: row.responded_at ?? undefined,
+    meetingAt: row.meeting_at ?? undefined,
+    proposalAt: row.proposal_at ?? undefined,
     discoveredAt: row.created_at,
     notes: (row.lead_notes ?? []).map(mapNote),
     activities: (row.lead_activities ?? []).map(mapActivity),
@@ -167,7 +188,7 @@ function mapLead(row: LeadRow): Lead {
 // Lean select for list views (Kanban, Painel, Hoje): omits nested notes/activities
 // to cut payload by ~80%. Detail drawer fetches via getById with the full select.
 const LEAD_LIST_SELECT =
-  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, created_at";
+  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at";
 
 const LEAD_DETAIL_SELECT = "*, lead_notes(*), lead_activities(*)";
 
@@ -346,6 +367,20 @@ export class SupabaseLeadRepository implements LeadRepository {
       .single();
     if (error) throw new Error(error.message);
     return mapActivity(data as ActivityRow);
+  }
+
+  async recordContact(leadId: string, input: RecordContactInput): Promise<LeadActivity> {
+    const { data, error } = await getSupabase().rpc("record_lead_contact", {
+      p_lead_id: leadId,
+      p_channel: input.channel,
+      p_title: input.title,
+      p_outcome: input.outcome,
+      p_occurred_at: input.occurredAt,
+      p_description: input.note ?? null,
+      p_cadence_step_id: input.cadenceStepId ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return mapActivity(data as unknown as ActivityRow);
   }
 
   async completeActivity(leadId: string, activityId: string, done: boolean): Promise<LeadActivity> {
@@ -580,13 +615,16 @@ export class SupabaseSearchRepository implements SearchRepository {
     searchId: string,
     placeId: string,
     stage: "new" | "contacted",
-  ): Promise<{ enrichableLeadIds: string[] }> {
-    const res = await invokeFunction<{ enrichableLeadIds?: string[] }>("import-search-results", {
-      searchId,
-      placeIds: [placeId],
-      stage,
-    });
-    return { enrichableLeadIds: res.enrichableLeadIds ?? [] };
+  ): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }> {
+    const res = await invokeFunction<{ enrichableLeadIds?: string[]; leadIds?: string[] }>(
+      "import-search-results",
+      {
+        searchId,
+        placeIds: [placeId],
+        stage,
+      },
+    );
+    return { enrichableLeadIds: res.enrichableLeadIds ?? [], leadIds: res.leadIds ?? [] };
   }
 
   async enrichLead(leadId: string): Promise<void> {

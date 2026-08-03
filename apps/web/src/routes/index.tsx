@@ -10,14 +10,14 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       {
-        title: "Radar Local — Encontre empresas que precisam do serviço que você vende",
+        title: "Prospeca — Encontre empresas que precisam do serviço que você vende",
       },
       {
         name: "description",
         content:
           "Pesquise empresas locais por nicho e região, identifique oportunidades com baixa presença digital e organize sua prospecção do início à venda.",
       },
-      { property: "og:title", content: "Radar Local — Inteligência comercial local" },
+      { property: "og:title", content: "Prospeca — Inteligência comercial local" },
       {
         property: "og:description",
         content: "Transforme negócios locais em oportunidades reais de venda.",

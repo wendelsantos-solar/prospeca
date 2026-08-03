@@ -1,6 +1,7 @@
 import { useState, useCallback, type InputHTMLAttributes } from "react";
-import { Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { Eye, EyeOff, AlertTriangle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { passwordPolicy } from "@/lib/password-policy";
 
 interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
   showRequirements?: boolean;
@@ -9,17 +10,8 @@ interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
   error?: string;
 }
 
-function getRequirements(pw: string) {
-  return [
-    { label: "Mínimo de 8 caracteres", met: pw.length >= 8 },
-    { label: "Pelo menos 1 letra maiúscula", met: /[A-Z]/.test(pw) },
-    { label: "Pelo menos 1 número", met: /[0-9]/.test(pw) },
-    { label: "Pelo menos 1 caractere especial", met: /[^A-Za-z0-9]/.test(pw) },
-  ];
-}
-
 function getStrength(pw: string): { label: string; color: string } | null {
-  const met = getRequirements(pw).filter((r) => r.met).length;
+  const met = passwordPolicy(pw).filter((r) => r.met).length;
   if (pw.length === 0) return null;
   if (met <= 1) return { label: "Fraca", color: "text-destructive" };
   if (met <= 2) return { label: "Média", color: "text-warning-foreground" };
@@ -39,7 +31,7 @@ export function PasswordInput({
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
   const [caps, setCaps] = useState(false);
-  const reqs = showRequirements ? getRequirements(value ?? "") : [];
+  const reqs = showRequirements ? passwordPolicy(value ?? "") : [];
   const strength = showRequirements ? getStrength(value ?? "") : null;
 
   return (
@@ -130,7 +122,7 @@ export function PasswordInput({
                       : "border-border bg-transparent text-transparent",
                   )}
                 >
-                  ✓
+                  <Check className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
                 </span>
                 {r.label}
               </li>

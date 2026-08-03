@@ -1,4 +1,4 @@
-# Auditoria de Segurança & LGPD — Radar Local
+# Auditoria de Segurança & LGPD — Prospeca
 
 **Data:** 2026-07-23 · **Escopo:** monorepo (edge functions, RLS/migrations, web) · **Metodologia:** revisão de código (OWASP Top 10, API Top 10, CWE, LGPD).
 

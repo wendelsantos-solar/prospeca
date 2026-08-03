@@ -13,6 +13,7 @@ import type {
   LeadFilters,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
+  RecordContactInput,
 } from "@/types";
 import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
 import type { SortValue } from "@/lib/constants";
@@ -217,6 +218,19 @@ export function useAddActivityMutation() {
     mutationFn: ({ leadId, input }: { leadId: string; input: CreateLeadActivityInput }) =>
       getLeadRepository().createActivity(leadId, input),
     onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
+    },
+  });
+}
+
+export function useRecordContactMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ leadId, input }: { leadId: string; input: RecordContactInput }) =>
+      getLeadRepository().recordContact(leadId, input),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });

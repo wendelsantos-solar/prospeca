@@ -100,7 +100,9 @@ export function SalesContactForm({ trigger, source }: { trigger: ReactNode; sour
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Nome</Label>
                   <Input id="name" {...register("name")} />
-                  {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                  {errors.name && (
+                    <p className="text-caption text-destructive">{errors.name.message}</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="email">E-mail profissional</Label>

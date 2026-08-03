@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { updatePassword } from "@/hooks/useAuth";
 import { getSupabase } from "@/lib/supabase";
 import { isDemoMode } from "@/lib/env";
+import { passwordSchema } from "@/lib/password-policy";
 
 export const Route = createFileRoute("/redefinir-senha")({
   component: RedefinirSenhaPage,
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/redefinir-senha")({
 
 const schema = z
   .object({
-    password: z.string().min(8, "Mínimo de 8 caracteres"),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirme sua senha"),
   })
   .refine((d) => d.password === d.confirmPassword, {

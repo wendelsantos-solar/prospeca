@@ -9,6 +9,7 @@ import {
   useAddToFunnelMutation,
   useRemoveLeadMutation,
   useSuppressMutation,
+  useRecordContactMutation,
 } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
 import { suppressionEntriesFor } from "@/lib/suppression";
@@ -57,6 +58,10 @@ import {
   GitBranch,
   Search as SearchIcon,
   TrendingUp,
+  MessageSquareReply,
+  PhoneMissed,
+  CalendarCheck,
+  FileCheck2,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -71,7 +76,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { ActivityType, Lead } from "@/types";
+import type { ActivityType, ContactOutcome, Lead } from "@/types";
 
 export function LeadDetailsDrawer() {
   const detailsId = useLeadsStore((s) => s.detailsId);
@@ -125,12 +130,7 @@ export function LeadDetailsDrawer() {
   const isLoading = detailsId != null && !lead;
 
   // Score breakdown comes from the DB (single source of truth — C3).
-  const breakdown =
-    (
-      lead?.scoreBreakdown as
-        | { items?: Array<{ key: string; label: string; points: number; reason: string }> }
-        | undefined
-    )?.items ?? [];
+  const breakdown = lead?.scoreBreakdown?.items ?? [];
 
   const suppressMut = useSuppressMutation();
   const removeLeadMut = useRemoveLeadMutation();
@@ -169,6 +169,9 @@ export function LeadDetailsDrawer() {
         {isLoading ? (
           <>
             <SheetTitle className="sr-only">Carregando lead…</SheetTitle>
+            <SheetDescription className="sr-only">
+              Os detalhes da oportunidade estão sendo carregados.
+            </SheetDescription>
             <div className="flex items-center justify-center h-64">
               <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -325,6 +328,7 @@ export function LeadDetailsDrawer() {
 
               <TabsContent value="opportunity" className="mt-4">
                 {!readOnly && <NbaCard lead={lead} />}
+                {!readOnly && <ContactOutcomeBar lead={lead} />}
                 <OpportunitySummaryCard lead={lead} />
               </TabsContent>
 
@@ -765,7 +769,12 @@ export function LeadDetailsDrawer() {
             </Tabs>
           </>
         ) : (
-          <SheetTitle className="sr-only">Lead não encontrado</SheetTitle>
+          <>
+            <SheetTitle className="sr-only">Lead não encontrado</SheetTitle>
+            <SheetDescription className="sr-only">
+              Não foi possível localizar os detalhes desta oportunidade.
+            </SheetDescription>
+          </>
         )}
       </SheetContent>
     </Sheet>
@@ -886,7 +895,7 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50 ${cls}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-caption font-medium transition-colors disabled:opacity-50 ${cls}`}
     >
       {children}
     </button>
@@ -898,21 +907,42 @@ function ActionBtn({
 function OpportunitySummaryCard({ lead }: { lead: Lead }) {
   const reviewCount = lead.reviewCount ?? 0;
   const rating = lead.rating;
+  const scoreItems = lead.scoreBreakdown?.items.filter((item) => item.points > 0) ?? [];
   return (
     <div className="mb-4 rounded-xl border border-border bg-primary-subtle p-4">
       <div className="mb-2 flex items-center gap-1.5">
         <TrendingUp className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+        <span className="text-micro font-semibold uppercase tracking-wide text-primary">
           Resumo da oportunidade
         </span>
       </div>
-      <p className="text-[13px] text-foreground">
+      <p className="text-body-sm text-foreground">
         Score <b>{lead.score}</b>. Empresa {lead.hasWebsite ? "com" : "sem"} presença online,{" "}
         {reviewCount > 100 ? "alta" : "baixa"} visibilidade em avaliações (
         {rating?.toFixed(1) ?? "—"}★ · {reviewCount} reviews) e localização em{" "}
         {lead.neighborhood ?? lead.city}.
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
+      {scoreItems.length > 0 && (
+        <div className="mt-3 rounded-lg border border-primary/15 bg-surface p-3">
+          <p className="text-micro font-semibold uppercase tracking-wide text-primary">
+            Por que está priorizada
+          </p>
+          <div className="mt-2 space-y-2">
+            {scoreItems.map((item) => (
+              <div key={item.key} className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-caption font-medium text-foreground">{item.label}</p>
+                  <p className="text-micro text-muted-foreground">{item.reason}</p>
+                </div>
+                <span className="shrink-0 rounded bg-primary-soft px-1.5 py-0.5 text-micro font-semibold tabular-nums text-primary">
+                  +{item.points}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
         <StrengthBlock
           title="Pontos fortes"
           items={[
@@ -936,6 +966,63 @@ function OpportunitySummaryCard({ lead }: { lead: Lead }) {
             !lead.instagram ? "Sem Instagram mapeado" : null,
           ].filter((v): v is string => !!v)}
         />
+      </div>
+    </div>
+  );
+}
+
+const OUTCOME_ACTIONS: Array<{
+  outcome: ContactOutcome;
+  label: string;
+  icon: React.ElementType;
+}> = [
+  { outcome: "answered", label: "Resposta recebida", icon: MessageSquareReply },
+  { outcome: "no_answer", label: "Sem resposta", icon: PhoneMissed },
+  { outcome: "meeting", label: "Reunião marcada", icon: CalendarCheck },
+  { outcome: "proposal", label: "Proposta enviada", icon: FileCheck2 },
+];
+
+function ContactOutcomeBar({ lead }: { lead: Lead }) {
+  const mutation = useRecordContactMutation();
+  const channel = lead.whatsapp ? "whatsapp" : lead.phone ? "call" : "email";
+
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-surface p-4">
+      <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+        Registrar resultado real
+      </p>
+      <p className="mt-1 text-caption text-muted-foreground">
+        Use somente depois que a ação acontecer. Isso encerra lembretes quando houver resposta.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {OUTCOME_ACTIONS.map(({ outcome, label, icon: Icon }) => (
+          <Button
+            key={outcome}
+            size="sm"
+            variant="outline"
+            disabled={mutation.isPending}
+            onClick={() =>
+              mutation.mutate(
+                {
+                  leadId: lead.id,
+                  input: {
+                    channel,
+                    title: label,
+                    outcome,
+                    occurredAt: new Date().toISOString(),
+                  },
+                },
+                {
+                  onSuccess: () => toast.success("Resultado comercial registrado."),
+                  onError: () => toast.error("Não foi possível registrar o resultado."),
+                },
+              )
+            }
+          >
+            <Icon className="mr-1 h-3.5 w-3.5" />
+            {label}
+          </Button>
+        ))}
       </div>
     </div>
   );

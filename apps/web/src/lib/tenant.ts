@@ -5,6 +5,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabase } from "./supabase";
 import { isDemoMode } from "./env";
+import { getStoredActiveOrganizationId, setActiveOrganizationId } from "./active-organization";
+
+export { getStoredActiveOrganizationId, setActiveOrganizationId } from "./active-organization";
 
 export type OrganizationRole = "owner" | "admin" | "member";
 
@@ -46,29 +49,6 @@ const DEMO_TENANT: TenantContext = {
  * automática e a da organização que o convidou. Sem uma escolha explícita, a
  * organização resolvida seria arbitrária.
  */
-const ACTIVE_ORG_STORAGE_KEY = "radar.activeOrganizationId";
-
-export function getStoredActiveOrganizationId(): string | null {
-  try {
-    return globalThis.localStorage?.getItem(ACTIVE_ORG_STORAGE_KEY) ?? null;
-  } catch {
-    // localStorage indisponível (SSR, modo privado) — cai no default determinístico.
-    return null;
-  }
-}
-
-/**
- * Fixa a organização ativa. Chamar depois de aceitar um convite, para o usuário
- * cair na organização que o convidou em vez da Free criada no cadastro.
- */
-export function setActiveOrganizationId(organizationId: string): void {
-  try {
-    globalThis.localStorage?.setItem(ACTIVE_ORG_STORAGE_KEY, organizationId);
-  } catch {
-    // Sem persistência: o default determinístico ainda se aplica.
-  }
-}
-
 /**
  * Fetch all organizations the current user belongs to.
  *

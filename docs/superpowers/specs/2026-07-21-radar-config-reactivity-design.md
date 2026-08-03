@@ -1,7 +1,7 @@
 # Radar — Reatividade de configuração (design)
 
 **Data:** 2026-07-21
-**Rota alvo:** `/app/mapa` (Radar Local)
+**Rota alvo:** `/app/mapa` (Prospeca)
 **Status:** proposta para revisão
 
 ## 1. Problema

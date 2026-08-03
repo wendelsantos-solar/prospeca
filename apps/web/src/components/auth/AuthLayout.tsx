@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/shared/LogoMark";
 import { AuthProductPreview } from "./AuthProductPreview";
 
 interface AuthLayoutProps {
@@ -31,10 +31,10 @@ export function AuthLayout({
             aria-label="Voltar para página inicial"
           >
             <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-card">
-              <Radar className="h-[18px] w-[18px]" strokeWidth={2} />
+              <LogoMark className="h-[18px] w-[18px]" />
             </div>
             <span className="text-[15px] font-semibold tracking-tight text-foreground">
-              Radar Local
+              Prospeca
             </span>
           </Link>
         </div>

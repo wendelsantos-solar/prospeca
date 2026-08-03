@@ -1,7 +1,10 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import { MarkerClusterer, type Renderer } from "@googlemaps/markerclusterer";
+import type {
+  MarkerClusterer as MarkerClustererInstance,
+  Renderer,
+} from "@googlemaps/markerclusterer";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
@@ -59,7 +62,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
-  const clusterRef = useRef<MarkerClusterer | null>(null);
+  const clusterRef = useRef<MarkerClustererInstance | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const centerRef = useRef<google.maps.Marker | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
@@ -153,8 +156,8 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     }
     let cancelled = false;
     configureLoader(key);
-    importLibrary("maps")
-      .then(async ({ Map, InfoWindow }) => {
+    Promise.all([importLibrary("maps"), import("@googlemaps/markerclusterer")])
+      .then(async ([{ Map, InfoWindow }, { MarkerClusterer }]) => {
         await importLibrary("marker");
         if (cancelled || !containerRef.current) return;
         const map = new Map(containerRef.current, {

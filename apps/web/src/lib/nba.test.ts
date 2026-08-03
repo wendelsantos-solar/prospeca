@@ -36,14 +36,38 @@ test("no channels → medium/system", () => {
   expect(n.channel).toBe("system");
   expect(n.priority).toBe("medium");
 });
-test("contacted with whatsapp, 3 days since interaction → high/whatsapp", () => {
+test("contacted with whatsapp and confirmed cadence due → high/whatsapp", () => {
+  const startedAt = new Date(Date.now() - 3 * 86400000).toISOString();
   const n = computeNba(
     base({
       stage: "contacted",
       whatsapp: "551199",
-      lastInteractionAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+      lastInteractionAt: startedAt,
+      cadenceStartedAt: startedAt,
+      cadenceStep: 0,
     }),
   );
   expect(n.priority).toBe("high");
   expect(n.channel).toBe("whatsapp");
+  expect(n.cadenceStep?.order).toBe(1);
+});
+
+test("contacted without confirmed cadence anchor does not invent a follow-up", () => {
+  const n = computeNba(base({ stage: "contacted", whatsapp: "551199" }));
+  expect(n.channel).toBe("system");
+  expect(n.cadenceStep).toBeUndefined();
+});
+
+test("completed cadence asks for a deliberate next step", () => {
+  const n = computeNba(
+    base({
+      stage: "contacted",
+      whatsapp: "551199",
+      cadenceStartedAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+      cadenceStep: 4,
+      cadenceCompletedAt: new Date().toISOString(),
+    }),
+  );
+  expect(n.channel).toBe("system");
+  expect(n.action).toBe("Definir próximo passo");
 });

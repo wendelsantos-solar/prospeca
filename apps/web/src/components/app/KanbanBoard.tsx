@@ -40,6 +40,7 @@ import {
   Inbox,
   Navigation,
   ListChecks,
+  GripVertical,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -123,163 +124,177 @@ const KanbanCard = memo(function KanbanCard({
     <Card
       ref={overlay ? undefined : setNodeRef}
       style={style}
-      {...(overlay ? {} : attributes)}
-      {...(overlay ? {} : listeners)}
-      onClick={() => setDetails(lead.id)}
       className={cn(
-        "group cursor-grab active:cursor-grabbing border-border/70 shadow-none transition-all hover:border-border-strong hover:shadow-card",
+        "group border-border/70 shadow-none transition-all hover:border-border-strong hover:shadow-card",
         density === "compact" ? "p-2" : "p-2.5",
         isDragging && "opacity-40",
         overlay && "shadow-elevated rotate-2",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-1.5 min-w-0">
-          {bulkMode && (
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => {
-                const r = toggleSelect(lead.id, bulkLimit);
-                if (r === "limit") toast.warning(`Limite de ${bulkLimit} selecionados atingido`);
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`Selecionar ${lead.companyName}`}
-              className="mt-0.5"
-            />
-          )}
-          <div className="min-w-0">
-            <p
-              className={cn(
-                "truncate font-semibold text-foreground",
-                density === "compact" ? "text-[12px]" : "text-[13px]",
-              )}
-            >
-              {lead.companyName}
-            </p>
-            <p className="text-[10px] text-muted-foreground truncate">
-              {categoryLabel(lead.category)} • {lead.neighborhood ?? lead.city}
-            </p>
-          </div>
-        </div>
-        <ScoreBadge score={lead.score} />
-      </div>
-      {density === "comfortable" && (
-        <div className="mt-1.5 flex items-center justify-between gap-1">
-          <TemperatureBadge temperature={lead.temperature} size="xs" />
-          {lead.estimatedValue != null && (
-            <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
-              {formatBRL(lead.estimatedValue)}
-            </span>
-          )}
-        </div>
-      )}
-      {density === "comfortable" && lead.nextActivity && (
-        <p className="mt-1 flex items-center gap-1 text-[10px] text-info truncate">
-          <CalendarClock className="h-3 w-3 shrink-0" />
-          {lead.nextActivity.title} — {formatDate(lead.nextActivity.date)}
-        </p>
-      )}
-      {density === "comfortable" && lead.lastInteractionAt && (
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          {formatRelative(lead.lastInteractionAt)}
-        </p>
-      )}
-      <div className="mt-2 flex items-center justify-between">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 px-1.5 text-[11px] gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          onClick={openWhats}
-          aria-label="Abrir WhatsApp"
+      <div className="flex items-start gap-1.5">
+        {bulkMode && !overlay && (
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => {
+              const result = toggleSelect(lead.id, bulkLimit);
+              if (result === "limit") {
+                toast.warning(`Limite de ${bulkLimit} selecionados atingido`);
+              }
+            }}
+            aria-label={`Selecionar ${lead.companyName}`}
+            className="mt-0.5"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => setDetails(lead.id)}
+          disabled={overlay}
+          className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={`Ver detalhes de ${lead.companyName}`}
         >
-          <MessageCircle className="h-3 w-3" />
-        </Button>
-        <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70 tabular-nums opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          {lead.phone ?? ""}
-        </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0" aria-label="Mais opções">
-              <MoreHorizontal className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-            {STAGE_ORDER.filter((s) => s !== lead.stage && s !== "won" && s !== "discarded").map(
-              (s) => (
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  "truncate font-semibold text-foreground",
+                  density === "compact" ? "text-[12px]" : "text-[13px]",
+                )}
+              >
+                {lead.companyName}
+              </p>
+              <p className="truncate text-[10px] text-muted-foreground">
+                {categoryLabel(lead.category)} • {lead.neighborhood ?? lead.city}
+              </p>
+            </div>
+            <ScoreBadge score={lead.score} />
+          </div>
+          {density === "comfortable" && (
+            <div className="mt-1.5 flex items-center justify-between gap-1">
+              <TemperatureBadge temperature={lead.temperature} size="xs" />
+              {lead.estimatedValue != null && (
+                <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+                  {formatBRL(lead.estimatedValue)}
+                </span>
+              )}
+            </div>
+          )}
+          {density === "comfortable" && lead.nextActivity && (
+            <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-info">
+              <CalendarClock className="h-3 w-3 shrink-0" />
+              {lead.nextActivity.title} — {formatDate(lead.nextActivity.date)}
+            </p>
+          )}
+          {density === "comfortable" && lead.lastInteractionAt && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {formatRelative(lead.lastInteractionAt)}
+            </p>
+          )}
+        </button>
+      </div>
+      {!overlay && (
+        <div className="mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="grid h-6 w-6 shrink-0 cursor-grab place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+            aria-label={`Arrastar ${lead.companyName}`}
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 px-1.5 text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            onClick={openWhats}
+            aria-label="Abrir WhatsApp"
+          >
+            <MessageCircle className="h-3 w-3" />
+          </Button>
+          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70 tabular-nums opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            {lead.phone ?? ""}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" aria-label="Mais opções">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {STAGE_ORDER.filter(
+                (stage) => stage !== lead.stage && stage !== "won" && stage !== "discarded",
+              ).map((stage) => (
                 <DropdownMenuItem
-                  key={s}
+                  key={stage}
                   onClick={() => {
                     moveMutation.mutate(
-                      { id: lead.id, input: { toStage: s } },
+                      { id: lead.id, input: { toStage: stage } },
                       {
                         onSuccess: () => {
-                          pushRecentAction(`Lead movido para ${STAGE_LABELS[s]}`);
-                          toast.success(`Movido para ${STAGE_LABELS[s]}`);
+                          pushRecentAction(`Lead movido para ${STAGE_LABELS[stage]}`);
+                          toast.success(`Movido para ${STAGE_LABELS[stage]}`);
                         },
                       },
                     );
                   }}
                 >
-                  Mover para {STAGE_LABELS[s]}
+                  Mover para {STAGE_LABELS[stage]}
                 </DropdownMenuItem>
-              ),
-            )}
-            <DropdownMenuItem onClick={() => setPendingWin(lead.id)}>
-              Marcar como Ganho
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setPendingDiscard(lead.id)}
-              className="text-destructive focus:text-destructive"
-            >
-              Descartar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setDetails(lead.id)}>Ver detalhes</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirmRemove(true);
-              }}
-            >
-              Remover lead
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Dialog open={confirmRemove} onOpenChange={setConfirmRemove}>
-          <DialogContent onClick={(e) => e.stopPropagation()}>
-            <DialogHeader>
-              <DialogTitle>Remover {lead.companyName}?</DialogTitle>
-              <DialogDescription>
-                Apaga o lead e seu histórico (notas, atividades) permanentemente — diferente de
-                "Descartar", que só marca o estágio e mantém tudo. Não pode ser desfeito.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setConfirmRemove(false)}>
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={removeLeadMut.isPending}
-                onClick={() => {
-                  removeLeadMut.mutate(lead.id, {
-                    onSuccess: () => {
-                      pushRecentAction(`${lead.companyName} removido do pipeline`);
-                      toast.success("Lead removido do pipeline");
-                      setConfirmRemove(false);
-                    },
-                    onError: () => toast.error("Falha ao remover o lead"),
-                  });
-                }}
+              ))}
+              <DropdownMenuItem onClick={() => setPendingWin(lead.id)}>
+                Marcar como Ganho
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setPendingDiscard(lead.id)}
+                className="text-destructive focus:text-destructive"
               >
-                {removeLeadMut.isPending ? "Removendo..." : "Remover permanentemente"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+                Descartar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setDetails(lead.id)}>Ver detalhes</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setConfirmRemove(true)}
+              >
+                Remover lead
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Dialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remover {lead.companyName}?</DialogTitle>
+                <DialogDescription>
+                  Apaga o lead e seu histórico (notas, atividades) permanentemente — diferente de
+                  "Descartar", que só marca o estágio e mantém tudo. Não pode ser desfeito.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmRemove(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={removeLeadMut.isPending}
+                  onClick={() => {
+                    removeLeadMut.mutate(lead.id, {
+                      onSuccess: () => {
+                        pushRecentAction(`${lead.companyName} removido do pipeline`);
+                        toast.success("Lead removido do pipeline");
+                        setConfirmRemove(false);
+                      },
+                      onError: () => toast.error("Falha ao remover o lead"),
+                    });
+                  }}
+                >
+                  {removeLeadMut.isPending ? "Removendo..." : "Remover permanentemente"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
     </Card>
   );
 });
@@ -325,7 +340,10 @@ function KanbanColumn({
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col">
+    <div
+      data-testid={`kanban-column-${stage}`}
+      className="flex w-[calc(100vw-1.5rem)] shrink-0 snap-start flex-col md:w-72"
+    >
       <div
         className={cn(
           "flex items-center justify-between gap-2 rounded-t-lg border border-b-0 bg-surface px-3 py-2 border-t-2",
@@ -504,8 +522,8 @@ export function KanbanBoard({
        * once they don't, w-fit keeps the row exactly content-width so the
        * outer overflow-x-auto scrolls normally instead of clipping (which
        * `justify-center` on the scroll container itself would do). */}
-      <div className="h-full overflow-x-auto p-4">
-        <div className="mx-auto flex h-full w-fit gap-3">
+      <div className="h-full snap-x snap-mandatory overflow-x-auto p-2 md:snap-none md:p-4">
+        <div className="mx-auto flex h-full w-fit gap-2 md:gap-3">
           {STAGE_ORDER.map((s) => (
             <KanbanColumn key={s} stage={s} leads={grouped[s]} density={density} />
           ))}
@@ -606,7 +624,7 @@ export function KanbanTopBar({
           • <b className="text-primary">{selected}</b> selecionados
         </span>
       )}
-      <div className="relative ml-2 flex-1 min-w-[140px] max-w-xs">
+      <div className="relative order-first w-full min-w-[140px] sm:order-none sm:ml-2 sm:max-w-xs sm:flex-1">
         <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}

@@ -1,4 +1,4 @@
-# Multi-Tenancy Decision — Radar Local
+# Multi-Tenancy Decision — Prospeca
 
 **Data:** 2026-07-30
 **Decisão:** Confirmar e documentar o modelo existente
@@ -7,7 +7,7 @@
 
 ## O projeto já é multi-tenant?
 
-**Sim.** O Radar Local foi projetado como multi-tenant desde a primeira
+**Sim.** O Prospeca foi projetado como multi-tenant desde a primeira
 migration (`20260719000001_core.sql`).
 
 ## Qual é o tenant?
@@ -170,7 +170,7 @@ Como não há migração de dados para fazer, o rollback é simples:
 ## Decisão final
 
 **MANTER o modelo atual.** O banco compartilhado com RLS é a escolha correta
-para o estágio atual do Radar Local. Não há necessidade de migrar para schemas
+para o estágio atual do Prospeca. Não há necessidade de migrar para schemas
 ou bancos separados.
 
 ### O que implementar agora:

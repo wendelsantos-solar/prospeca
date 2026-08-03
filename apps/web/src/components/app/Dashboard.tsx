@@ -94,6 +94,9 @@ function aggregate(leads: Lead[]) {
   const avgConvDays = convDays.length
     ? convDays.reduce((a, b) => a + b, 0) / convDays.length
     : null;
+  const responses = leads.filter((lead) => lead.respondedAt).length;
+  const meetings = leads.filter((lead) => lead.meetingAt).length;
+  const proposals = leads.filter((lead) => lead.proposalAt).length;
   return {
     byStage,
     total,
@@ -104,6 +107,9 @@ function aggregate(leads: Lead[]) {
     conv,
     avgTicket,
     avgConvDays,
+    responses,
+    meetings,
+    proposals,
   };
 }
 
@@ -608,6 +614,24 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 value={formatNumber(a.byStage.contacted.length)}
                 delta={deltaPct(a.byStage.contacted.length, p.byStage.contacted.length)}
                 tooltip="Leads no estágio Contatado."
+              />
+              <LocalMetricCard
+                label="Respostas"
+                value={formatNumber(a.responses)}
+                delta={deltaPct(a.responses, p.responses)}
+                tooltip="Leads do período com resposta confirmada pelo usuário."
+              />
+              <LocalMetricCard
+                label="Reuniões"
+                value={formatNumber(a.meetings)}
+                delta={deltaPct(a.meetings, p.meetings)}
+                tooltip="Leads do período com reunião registrada."
+              />
+              <LocalMetricCard
+                label="Propostas"
+                value={formatNumber(a.proposals)}
+                delta={deltaPct(a.proposals, p.proposals)}
+                tooltip="Leads do período com proposta registrada."
               />
               <LocalMetricCard
                 label="Descartados"

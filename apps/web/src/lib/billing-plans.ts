@@ -19,6 +19,11 @@ export interface FounderOffer {
   endsAt: string | null;
 }
 
+// During the paid pilot we publish only plans whose complete journey is
+// available today. Hidden catalog entries remain in the database for future
+// migrations, but are not promises on the public pricing page.
+const PUBLIC_PILOT_PLANS = ["free", "professional"];
+
 // billing_plans has a public `select using (true)` RLS policy — this is the
 // pricing catalog, not sensitive data.
 export async function fetchBillingPlans(): Promise<BillingPlan[]> {
@@ -29,6 +34,7 @@ export async function fetchBillingPlans(): Promise<BillingPlan[]> {
     )
     .eq("is_active", true)
     .eq("is_public", true)
+    .in("code", PUBLIC_PILOT_PLANS)
     .order("display_order");
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({

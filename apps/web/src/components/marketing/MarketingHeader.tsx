@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
-import { Radar, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/shared/LogoMark";
 
 const NAV_ITEMS: Array<{ label: string; href?: string; to?: string }> = [
   { label: "Produto", href: "#produto" },
@@ -38,11 +39,9 @@ export function MarketingHeader() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Radar Local — Início">
-          <Radar className="h-5 w-5 text-primary" />
-          <span className="text-base font-semibold tracking-tight text-foreground">
-            Radar Local
-          </span>
+        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Prospeca — Início">
+          <LogoMark className="h-5 w-5 text-primary" />
+          <span className="text-base font-semibold tracking-tight text-foreground">Prospeca</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Navegação principal">

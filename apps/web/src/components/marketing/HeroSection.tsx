@@ -15,8 +15,8 @@ export function HeroSection() {
             Encontre empresas que precisam do serviço que você vende.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground md:text-section-title">
-            Pesquise por nicho e região, veja o score que explica quem priorizar primeiro e
-            organize toda a prospecção — da descoberta ao fechamento — em um só lugar.
+            Pesquise por nicho e região, veja o score que explica quem priorizar primeiro e organize
+            toda a prospecção — da descoberta ao fechamento — em um só lugar.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button

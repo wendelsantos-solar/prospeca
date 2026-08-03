@@ -1,4 +1,4 @@
-# Radar Local — Frontend Web (SaaS B2B de Prospecção)
+# Prospeca — Frontend Web (SaaS B2B de Prospecção)
 
 Aplicação completa de prospecção de leads locais, 100% frontend com dados mockados e arquitetura preparada para API real.
 
@@ -24,7 +24,7 @@ src/
 
 ## Design System (src/styles.css)
 
-Tokens oklch: cinza claro base, superfícies brancas, verde primário, laranja (quente), amarelo (morno), cinza-azulado (frio), azul (selecionado), vermelho (erro/descarte). Cantos 8-12px, sombras suaves. Tema claro + escuro persistido. Nome em `src/lib/constants.ts` (`APP_NAME = "Radar Local"`).
+Tokens oklch: cinza claro base, superfícies brancas, verde primário, laranja (quente), amarelo (morno), cinza-azulado (frio), azul (selecionado), vermelho (erro/descarte). Cantos 8-12px, sombras suaves. Tema claro + escuro persistido. Nome em `src/lib/constants.ts` (`APP_NAME = "Prospeca"`).
 
 ## Layout
 

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const FAQS = [
   {
-    q: "O Radar Local envia mensagens automaticamente?",
+    q: "A Prospeca envia mensagens automaticamente?",
     a: "Não. Ele prepara a mensagem com os dados do lead e você revisa e envia pelo seu próprio WhatsApp — nada sai sem sua confirmação.",
   },
   {
@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: "Posso cancelar quando quiser?",
-    a: "Sim. Você mantém acesso até o fim do período já pago — sem multa, sem letra miúda.",
+    a: "Sim. Durante o piloto, a ativação e o cancelamento são tratados diretamente com você, sem contratação automática ou multa.",
   },
   {
     q: "Preciso instalar alguma coisa?",
@@ -47,7 +47,7 @@ const FAQS = [
   },
   {
     q: "Posso trabalhar em equipe?",
-    a: "Sim, a partir do plano Agência, com múltiplos usuários e papéis por organização.",
+    a: "O piloto atual é individual por organização. A experiência completa de equipes ainda está no roadmap e não é vendida como disponível.",
   },
   {
     q: "Como funciona o score?",
@@ -55,7 +55,7 @@ const FAQS = [
   },
   {
     q: "Existe limite de buscas?",
-    a: "Sim, cada plano tem uma franquia mensal de buscas e de leads processados — os limites ficam visíveis na sua conta.",
+    a: "Sim, cada plano tem uma franquia mensal de buscas e de leads processados. No piloto pago, os limites são confirmados durante a ativação assistida.",
   },
   {
     q: "Como funciona a privacidade?",
@@ -96,9 +96,23 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 export function FAQSection() {
   return (
     <MarketingSection id="perguntas" spacing="lg">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
+      />
       <MarketingContainer width="narrow">
         <SectionHeading title="Perguntas frequentes" center />
         <div className="mt-10">

@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { optimizeVisitOrder, buildGoogleMapsRouteUrl } from "./route";
+import { optimizeVisitOrder, buildGoogleMapsRouteUrl, buildWazeNavigationUrl } from "./route";
 
 // Three points roughly on a line, fed in shuffled/non-optimal order:
 //   A (0,0) --- B (0,0.01) --- C (0,0.03)
@@ -68,4 +68,12 @@ test("buildGoogleMapsRouteUrl with a single stop has no waypoints param", () => 
   const url = buildGoogleMapsRouteUrl([A]);
   expect(url).toContain("destination=0%2C0");
   expect(url).not.toContain("waypoints=");
+});
+
+test("buildWazeNavigationUrl opens one stop with navigation enabled", () => {
+  const url = new URL(buildWazeNavigationUrl(B));
+  expect(`${url.origin}${url.pathname}`).toBe("https://www.waze.com/ul");
+  expect(url.searchParams.get("ll")).toBe(`${B.lat},${B.lng}`);
+  expect(url.searchParams.get("navigate")).toBe("yes");
+  expect(url.searchParams.get("utm_source")).toBe("radar_local");
 });

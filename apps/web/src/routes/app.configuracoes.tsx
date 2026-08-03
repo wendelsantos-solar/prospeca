@@ -101,7 +101,7 @@ function SectionHeader({ title, desc }: { title: string; desc: string }) {
   return (
     <div className="mb-4">
       <h2 className="text-[15px] font-semibold">{title}</h2>
-      <p className="text-[12.5px] text-muted-foreground">{desc}</p>
+      <p className="text-caption text-muted-foreground">{desc}</p>
     </div>
   );
 }
@@ -113,6 +113,7 @@ function PerfilSection() {
   const { data, isLoading } = useQuery({
     queryKey: ["account-context"],
     queryFn: fetchAccountContext,
+    enabled: !isDemoMode,
   });
   const [fullName, setFullName] = useState("");
   const [orgName, setOrgName] = useState("");
@@ -154,6 +155,22 @@ function PerfilSection() {
     setOrgName(data.organizationName);
   };
 
+  if (isDemoMode) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-4">
+          <p className="text-body font-medium text-foreground">Perfil de demonstração</p>
+          <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
+            Você está usando dados fictícios. Nome, organização e assinatura podem ser explorados na
+            seção Geral sem alterar uma conta real.
+          </p>
+        </div>
+        <Button asChild size="sm">
+          <Link to="/cadastro">Criar minha conta gratuita</Link>
+        </Button>
+      </div>
+    );
+  }
   if (isLoading) {
     return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
   }
@@ -188,7 +205,9 @@ function PerfilSection() {
 
       {dirty && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2">
-          <span className="text-xs font-medium text-warning-foreground">Alterações não salvas</span>
+          <span className="text-caption font-medium text-warning-foreground">
+            Alterações não salvas
+          </span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={cancel} disabled={saving}>
               Cancelar
@@ -345,8 +364,8 @@ function MensagensSection() {
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-[13px] font-medium">Modelo padrão do WhatsApp</div>
-        <div className="text-[11.5px] text-muted-foreground">
+        <div className="text-body-sm font-medium">Modelo padrão do WhatsApp</div>
+        <div className="text-micro text-muted-foreground">
           Texto usado ao iniciar uma conversa pelo WhatsApp.
         </div>
         <Textarea
@@ -365,8 +384,8 @@ function MensagensSection() {
         />
       </Row>
       <div>
-        <div className="text-[13px] font-medium">Assinatura</div>
-        <div className="text-[11.5px] text-muted-foreground">
+        <div className="text-body-sm font-medium">Assinatura</div>
+        <div className="text-micro text-muted-foreground">
           Anexada ao final das mensagens enviadas.
         </div>
         <Textarea
@@ -399,7 +418,7 @@ const SCORE_CRITERIA = [
 function ScoreRulesSection() {
   return (
     <div className="space-y-4">
-      <p className="text-[12.5px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         O score usa critérios comerciais fixos, não é uma caixa-preta — regra{" "}
         <span className="font-mono">{SCORE_RULE_VERSION}</span>, orientada a oportunidade: score
         alto significa negócio com baixa maturidade digital e alcançável, não necessariamente o
@@ -516,7 +535,7 @@ function DadosSection() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-2 text-[12.5px] text-muted-foreground">Backup local deste dispositivo.</p>
+        <p className="mb-2 text-caption text-muted-foreground">Backup local deste dispositivo.</p>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={exportBackup} className="gap-1.5">
             <Download className="h-4 w-4" />
@@ -564,14 +583,14 @@ function DadosSection() {
           <Trash2 className="mr-1 h-4 w-4" />
           Limpar dados deste dispositivo
         </Button>
-        <p className="mt-1 text-[11.5px] text-muted-foreground">
+        <p className="mt-1 text-micro text-muted-foreground">
           Remove leads, pipeline e histórico salvos neste navegador — não afeta sua conta.
         </p>
       </div>
 
       <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-3">
-        <p className="text-[13px] font-medium text-destructive">Excluir minha conta</p>
-        <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+        <p className="text-body-sm font-medium text-destructive">Excluir minha conta</p>
+        <p className="mt-0.5 text-micro text-muted-foreground">
           Remove permanentemente seus dados da plataforma. Não afeta só este dispositivo — é a conta
           inteira.
         </p>

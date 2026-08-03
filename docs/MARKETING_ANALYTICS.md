@@ -1,4 +1,4 @@
-# Marketing Analytics — Radar Local
+# Marketing Analytics — Prospeca
 
 Eventos de analytics configurados para o site público e fluxo de conversão.
 

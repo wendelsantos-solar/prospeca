@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
         let duplicates = 0;
         // Leads recém-criados que têm site → o cliente dispara enrich sob demanda.
         const enrichable: { leadId: string; website: string }[] = [];
+        const materializedLeadIds: string[] = [];
 
         for (const row of results ?? []) {
           const place = row.places as unknown as Record<string, unknown> | null;
@@ -128,6 +129,7 @@ Deno.serve(async (req) => {
 
           if (existing) {
             duplicates++;
+            materializedLeadIds.push(existing.id);
             // Promove o estágio se o alvo for mais avançado — nunca rebaixa.
             const rank: Record<string, number> = {
               new: 0,
@@ -213,6 +215,7 @@ Deno.serve(async (req) => {
           if (error || !lead) continue;
 
           imported++;
+          materializedLeadIds.push(lead.id as string);
           // Also enqueue instagram-as-website leads: not a "real" site, but
           // enrichFromWebsite pulls the handle straight from that URL.
           if (
@@ -247,7 +250,12 @@ Deno.serve(async (req) => {
           .update({ imported_count: totalImported ?? imported })
           .eq("id", input.searchId);
 
-        return { imported, duplicates, enrichableLeadIds: enrichable.map((e) => e.leadId) };
+        return {
+          imported,
+          duplicates,
+          enrichableLeadIds: enrichable.map((e) => e.leadId),
+          leadIds: materializedLeadIds,
+        };
       },
     );
 

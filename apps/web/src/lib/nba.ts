@@ -1,5 +1,11 @@
 import type { Lead } from "@/types";
-import { CADENCE_STEPS, currentCadenceStep, type CadenceStep } from "./cadence";
+import {
+  CADENCE_STEPS,
+  currentCadenceStep,
+  nextCadenceStep,
+  cadenceStepDueDate,
+  type CadenceStep,
+} from "./cadence";
 
 export type NbaPriority = "high" | "medium" | "low";
 export type NbaChannel = "whatsapp" | "call" | "email" | "system";
@@ -83,17 +89,33 @@ export function computeNba(lead: Lead): Nba {
   }
 
   if (lead.stage === "contacted") {
-    if (days === null || days < CADENCE_STEPS[0].dueAtDay) {
+    if ((lead.cadenceStep ?? 0) >= CADENCE_STEPS.length || lead.cadenceCompletedAt) {
       return {
-        action: "Aguardar resposta",
-        reason: "Contato recente. Aguarde a resposta antes de insistir.",
+        action: "Definir próximo passo",
+        reason:
+          "A cadência foi concluída. Registre a resposta ou decida se a oportunidade continua.",
+        channel: "system",
+        priority: "medium",
+        daysSinceContact: days,
+        cta: "Abrir detalhes",
+      };
+    }
+
+    const step = currentCadenceStep(lead);
+    if (!step) {
+      const next = nextCadenceStep(lead);
+      const nextDueAt = next ? cadenceStepDueDate(lead, next) : null;
+      return {
+        action: lead.cadenceStartedAt ? "Aguardar resposta" : "Confirmar primeiro contato",
+        reason: nextDueAt
+          ? `Próximo toque em ${new Date(nextDueAt).toLocaleDateString("pt-BR")}.`
+          : "A cadência só começa depois que o primeiro contato é confirmado.",
         channel: "system",
         priority: "low",
         daysSinceContact: days,
-        cta: "Agendar retorno",
+        cta: lead.cadenceStartedAt ? "Agendar retorno" : "Abrir detalhes",
       };
     }
-    const step = currentCadenceStep(lead)!;
     const isLast = step.order === CADENCE_STEPS.length;
     return {
       action: step.label,

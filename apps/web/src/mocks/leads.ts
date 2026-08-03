@@ -184,10 +184,15 @@ function makeLead(companyName: string, category: string, cityName: string, seed:
     reviewCount,
     distanceKm,
   };
-  const { total: score } = calculateScore(scoreInputFromLead(partial));
+  const scoreBreakdown = calculateScore(scoreInputFromLead(partial));
+  const score = scoreBreakdown.total;
   const temperature = temperatureFromScore(score);
   const stagePool: Lead["stage"][] = ["new", "new", "new", "new", "qualified", "contacted"];
   const stage = stagePool[Math.floor(rand() * stagePool.length)];
+  const lastInteractionAt =
+    stage === "contacted" || rand() > 0.6
+      ? new Date(Date.now() - Math.floor(rand() * 10) * 86400000).toISOString()
+      : undefined;
   const discoveredAt = new Date(Date.now() - Math.floor(rand() * 30) * 86400000).toISOString();
   const streetNum = Math.floor(rand() * 4000) + 100;
   const estimatedValue = Math.floor(500 + rand() * 9500);
@@ -213,13 +218,13 @@ function makeLead(companyName: string, category: string, cityName: string, seed:
     rating,
     reviewCount,
     score,
+    scoreBreakdown,
     temperature,
     stage,
     estimatedValue,
-    lastInteractionAt:
-      rand() > 0.6
-        ? new Date(Date.now() - Math.floor(rand() * 10) * 86400000).toISOString()
-        : undefined,
+    lastInteractionAt,
+    cadenceStartedAt: stage === "contacted" ? lastInteractionAt : undefined,
+    cadenceStep: 0,
     discoveredAt,
     openingHours: ["Seg-Sex: 09h-18h", "Sáb: 09h-13h"],
     notes: [],

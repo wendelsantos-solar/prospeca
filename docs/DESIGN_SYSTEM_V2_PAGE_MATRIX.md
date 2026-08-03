@@ -1,6 +1,6 @@
 # Design System V2 — Matriz de Cobertura
 
-Auditoria de todas as páginas e componentes do Radar Local.
+Auditoria de todas as páginas e componentes do Prospeca.
 Status: `✅` migrado | `🔄` em migração | `📋` fundação pronta | `⬜` não auditado | `🔒` bloqueado
 
 ## App Shell

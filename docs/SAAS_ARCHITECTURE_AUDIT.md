@@ -1,4 +1,4 @@
-# SaaS Architecture Audit — Radar Local
+# SaaS Architecture Audit — Prospeca
 
 **Data:** 2026-07-30
 **Branch:** `feat/saas-production-readiness`
@@ -227,7 +227,7 @@ leads-platform/              # monorepo (Bun workspaces)
 
 ## Conclusão da auditoria de arquitetura
 
-O Radar Local possui uma arquitetura moderna, bem estruturada e surpreendentemente madura
+O Prospeca possui uma arquitetura moderna, bem estruturada e surpreendentemente madura
 para um MVP. A base multi-tenant, segurança via RLS, padrão repository, e separação
 limpa entre domínio puro e I/O já estão implementados.
 

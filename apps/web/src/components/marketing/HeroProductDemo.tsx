@@ -47,7 +47,7 @@ export function HeroProductDemo() {
         <div className="h-2.5 w-2.5 rounded-full bg-stage-qualified/40" />
         <div className="h-2.5 w-2.5 rounded-full bg-stage-new/40" />
         <div className="ml-2 flex-1 rounded-md bg-surface-2 px-3 py-1.5 text-[11px] text-muted-foreground">
-          app.radarlocal.com
+          app.prospeca.com.br
         </div>
       </div>
 

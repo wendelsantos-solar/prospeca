@@ -29,7 +29,7 @@ const STEPS: OnboardingStep[] = [
   {
     key: "welcome",
     icon: icons.lead.opportunity, // Sparkles — descoberta de oportunidades
-    title: "Bem-vindo ao Radar Local",
+    title: "Bem-vindo à Prospeca",
     description:
       "Sua plataforma de inteligência comercial para descobrir e conquistar negócios locais na sua região.",
   },
@@ -45,7 +45,7 @@ const STEPS: OnboardingStep[] = [
     icon: icons.actions.search, // Search — busca
     title: "Encontre empresas",
     description:
-      "Escolha um nicho e uma região. O Radar Local busca empresas, analisa presença digital e calcula o score de oportunidade.",
+      "Escolha um nicho e uma região. A Prospeca busca empresas, analisa presença digital e calcula o score de oportunidade.",
   },
   {
     key: "explore",
@@ -160,6 +160,9 @@ export function OnboardingWizard({ onComplete, onSkip, initialProgress }: Onboar
   const handleNext = useCallback(() => {
     if (isLastStep) {
       setExiting(true);
+      // Save immediately (before animation delay) so a tab-close / refresh
+      // during the exit animation doesn't lose the completed state.
+      saveOnboardingProgress({ step, completed: true, skippedSteps });
       track("onboarding_completed" as never, { totalSteps: STEPS.length });
       // Small delay for visual feedback before dismissing
       setTimeout(() => {

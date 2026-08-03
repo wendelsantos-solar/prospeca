@@ -12,13 +12,17 @@ import { MessageCircle, HelpCircle, Briefcase } from "lucide-react";
 export const Route = createFileRoute("/contato/")({
   head: () => ({
     meta: [
-      { title: "Contato — Radar Local" },
+      { title: "Contato — Prospeca" },
       {
         name: "description",
         content:
-          "Entre em contato com o Radar Local. Dúvidas sobre planos, funcionalidades ou suporte comercial.",
+          "Entre em contato com a Prospeca. Dúvidas sobre planos, funcionalidades ou suporte comercial.",
       },
-      { property: "og:title", content: "Contato — Radar Local" },
+      { property: "og:title", content: "Contato — Prospeca" },
+      {
+        property: "og:description",
+        content: "Dúvidas sobre planos, funcionalidades ou suporte comercial — fale com a gente.",
+      },
     ],
     links: [{ rel: "canonical", href: "/contato" }],
   }),

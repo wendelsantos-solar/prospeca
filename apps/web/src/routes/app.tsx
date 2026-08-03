@@ -170,7 +170,16 @@ function AppLayout() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [routeOpen, setRouteOpen] = useState(false);
   const onboarding = useOnboarding();
-  const [showOnboarding, setShowOnboarding] = useState(!onboarding.isCompleted);
+  // SSR-safe: localStorage isn't available during SSR, so default to false.
+  // The real value is read in a useEffect that runs only on the client.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (!onboarding.isCompleted) {
+      setShowOnboarding(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Consome o convite pendente do cadastro (entra na organização que convidou).
   usePendingInvitation();

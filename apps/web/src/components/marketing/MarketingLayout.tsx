@@ -91,19 +91,22 @@ export function SectionHeading({
   description,
   center = false,
   className,
+  as: Heading = "h2",
 }: {
   eyebrow?: string;
   title: ReactNode;
   description?: ReactNode;
   center?: boolean;
   className?: string;
+  /** Heading level — defaults to h2. Pass "h1" for a section that is the page's main heading. */
+  as?: "h1" | "h2";
 }) {
   return (
     <div className={cn("max-w-2xl", center && "mx-auto text-center", className)}>
       {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-      <h2 className="text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground md:text-[2.25rem]">
+      <Heading className="text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground md:text-[2.25rem]">
         {title}
-      </h2>
+      </Heading>
       {description && (
         <p className="mt-4 text-base text-muted-foreground md:text-lg">{description}</p>
       )}

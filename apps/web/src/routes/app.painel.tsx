@@ -12,7 +12,7 @@ const DEFAULT_FILTERS = { quick: [] };
 
 export const Route = createFileRoute("/app/painel")({
   component: PainelPage,
-  head: () => ({ meta: [{ title: "Painel — Radar Local" }] }),
+  head: () => ({ meta: [{ title: "Painel — Prospeca" }] }),
 });
 
 function PainelSkeleton() {

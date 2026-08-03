@@ -5,6 +5,7 @@ import { useUIStore, useSearchDraftStore, useLeadsStore } from "@/stores";
 import { NotificationsPopover } from "./NotificationsPopover";
 import { CommandPalette } from "./CommandPalette";
 import { FeedbackForm } from "./FeedbackForm";
+import { UserMenu } from "./UserMenu";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
 
@@ -38,7 +39,7 @@ export function TopNav() {
 
   const onMapa = path === "/app/mapa";
   const showSearchContext = onMapa && hasSearch && location.trim().length > 0;
-  const pageTitle = PAGE_TITLES[path] ?? "Radar Local";
+  const pageTitle = PAGE_TITLES[path] ?? "Prospeca";
 
   // ⌘K / Ctrl+K opens the global command palette (jump to pages, start a search).
   useEffect(() => {
@@ -146,6 +147,7 @@ export function TopNav() {
       <div className="flex items-center gap-1">
         <FeedbackForm currentPage={path} />
         <NotificationsPopover />
+        <UserMenu className="md:hidden" />
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />

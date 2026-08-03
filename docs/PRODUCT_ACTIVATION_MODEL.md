@@ -1,4 +1,4 @@
-# Product Activation Model — Radar Local
+# Product Activation Model — Prospeca
 
 **Data:** 2026-07-30
 **Versão:** 1.0

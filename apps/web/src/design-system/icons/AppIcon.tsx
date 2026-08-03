@@ -57,7 +57,7 @@ export interface AppIconProps {
 }
 
 /**
- * Componente base de ícone do Radar Local.
+ * Componente base de ícone da Prospeca.
  *
  * Centraliza tamanho, stroke, cor, acessibilidade e alinhamento.
  * Consumir preferencialmente via `icon-registry.ts`.

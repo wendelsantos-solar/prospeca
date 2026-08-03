@@ -1,4 +1,4 @@
-# Private Beta Readiness Checklist — Radar Local
+# Private Beta Readiness Checklist — Prospeca
 
 **Data:** 2026-07-30 (revisão 2 — pós-correções)
 **Objetivo:** Checklist objetivo de itens obrigatórios antes de convidar o primeiro piloto.

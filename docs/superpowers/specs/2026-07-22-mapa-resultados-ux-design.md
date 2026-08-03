@@ -1,7 +1,7 @@
 # Radar — Refino UX Mapa+Resultados (design)
 
 **Data:** 2026-07-22
-**Rota alvo:** `/app/mapa` (Radar Local) — sidebar (`AppSidebar.tsx`, `LeadCard.tsx`, `SearchForm.tsx`) + `MapView.tsx`
+**Rota alvo:** `/app/mapa` (Prospeca) — sidebar (`AppSidebar.tsx`, `LeadCard.tsx`, `SearchForm.tsx`) + `MapView.tsx`
 **Status:** proposta para revisão
 
 ## 1. Problema

@@ -1,4 +1,4 @@
-# Paid Launch Readiness Checklist — Radar Local
+# Paid Launch Readiness Checklist — Prospeca
 
 **Data:** 2026-07-30
 **Status:** NÃO APLICÁVEL (beta privado gratuito primeiro)

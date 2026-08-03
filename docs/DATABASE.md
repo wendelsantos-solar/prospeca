@@ -1,4 +1,4 @@
-# Banco de dados — Radar Local
+# Banco de dados — Prospeca
 
 Migrations em `supabase/migrations/` (ordem numérica). Nunca alterar o schema
 manualmente — sempre via nova migration.

@@ -40,6 +40,13 @@ async function isReachable(): Promise<boolean> {
 }
 
 const available = await isReachable();
+const requireDatabase = process.env.REQUIRE_RLS_DB === "true";
+
+if (!available && requireDatabase) {
+  throw new Error(
+    `[rls-isolation] Supabase local obrigatório no gate, mas não está acessível em ${API_URL}.`,
+  );
+}
 const describeIfDb = available ? describe : describe.skip;
 
 if (!available) {
@@ -103,6 +110,7 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
   let leadIdA: string;
   let templateIdA: string;
   let searchIdA: string;
+  let feedbackObjectPathA: string | undefined;
 
   beforeAll(async () => {
     orgA = await createActor("a");
@@ -155,6 +163,9 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
   afterAll(async () => {
     // Limpeza via service_role. Apagar o usuário cascateia organização
     // (organizations.owner_user_id) e o resto por ON DELETE CASCADE.
+    if (feedbackObjectPathA) {
+      await admin.storage.from("feedback-attachments").remove([feedbackObjectPathA]);
+    }
     if (orgA?.userId) await admin.auth.admin.deleteUser(orgA.userId);
     if (orgB?.userId) await admin.auth.admin.deleteUser(orgB.userId);
   });
@@ -286,6 +297,140 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
       .eq("id", orgA.organizationId)
       .single();
     expect(check?.status).toBe("active");
+  });
+
+  // ── Contato confirmado + cadência ─────────────────────────────────────
+
+  test("ISO-030: membro registra contato e inicia cadência atomicamente", async () => {
+    const occurredAt = new Date().toISOString();
+    const { data: activity, error } = await orgA.client.rpc("record_lead_contact", {
+      p_lead_id: leadIdA,
+      p_channel: "whatsapp",
+      p_title: "Primeiro contato confirmado",
+      p_outcome: "sent",
+      p_occurred_at: occurredAt,
+    });
+
+    expect(error).toBeNull();
+    expect(activity?.lead_id).toBe(leadIdA);
+    expect(activity?.created_by).toBe(orgA.userId);
+    expect(activity?.outcome).toBe("sent");
+
+    const { data: lead, error: leadError } = await admin
+      .from("leads")
+      .select("stage, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at")
+      .eq("id", leadIdA)
+      .single();
+    expect(leadError).toBeNull();
+    expect(lead?.stage).toBe("contacted");
+    expect(new Date(lead!.last_interaction_at).toISOString()).toBe(occurredAt);
+    expect(new Date(lead!.cadence_started_at).toISOString()).toBe(occurredAt);
+    expect(lead?.cadence_step).toBe(0);
+    expect(lead?.cadence_completed_at).toBeNull();
+  });
+
+  test("ISO-031: usuário de B não registra contato no lead de A por RPC", async () => {
+    const { count: before } = await admin
+      .from("lead_activities")
+      .select("id", { count: "exact", head: true })
+      .eq("lead_id", leadIdA);
+
+    const { error } = await orgB.client.rpc("record_lead_contact", {
+      p_lead_id: leadIdA,
+      p_channel: "whatsapp",
+      p_title: "Contato forjado por B",
+      p_outcome: "sent",
+      p_occurred_at: new Date().toISOString(),
+    });
+    expect(error).not.toBeNull();
+
+    const { count: after } = await admin
+      .from("lead_activities")
+      .select("id", { count: "exact", head: true })
+      .eq("lead_id", leadIdA);
+    expect(after).toBe(before);
+  });
+
+  test("ISO-032: resposta confirmada encerra a cadência e registra outcome", async () => {
+    const occurredAt = new Date(Date.now() + 60_000).toISOString();
+    const { error } = await orgA.client.rpc("record_lead_contact", {
+      p_lead_id: leadIdA,
+      p_channel: "whatsapp",
+      p_title: "Resposta recebida",
+      p_outcome: "answered",
+      p_occurred_at: occurredAt,
+    });
+    expect(error).toBeNull();
+
+    const { data: lead, error: leadError } = await admin
+      .from("leads")
+      .select("last_outcome, responded_at, cadence_started_at, cadence_completed_at")
+      .eq("id", leadIdA)
+      .single();
+    expect(leadError).toBeNull();
+    expect(lead?.last_outcome).toBe("answered");
+    expect(new Date(lead!.responded_at).toISOString()).toBe(occurredAt);
+    expect(new Date(lead!.cadence_completed_at).toISOString()).toBe(occurredAt);
+    expect(new Date(lead!.cadence_started_at).toISOString()).not.toBe(occurredAt);
+  });
+
+  // ── Anexos privados de feedback ────────────────────────────────────────
+
+  test("ISO-033: membro envia e remove screenshot na própria organização", async () => {
+    feedbackObjectPathA = `${orgA.organizationId}/${orgA.userId}/${RUN}.png`;
+    const { error } = await orgA.client.storage
+      .from("feedback-attachments")
+      .upload(feedbackObjectPathA, new Uint8Array([137, 80, 78, 71]), {
+        contentType: "image/png",
+        upsert: false,
+      });
+    expect(error).toBeNull();
+
+    const { data: downloaded, error: downloadError } = await admin.storage
+      .from("feedback-attachments")
+      .download(feedbackObjectPathA);
+    expect(downloadError).toBeNull();
+    expect(downloaded?.size).toBe(4);
+
+    const { error: crossTenantDownloadError } = await orgB.client.storage
+      .from("feedback-attachments")
+      .download(feedbackObjectPathA);
+    expect(crossTenantDownloadError).not.toBeNull();
+
+    const { error: removeError } = await orgA.client.storage
+      .from("feedback-attachments")
+      .remove([feedbackObjectPathA]);
+    expect(removeError).toBeNull();
+
+    const { data: remainingObjects, error: listError } = await admin.storage
+      .from("feedback-attachments")
+      .list(`${orgA.organizationId}/${orgA.userId}`, { search: `${RUN}.png` });
+    expect(listError).toBeNull();
+    expect(remainingObjects).toEqual([]);
+    feedbackObjectPathA = undefined;
+  });
+
+  test("ISO-034: usuário de B não envia screenshot para a organização de A", async () => {
+    const path = `${orgA.organizationId}/${orgB.userId}/${RUN}-forged.png`;
+    const { error } = await orgB.client.storage
+      .from("feedback-attachments")
+      .upload(path, new Uint8Array([137, 80, 78, 71]), {
+        contentType: "image/png",
+        upsert: false,
+      });
+    expect(error).not.toBeNull();
+  });
+
+  test("ISO-035: usuário anônimo não envia screenshot de feedback", async () => {
+    const anon = createClient(API_URL, ANON_KEY, { auth: { persistSession: false } });
+    const path = `${orgA.organizationId}/anonymous/${RUN}.png`;
+    const { error } = await anon.storage
+      .from("feedback-attachments")
+      .upload(path, new Uint8Array([137, 80, 78, 71]), {
+        contentType: "image/png",
+        upsert: false,
+      });
+    expect(error).not.toBeNull();
   });
 
   // ── Exportação e consumo ───────────────────────────────────────────────
