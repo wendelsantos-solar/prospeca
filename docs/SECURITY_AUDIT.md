@@ -1,7 +1,7 @@
-# Security Audit — Prospeca (Update 2026-07-30)
+# Security Audit — Prospeca (Update 2026-08-06)
 
-**Data:** 2026-07-30
-**Base:** Auditoria anterior (2026-07-23) + novas implementações
+**Data:** 2026-08-06
+**Base:** Auditoria anterior (2026-07-30) + pentest ofensivo direcionado
 
 ---
 
@@ -246,6 +246,51 @@ consumidor e a ausência de ordenação era um defeito real (ver S2-06).
 
 ---
 
+## Achados da revisão 2026-08-06 (pentest ofensivo)
+
+### S3-09: SSRF via redirect e DNS rebinding no enriquecimento de site (corrigido)
+
+**Severidade:** S3 (Alto)
+**CWE:** CWE-918 (Server-Side Request Forgery)
+**OWASP:** A10:2021 – Server-Side Request Forgery
+
+**Descrição.** `_shared/enrich.ts` (`enrichFromWebsite`) valida a URL do site
+do lead com `assertSafeUrl()` antes do fetch — mas essa validação só checa o
+**hostname literal** da requisição inicial. O código tinha, no próprio
+comentário, o gap documentado e não fechado: "when a DNS resolver is
+available, resolve and re-check the resolved IP too." Dois bypasses ficavam
+abertos:
+
+1. **Redirect não revalidado.** O fetch usava `redirect: "follow"`. Um host
+   público (que passa no guard) podia responder com `302 Location:
+http://169.254.169.254/latest/meta-data/` (ou qualquer IP privado) e o
+   Deno seguia o redirect sem checar o novo destino.
+2. **DNS rebinding.** Um hostname com aparência pública (`attacker.com`) pode
+   resolver para um IP privado/metadata. `assertSafeUrl()` nunca resolve DNS,
+   então esse caso passava direto.
+
+**Por que não é hipotético.** O campo `website` que alimenta
+`enrichFromWebsite` vem do Google Places (`websiteUri`), e `enrich-discovery`
+roda automaticamente em toda busca — sem ação humana. Qualquer pessoa pode
+cadastrar um estabelecimento no Google Maps com um site controlado por ela;
+basta que o nicho/região seja pesquisado por algum usuário da plataforma para
+o servidor da Prospeca buscar essa URL. Não exige credenciais na Prospeca.
+
+**Correção.** `supabase/functions/_shared/enrich.ts`: `redirect: "manual"` +
+revalidação (`assertSafeUrlResolved`) em cada hop, limitado a 3 redirects
+(`safeFetch`); resolução de DNS via `Deno.resolveDns` antes do fetch inicial,
+rejeitando hosts cujo IP resolvido caia em faixa privada/loopback/link-
+local/CGNAT (reusa `isPrivateIpv4`/`isPrivateIpv6` de `@leads/domain/ssrf`).
+Fail-closed: hostname sem resolução DNS é tratado como inseguro.
+`enrich-lead`/`enrich-discovery` redeployados.
+
+**Pendência.** Sem teste automatizado de rede (mock de DNS/redirect) neste
+commit — `deno check`/`deno lint` passam, mas o exploit em si não tem
+regressão codificada. Mesma lição do S3-04/S3-05 desta auditoria: controle
+sem teste que o exercite é risco latente até o exercitar.
+
+---
+
 ## Checklist de segurança para beta
 
 | Item                                                  | Status                                                                  |
@@ -255,7 +300,7 @@ consumidor e a ausência de ordenação era um defeito real (ver S2-06).
 | Backend valida authorization (não confia no frontend) | ✅                                                                      |
 | Service role restrito a funções internas              | ✅                                                                      |
 | Secrets não hardcoded                                 | ✅                                                                      |
-| SSRF protegido (enrich)                               | ✅                                                                      |
+| SSRF protegido (enrich)                               | ✅ Corrigido (S3-09) — redirect e DNS rebinding fechados 2026-08-06     |
 | Rate limiting em create-search                        | ✅                                                                      |
 | Rate limiting nas novas funções                       | ✅ Corrigido (S3-04) — antes estava inerte                              |
 | Headers de segurança                                  | ✅ `_shared/http.ts`                                                    |
