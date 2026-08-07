@@ -11,12 +11,12 @@ Configuração de SEO para o site público.
 
 ## Metadados por página
 
-| Rota             | Title                                                                  | Description                                             |
-| ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
+| Rota             | Title                                                               | Description                                             |
+| ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------- |
 | `/`              | Prospeca — Encontre empresas que precisam do serviço que você vende | Pesquise empresas locais por nicho e região...          |
-| `/precos`        | Preços — Prospeca                                                   | Planos do Prospeca: comece de graça...               |
+| `/precos`        | Preços — Prospeca                                                   | Planos do Prospeca: comece de graça...                  |
 | `/para-agencias` | Para Agências — Prospeca                                            | Prospecção local em equipe com Pipeline colaborativo... |
-| `/contato`       | Contato — Prospeca                                                  | Entre em contato com o Prospeca...                   |
+| `/contato`       | Contato — Prospeca                                                  | Entre em contato com o Prospeca...                      |
 | `/cadastro`      | Criar conta — Prospeca                                              | (herda do root)                                         |
 | `/login`         | Entrar — Prospeca                                                   | (herda do root)                                         |
 

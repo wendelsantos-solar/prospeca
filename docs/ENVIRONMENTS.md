@@ -30,7 +30,7 @@
 | ----------------- | ------------------------------------------------- |
 | **Propósito**     | Validação pré-produção, testes de integração      |
 | **Supabase**      | Supabase Cloud — projeto staging separado         |
-| **URL**           | `https://staging.prospeca.com.br` (a definir)   |
+| **URL**           | `https://staging.prospeca.com.br` (a definir)     |
 | **Modo de dados** | `VITE_DATA_MODE=real`                             |
 | **Google APIs**   | Chave de staging (separada da produção)           |
 | **Auth**          | `enable_confirmations = true`                     |
@@ -40,16 +40,16 @@
 
 ### Production
 
-| Propriedade       | Valor                                       |
-| ----------------- | ------------------------------------------- |
-| **Propósito**     | Produção comercial                          |
-| **Supabase**      | Supabase Cloud — projeto production         |
+| Propriedade       | Valor                                     |
+| ----------------- | ----------------------------------------- |
+| **Propósito**     | Produção comercial                        |
+| **Supabase**      | Supabase Cloud — projeto production       |
 | **URL**           | `https://app.prospeca.com.br` (a definir) |
-| **Modo de dados** | `VITE_DATA_MODE=real`                       |
-| **Google APIs**   | Chave de produção                           |
-| **Auth**          | `enable_confirmations = true`               |
-| **E-mails**       | Provedor real                               |
-| **Deploy**        | Manual ou via CI/CD com aprovação           |
+| **Modo de dados** | `VITE_DATA_MODE=real`                     |
+| **Google APIs**   | Chave de produção                         |
+| **Auth**          | `enable_confirmations = true`             |
+| **E-mails**       | Provedor real                             |
+| **Deploy**        | Manual ou via CI/CD com aprovação         |
 
 ---
 
@@ -68,17 +68,17 @@
 
 ### Edge Functions (Supabase secrets)
 
-| Secret                      | Notas                                                    |
-| --------------------------- | -------------------------------------------------------- |
-| `SUPABASE_URL`              | URL do projeto Supabase                                  |
-| `SUPABASE_ANON_KEY`         | Anon key                                                 |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key — **nunca expor**                       |
-| `GOOGLE_MAPS_SERVER_KEY`    | Chave server do Google — **nunca expor**                 |
+| Secret                      | Notas                                                  |
+| --------------------------- | ------------------------------------------------------ |
+| `SUPABASE_URL`              | URL do projeto Supabase                                |
+| `SUPABASE_ANON_KEY`         | Anon key                                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key — **nunca expor**                     |
+| `GOOGLE_MAPS_SERVER_KEY`    | Chave server do Google — **nunca expor**               |
 | `CORS_ORIGINS`              | Origens permitidas (ex: `https://app.prospeca.com.br`) |
-| `APP_URL`                   | URL pública da aplicação                                 |
-| `STRIPE_SECRET_KEY`         | (Futuro) Chave secreta do Stripe                         |
-| `SENTRY_DSN`                | (Futuro) DSN do Sentry                                   |
-| `SMTP_*`                    | (Futuro) Configuração de e-mail                          |
+| `APP_URL`                   | URL pública da aplicação                               |
+| `STRIPE_SECRET_KEY`         | (Futuro) Chave secreta do Stripe                       |
+| `SENTRY_DSN`                | (Futuro) DSN do Sentry                                 |
+| `SMTP_*`                    | (Futuro) Configuração de e-mail                        |
 
 ---
 
