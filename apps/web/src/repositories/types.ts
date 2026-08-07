@@ -39,6 +39,10 @@ export interface MoveLeadInput {
   closedAt?: string;
   discardReason?: string;
   note?: string;
+  /** Who closed the deal — free text, recorded on the "won" timeline event only. */
+  owner?: string;
+  /** Follow-up opportunity noted at close — recorded on the "won" timeline event only. */
+  nextOpportunity?: string;
 }
 
 export type UpdateLeadInput = Partial<Omit<Lead, "id" | "notes" | "activities" | "timeline">>;

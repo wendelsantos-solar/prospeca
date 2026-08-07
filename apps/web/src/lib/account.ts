@@ -44,6 +44,37 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
   };
 }
 
+export interface OnboardingProgress {
+  step: number;
+  completed: boolean;
+  skippedSteps: string[];
+}
+
+/** Onboarding progress lives on the user's own profile row — not
+ * localStorage, which doesn't follow the user across devices/browsers. */
+export async function fetchOnboardingProgress(): Promise<OnboardingProgress | null> {
+  const supabase = getSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("onboarding_progress")
+    .eq("id", user.id)
+    .maybeSingle();
+  return (data?.onboarding_progress as OnboardingProgress | null) ?? null;
+}
+
+export async function saveOnboardingProgress(progress: OnboardingProgress): Promise<void> {
+  const supabase = getSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("profiles").update({ onboarding_progress: progress }).eq("id", user.id);
+}
+
 export async function updateFullName(fullName: string): Promise<void> {
   const supabase = getSupabase();
   const {

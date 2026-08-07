@@ -170,16 +170,12 @@ function AppLayout() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [routeOpen, setRouteOpen] = useState(false);
   const onboarding = useOnboarding();
-  // SSR-safe: localStorage isn't available during SSR, so default to false.
-  // The real value is read in a useEffect that runs only on the client.
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    if (!onboarding.isCompleted) {
-      setShowOnboarding(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Dismissing is local UI state; the wizard itself already persisted
+  // completed/skipped via onboarding.save before calling these.
+  const [dismissedLocally, setDismissedLocally] = useState(false);
+  // Gate on `loaded` (real mode fetches the profile async) so an in-flight
+  // request doesn't flash the wizard open for an already-onboarded user.
+  const showOnboarding = onboarding.loaded && !onboarding.isCompleted && !dismissedLocally;
 
   // Consome o convite pendente do cadastro (entra na organização que convidou).
   usePendingInvitation();
@@ -197,11 +193,11 @@ function AppLayout() {
   }, [tenantOrganizationId, tenantPlan]);
 
   const handleOnboardingComplete = useCallback((_progress: OnboardingProgress) => {
-    setShowOnboarding(false);
+    setDismissedLocally(true);
   }, []);
 
   const handleOnboardingSkip = useCallback(() => {
-    setShowOnboarding(false);
+    setDismissedLocally(true);
   }, []);
 
   // Sync Zustand store → demo repo on first mount (page reload)
@@ -240,6 +236,7 @@ function AppLayout() {
                   onComplete={handleOnboardingComplete}
                   onSkip={handleOnboardingSkip}
                   initialProgress={onboarding.progress ?? undefined}
+                  onSaveProgress={onboarding.save}
                 />
               </div>
             )}

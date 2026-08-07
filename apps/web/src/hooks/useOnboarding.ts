@@ -1,15 +1,21 @@
 // Hook to manage onboarding state in the app.
 // Separated from the component to avoid fast-refresh warnings.
+//
+// Real mode: persisted on the user's profile row (survives across devices).
+// Demo mode: localStorage only — there's no backend to write to.
+import { useEffect, useState, useCallback } from "react";
+import { isDemoMode } from "@/lib/env";
+import {
+  fetchOnboardingProgress,
+  saveOnboardingProgress as saveOnboardingProgressRemote,
+  type OnboardingProgress,
+} from "@/lib/account";
+
+export type { OnboardingProgress };
 
 const STORAGE_KEY = "rl-onboarding-progress";
 
-export interface OnboardingProgress {
-  step: number;
-  completed: boolean;
-  skippedSteps: string[];
-}
-
-export function loadOnboardingProgress(): OnboardingProgress | null {
+function loadLocal(): OnboardingProgress | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -18,7 +24,7 @@ export function loadOnboardingProgress(): OnboardingProgress | null {
   }
 }
 
-export function saveOnboardingProgress(progress: OnboardingProgress): void {
+function saveLocal(progress: OnboardingProgress): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   } catch {
@@ -27,18 +33,39 @@ export function saveOnboardingProgress(progress: OnboardingProgress): void {
 }
 
 export function useOnboarding() {
-  const progress = loadOnboardingProgress();
+  const [progress, setProgress] = useState<OnboardingProgress | null>(() =>
+    isDemoMode ? loadLocal() : null,
+  );
+  // Demo mode reads localStorage synchronously — nothing to await.
+  const [loaded, setLoaded] = useState(isDemoMode);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    fetchOnboardingProgress()
+      .then((p) => {
+        if (!cancelled) setProgress(p);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = useCallback((next: OnboardingProgress) => {
+    setProgress(next);
+    if (isDemoMode) saveLocal(next);
+    else void saveOnboardingProgressRemote(next);
+  }, []);
+
   return {
     progress,
+    /** False until real-mode's initial fetch resolves — gate rendering the
+     * wizard on this so a not-yet-loaded state doesn't flash it open. */
+    loaded,
     isCompleted: progress?.completed ?? false,
-    currentStep: progress?.step ?? 0,
-    /** Clear onboarding progress (for testing). */
-    reset: () => {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // best-effort
-      }
-    },
+    save,
   };
 }

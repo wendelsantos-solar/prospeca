@@ -9,11 +9,7 @@ import { track } from "@/lib/analytics";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
 import type { LucideIcon } from "lucide-react";
-import {
-  loadOnboardingProgress,
-  saveOnboardingProgress,
-  type OnboardingProgress,
-} from "@/hooks/useOnboarding";
+import type { OnboardingProgress } from "@/hooks/useOnboarding";
 
 // ── Step definitions ─────────────────────────────────────────────────
 
@@ -129,9 +125,17 @@ interface OnboardingWizardProps {
   onComplete: (progress: OnboardingProgress) => void;
   onSkip: () => void;
   initialProgress?: OnboardingProgress;
+  /** Storage is the caller's concern (localStorage in demo mode, the user's
+   * profile row in real mode) — the wizard just reports what happened. */
+  onSaveProgress: (progress: OnboardingProgress) => void;
 }
 
-export function OnboardingWizard({ onComplete, onSkip, initialProgress }: OnboardingWizardProps) {
+export function OnboardingWizard({
+  onComplete,
+  onSkip,
+  initialProgress,
+  onSaveProgress,
+}: OnboardingWizardProps) {
   const [step, setStep] = useState(initialProgress?.step ?? 0);
   const [skippedSteps, setSkippedSteps] = useState<string[]>(initialProgress?.skippedSteps ?? []);
   const [dismissed, setDismissed] = useState(initialProgress?.completed ?? false);
@@ -143,7 +147,10 @@ export function OnboardingWizard({ onComplete, onSkip, initialProgress }: Onboar
 
   // Persist progress
   useEffect(() => {
-    saveOnboardingProgress({ step, completed: dismissed, skippedSteps });
+    onSaveProgress({ step, completed: dismissed, skippedSteps });
+    // onSaveProgress intentionally excluded: callers pass a fresh closure
+    // each render, and it must not fire this effect on its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, dismissed, skippedSteps]);
 
   // Track step view
@@ -162,7 +169,7 @@ export function OnboardingWizard({ onComplete, onSkip, initialProgress }: Onboar
       setExiting(true);
       // Save immediately (before animation delay) so a tab-close / refresh
       // during the exit animation doesn't lose the completed state.
-      saveOnboardingProgress({ step, completed: true, skippedSteps });
+      onSaveProgress({ step, completed: true, skippedSteps });
       track("onboarding_completed" as never, { totalSteps: STEPS.length });
       // Small delay for visual feedback before dismissing
       setTimeout(() => {
@@ -172,17 +179,17 @@ export function OnboardingWizard({ onComplete, onSkip, initialProgress }: Onboar
     } else {
       setStep((s) => s + 1);
     }
-  }, [isLastStep, step, skippedSteps, onComplete]);
+  }, [isLastStep, step, skippedSteps, onComplete, onSaveProgress]);
 
   const handleSkip = useCallback(() => {
     const remaining = STEPS.slice(step + 1).map((s) => s.key);
     const allSkipped = [...skippedSteps, currentStep.key, ...remaining];
     setSkippedSteps(allSkipped);
-    saveOnboardingProgress({ step, completed: true, skippedSteps: allSkipped });
+    onSaveProgress({ step, completed: true, skippedSteps: allSkipped });
     track("onboarding_skipped" as never, { step: currentStep.key, stepNumber: step + 1 });
     setDismissed(true);
     onSkip();
-  }, [step, skippedSteps, currentStep, onSkip]);
+  }, [step, skippedSteps, currentStep, onSkip, onSaveProgress]);
 
   if (dismissed) return null;
 

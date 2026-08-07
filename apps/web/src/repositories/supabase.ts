@@ -8,6 +8,7 @@ import type {
   CreateLeadActivityInput,
   RecordContactInput,
   DashboardPeriod,
+  TimelineEvent,
 } from "@/types";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
@@ -25,7 +26,8 @@ import type {
   SearchStatusSnapshot,
   UpdateLeadInput,
 } from "./types";
-import type { SortValue } from "@/lib/constants";
+import { STAGE_LABELS, type SortValue } from "@/lib/constants";
+import { formatBRL } from "@/lib/format";
 
 interface LeadRow {
   id: string;
@@ -66,6 +68,15 @@ interface LeadRow {
   created_at: string;
   lead_notes?: NoteRow[];
   lead_activities?: ActivityRow[];
+  lead_stage_history?: StageHistoryRow[];
+}
+
+interface StageHistoryRow {
+  id: string;
+  from_stage: string | null;
+  to_stage: string;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
 }
 
 interface NoteRow {
@@ -136,6 +147,30 @@ function mapActivity(row: ActivityRow): LeadActivity {
   };
 }
 
+function stageLabel(stage: string): string {
+  return STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ?? stage;
+}
+
+function mapTimelineEvent(row: StageHistoryRow): TimelineEvent {
+  const meta = row.metadata ?? {};
+  const from = row.from_stage ? stageLabel(row.from_stage) : null;
+  const to = stageLabel(row.to_stage);
+  let label = from ? `${from} → ${to}` : `Movido para ${to}`;
+
+  if (row.to_stage === "won") {
+    const parts = [formatBRL(meta.closed_value as number | undefined)];
+    if (meta.closed_service) parts.push(String(meta.closed_service));
+    if (meta.owner) parts.push(`por ${meta.owner}`);
+    label = `Negócio ganho — ${parts.join(" · ")}`;
+  } else if (row.to_stage === "discarded" && meta.discard_reason) {
+    label = `Descartado — ${meta.discard_reason}`;
+  }
+  if (meta.note) label += ` (${meta.note})`;
+  if (meta.next_opportunity) label += ` — próxima oportunidade: ${meta.next_opportunity}`;
+
+  return { id: row.id, kind: row.to_stage, label, at: row.created_at };
+}
+
 function mapLead(row: LeadRow): Lead {
   // `leads.address` holds the Google formatted address; neighborhood/city/state
   // are only populated for leads imported after the address parsing landed, so
@@ -181,7 +216,9 @@ function mapLead(row: LeadRow): Lead {
     discoveredAt: row.created_at,
     notes: (row.lead_notes ?? []).map(mapNote),
     activities: (row.lead_activities ?? []).map(mapActivity),
-    timeline: [],
+    timeline: [...(row.lead_stage_history ?? [])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(mapTimelineEvent),
   };
 }
 
@@ -190,7 +227,8 @@ function mapLead(row: LeadRow): Lead {
 const LEAD_LIST_SELECT =
   "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at";
 
-const LEAD_DETAIL_SELECT = "*, lead_notes(*), lead_activities(*)";
+const LEAD_DETAIL_SELECT =
+  "*, lead_notes(*), lead_activities(*), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
 
 /**
  * The UI's sort vocabulary → a `leads` column ordering. It used to switch on
@@ -312,6 +350,8 @@ export class SupabaseLeadRepository implements LeadRepository {
         closed_at: input.closedAt,
         discard_reason: input.discardReason,
         note: input.note,
+        owner: input.owner,
+        next_opportunity: input.nextOpportunity,
       },
     });
     if (error) throw new Error(error.message);

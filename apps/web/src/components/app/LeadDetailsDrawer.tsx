@@ -469,6 +469,7 @@ export function LeadDetailsDrawer() {
                   <>
                     <div className="flex gap-2">
                       <Textarea
+                        className="bg-surface"
                         rows={2}
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
@@ -492,7 +493,7 @@ export function LeadDetailsDrawer() {
                       <div className="relative">
                         <SearchIcon className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                          className="h-8 pl-7 text-xs"
+                          className="h-8 bg-surface pl-7 text-xs"
                           placeholder="Pesquisar notas..."
                           value={noteSearch}
                           onChange={(e) => setNoteSearch(e.target.value)}
@@ -617,7 +618,7 @@ export function LeadDetailsDrawer() {
                           value={act.type}
                           onValueChange={(v) => setAct({ ...act, type: v as ActivityType })}
                         >
-                          <SelectTrigger className="h-8">
+                          <SelectTrigger className="h-8 bg-surface">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -641,7 +642,7 @@ export function LeadDetailsDrawer() {
                         <Label className="text-xs">Data</Label>
                         <Input
                           type="date"
-                          className="h-8"
+                          className="h-8 bg-surface"
                           value={act.date}
                           onChange={(e) => setAct({ ...act, date: e.target.value })}
                         />
@@ -650,7 +651,7 @@ export function LeadDetailsDrawer() {
                         <Label className="text-xs">Horário</Label>
                         <Input
                           type="time"
-                          className="h-8"
+                          className="h-8 bg-surface"
                           value={act.time}
                           onChange={(e) => setAct({ ...act, time: e.target.value })}
                         />
@@ -663,7 +664,7 @@ export function LeadDetailsDrawer() {
                             setAct({ ...act, priority: v as typeof act.priority })
                           }
                         >
-                          <SelectTrigger className="h-8">
+                          <SelectTrigger className="h-8 bg-surface">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -676,7 +677,7 @@ export function LeadDetailsDrawer() {
                       <div className="col-span-2">
                         <Label className="text-xs">Título</Label>
                         <Input
-                          className="h-8"
+                          className="h-8 bg-surface"
                           value={act.title}
                           onChange={(e) => setAct({ ...act, title: e.target.value })}
                           placeholder="Ex.: Retorno inicial"
@@ -685,6 +686,7 @@ export function LeadDetailsDrawer() {
                       <div className="col-span-2">
                         <Label className="text-xs">Observação</Label>
                         <Textarea
+                          className="bg-surface"
                           rows={2}
                           value={act.note}
                           onChange={(e) => setAct({ ...act, note: e.target.value })}

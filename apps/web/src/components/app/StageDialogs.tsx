@@ -50,7 +50,7 @@ function useStageMutation(onDone: () => void) {
     }: {
       lead: Lead;
       stage: LeadStage;
-      extra?: Partial<Lead>;
+      extra?: Omit<MoveLeadInput, "toStage">;
     }) => {
       const input: MoveLeadInput = {
         toStage: stage,
@@ -58,6 +58,9 @@ function useStageMutation(onDone: () => void) {
         closedService: extra?.closedService,
         closedAt: extra?.closedAt,
         discardReason: extra?.discardReason,
+        note: extra?.note,
+        owner: extra?.owner,
+        nextOpportunity: extra?.nextOpportunity,
       };
       return getLeadRepository().moveStage(lead.id, input);
     },
@@ -122,6 +125,9 @@ export function WonDialog() {
         closedValue: data.value,
         closedService: data.service,
         closedAt: new Date(`${data.closedAt}T12:00:00`).toISOString(),
+        owner: data.owner || undefined,
+        note: data.note || undefined,
+        nextOpportunity: data.nextOpportunity || undefined,
       },
     });
   };
@@ -245,7 +251,11 @@ export function DiscardDialog() {
             className="gap-1.5"
             onClick={() =>
               lead &&
-              mutation.mutate({ lead, stage: "discarded", extra: { discardReason: reason } })
+              mutation.mutate({
+                lead,
+                stage: "discarded",
+                extra: { discardReason: reason, note: note.trim() || undefined },
+              })
             }
           >
             {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
