@@ -38,6 +38,7 @@ const MAP_CLUSTERS = [
  */
 export function HeroProductDemo() {
   const hotLead = DEMO_LEADS[0]; // Rústica Barbearia — Score 89
+  const secondLead = DEMO_LEADS[2]; // Studio Aurora — used for the second activity card
 
   return (
     <div className="relative rounded-2xl border border-border bg-surface p-3 shadow-elevated md:p-4">
@@ -229,20 +230,36 @@ export function HeroProductDemo() {
             </p>
           </div>
 
-          {/* Illustrative activity toast — same demo data as the rest of this mockup */}
-          <div
-            className="animate-slide-up flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] shadow-card"
-            style={{ animationDelay: "0.65s" }}
-          >
-            <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-hot-soft text-hot">
-              <TrendingUp className="h-3.5 w-3.5" />
+          {/* Illustrative activity — two stacked example cards, no fake timestamps */}
+          <div className="relative">
+            <div
+              className="animate-slide-up absolute inset-x-2 -top-2 -z-10 -rotate-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] opacity-80 shadow-card"
+              style={{ animationDelay: "0.6s" }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">Mensagem pronta</span>
+                  <span className="text-muted-foreground"> · {secondLead.companyName}</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="font-medium text-foreground">Nova empresa encontrada</span>
-              <span className="text-muted-foreground">
-                {" "}
-                · Score {hotLead.score} — {hotLead.companyName}
-              </span>
+            <div
+              className="animate-slide-up relative flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] shadow-card"
+              style={{ animationDelay: "0.65s" }}
+            >
+              <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-hot-soft text-hot">
+                <TrendingUp className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Nova empresa encontrada</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  · Score {hotLead.score} — {hotLead.companyName}
+                </span>
+              </div>
             </div>
           </div>
         </div>
