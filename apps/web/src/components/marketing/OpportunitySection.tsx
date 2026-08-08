@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
+import { BrowserFrame } from "./BrowserFrame";
 import { DEMO_LEADS } from "@/marketing/demo-data";
 
 export function OpportunitySection() {
@@ -36,25 +37,25 @@ export function OpportunitySection() {
               </Link>
             </Button>
           </div>
-          <div className="rounded-xl border border-primary/20 bg-surface p-5 shadow-card">
+          <BrowserFrame>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-base font-semibold text-foreground">{lead.companyName}</span>
-              <span className="rounded-md bg-hot-soft px-2.5 py-1 text-sm font-semibold text-hot">
+              <span className="text-sm font-semibold text-foreground">{lead.companyName}</span>
+              <span className="rounded-md bg-hot-soft px-2 py-0.5 text-xs font-bold text-hot">
                 Score {lead.score}
               </span>
             </div>
-            <p className="mb-3 text-xs font-medium text-muted-foreground">
+            <p className="mb-2 text-[11px] font-medium text-muted-foreground">
               Alta oportunidade porque:
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {signals.map((s) => (
-                <li key={s.text} className="flex items-center gap-2 text-sm text-foreground">
-                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                <li key={s.text} className="flex items-center gap-2 text-[12px] text-foreground">
+                  <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                   {s.text}
                 </li>
               ))}
             </ul>
-          </div>
+          </BrowserFrame>
         </div>
       </MarketingContainer>
     </MarketingSection>
