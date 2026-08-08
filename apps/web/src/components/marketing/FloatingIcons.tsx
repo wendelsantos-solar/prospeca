@@ -26,16 +26,16 @@ const ICONS: FloatingIconSpec[] = [
     top: "6%",
     left: "2%",
     delay: "0s",
-    bg: "bg-[#25D366]/10",
-    iconClass: "text-[#25D366]",
+    bg: "bg-[#25D366]",
+    iconClass: "text-white",
   },
   {
     Icon: MapPin,
     top: "58%",
     left: "3%",
     delay: "0.6s",
-    bg: "bg-primary-soft",
-    iconClass: "text-primary",
+    bg: "bg-primary",
+    iconClass: "text-primary-foreground",
   },
   { Icon: GoogleIcon, top: "88%", left: "12%", delay: "1.2s", bg: "bg-surface", iconClass: "" },
   {
@@ -43,24 +43,24 @@ const ICONS: FloatingIconSpec[] = [
     top: "4%",
     left: "90%",
     delay: "0.3s",
-    bg: "bg-primary-soft",
-    iconClass: "text-primary",
+    bg: "bg-primary",
+    iconClass: "text-primary-foreground",
   },
   {
     Icon: GitBranch,
     top: "52%",
     left: "97%",
     delay: "0.9s",
-    bg: "bg-primary-soft",
-    iconClass: "text-primary",
+    bg: "bg-primary",
+    iconClass: "text-primary-foreground",
   },
   {
     Icon: MessageCircle,
     top: "86%",
     left: "84%",
     delay: "1.5s",
-    bg: "bg-primary-soft",
-    iconClass: "text-primary",
+    bg: "bg-primary",
+    iconClass: "text-primary-foreground",
   },
 ];
 
@@ -70,10 +70,10 @@ export function FloatingIcons() {
       {ICONS.map(({ Icon, top, left, delay, bg, iconClass }, i) => (
         <div
           key={i}
-          className={`animate-float absolute grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-border shadow-elevated ${bg}`}
+          className={`animate-float absolute grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-border shadow-elevated ${bg}`}
           style={{ top, left, animationDelay: delay }}
         >
-          <Icon className={`h-5 w-5 ${iconClass}`} />
+          <Icon className={`h-6 w-6 ${iconClass}`} />
         </div>
       ))}
     </div>
