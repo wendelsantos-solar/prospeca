@@ -116,13 +116,45 @@ export function PricingTeaser() {
           description="7 dias grátis no Profissional. Cancele quando quiser. Sem letra miúda."
           center
         />
-        {shown.length > 0 && (
-          <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-3">
-            {shown.map((plan) => (
-              <PricingCard key={plan.code} plan={plan} highlighted={plan.code === "professional"} />
-            ))}
+        <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-3">
+          {shown.map((plan) => (
+            <PricingCard key={plan.code} plan={plan} highlighted={plan.code === "professional"} />
+          ))}
+          {/* Static Enterprise card — always shown as the 3rd option */}
+          <div className="relative flex flex-col rounded-2xl border border-border bg-surface p-6">
+            <h3 className="text-base font-semibold text-foreground">Empresarial</h3>
+            <p className="mt-1 text-body text-muted-foreground">
+              Para operações com meta agressiva e times maiores.
+            </p>
+            <div className="mt-4">
+              <span className="text-display font-bold text-foreground">Personalizado</span>
+            </div>
+            <ul className="mt-5 flex-1 space-y-2.5">
+              {[
+                "Tudo do Profissional",
+                "Leads e buscas sob medida",
+                "Usuários ilimitados",
+                "Onboarding dedicado",
+                "Suporte prioritário",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-body text-muted-foreground">
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6">
+              <SalesContactForm
+                source="landing_pricing_enterprise"
+                trigger={
+                  <Button className="w-full" variant="outline">
+                    Falar com vendas
+                  </Button>
+                }
+              />
+            </div>
           </div>
-        )}
+        </div>
         <div className="mt-10 flex justify-center">
           <Button variant="outline" asChild>
             <Link to="/precos">

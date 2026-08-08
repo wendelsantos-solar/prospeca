@@ -243,6 +243,22 @@
   --sidebar-accent-foreground: oklch(0.34 0.09 152);
   --sidebar-border: oklch(0.92 0.007 95);
   --sidebar-ring: oklch(0.58 0.15 152);
+
+  /* ── Orbital badge ring (hero FloatingIcons) ── */
+  --orbit-r: 180px;
+  --orbit-center-y: 18%;
+}
+
+/* Responsive orbit radius — wider screens get a bigger ring */
+@media (min-width: 1024px) {
+  :root {
+    --orbit-r: 240px;
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --orbit-r: 280px;
+  }
 }
 
 .dark {

@@ -4,8 +4,14 @@ import { AnimatedSection } from "./AnimatedSection";
 import { HeroSection } from "./HeroSection";
 import { TrustStrip } from "./TrustStrip";
 import { ProblemSection } from "./ProblemSection";
-import { WorkspaceSection } from "./WorkspaceSection";
 import { HowItWorksSection } from "./HowItWorksSection";
+import { OpportunitySection } from "./OpportunitySection";
+import { ScoreSection } from "./ScoreSection";
+import { MapSection } from "./MapSection";
+import { PipelineSection } from "./PipelineSection";
+import { MessagingSection } from "./MessagingSection";
+import { UseCasesSection } from "./UseCasesSection";
+import { AgencySection } from "./AgencySection";
 import { BenefitsSection } from "./BenefitsSection";
 import { TestimonialsSection } from "./TestimonialsSection";
 import { CaseStudySection } from "./CaseStudySection";
@@ -17,11 +23,6 @@ import { SoftwareApplicationSchema, FAQSchema } from "./StructuredData";
 import { captureUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 
-/**
- * Landing page — 11 sections following Kaptto's proven structure:
- * Hero → Trust → Problem → Workspace → How it works → Benefits →
- * Social proof → Pricing → FAQ → Final CTA
- */
 export function LandingPage() {
   useEffect(() => {
     captureUtm();
@@ -33,48 +34,47 @@ export function LandingPage() {
       <SoftwareApplicationSchema />
       <FAQSchema />
 
-      {/* 1. Hero — value prop + social proof + activity feed */}
       <HeroSection />
-
-      {/* 2. Trust — 5 steps + metrics */}
       <TrustStrip />
-
-      {/* 3. Problem — pain point + before/after */}
       <AnimatedSection>
         <ProblemSection />
       </AnimatedSection>
-
-      {/* 4. Workspace — full product showcase (Discovery + Pipeline panels) */}
-      <AnimatedSection>
-        <WorkspaceSection />
-      </AnimatedSection>
-
-      {/* 5. How it works — interactive tabs */}
       <AnimatedSection>
         <HowItWorksSection />
       </AnimatedSection>
-
-      {/* 6. Benefits — why Prospeca */}
+      <AnimatedSection>
+        <OpportunitySection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <ScoreSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <MapSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <PipelineSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <MessagingSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <UseCasesSection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <AgencySection />
+      </AnimatedSection>
       <AnimatedSection>
         <BenefitsSection />
       </AnimatedSection>
-
-      {/* 7. Social proof */}
       <TestimonialsSection />
       <CaseStudySection />
-
-      {/* 8. Pricing */}
       <AnimatedSection>
         <PricingTeaser />
       </AnimatedSection>
       <FounderOffer />
-
-      {/* 9. FAQ */}
       <AnimatedSection>
         <FAQSection />
       </AnimatedSection>
-
-      {/* 10. Final CTA */}
       <FinalCTA />
     </MarketingPage>
   );

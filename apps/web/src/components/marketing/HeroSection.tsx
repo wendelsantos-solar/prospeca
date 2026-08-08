@@ -9,7 +9,7 @@ import { track } from "@/lib/analytics";
 
 export function HeroSection() {
   return (
-    <section id="produto" className="relative overflow-clip pt-28 md:pt-36 lg:pt-40">
+    <section id="produto" className="relative overflow-clip pt-24 md:pt-32 lg:pt-36">
       {/* ── Background glow layers (CSS-only depth) ── */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         {/* Primary green glow */}
@@ -44,16 +44,16 @@ export function HeroSection() {
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <SocialProofBadges />
           <Eyebrow>Inteligência comercial local</Eyebrow>
-          <h1 className="text-[2.25rem] leading-[1.06] font-semibold tracking-tight text-foreground md:text-[3rem] lg:text-[3.5rem]">
+          <h1 className="text-[2rem] leading-[1.08] font-semibold tracking-tight text-foreground md:text-[2.5rem] lg:text-[3rem]">
             Encontre empresas que precisam<br />exatamente do que você vende
           </h1>
-          <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
             Pesquise entre{" "}
             <strong className="font-semibold text-foreground">28M+ CNPJs</strong> por nicho e
             região, veja o score que explica quem priorizar e organize toda a prospecção — da
             descoberta ao fechamento — num lugar só.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
               size="lg"
               className="h-11 px-6 text-base"
