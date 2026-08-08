@@ -3,6 +3,7 @@ import { ArrowRight, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, MarketingContainer } from "./MarketingLayout";
 import { HeroProductDemo } from "./HeroProductDemo";
+import { SocialProofBadges } from "./SocialProofBadges";
 import { track } from "@/lib/analytics";
 
 export function HeroSection() {
@@ -10,9 +11,10 @@ export function HeroSection() {
     <section id="produto" className="relative overflow-hidden pt-24 md:pt-32 lg:pt-36">
       <MarketingContainer width="default">
         <div className="mx-auto max-w-3xl text-center">
+          <SocialProofBadges />
           <Eyebrow>Inteligência comercial local</Eyebrow>
           <h1 className="text-[2.25rem] leading-[1.1] font-semibold tracking-tight text-foreground md:text-[3rem] lg:text-[3.5rem]">
-            Encontre empresas que precisam do serviço que você vende.
+            Pare de adivinhar quem prospectar. Veja o score antes de ligar.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground md:text-section-title">
             Pesquise por nicho e região, veja o score que explica quem priorizar primeiro e organize
