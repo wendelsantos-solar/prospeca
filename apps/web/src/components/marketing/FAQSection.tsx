@@ -14,48 +14,20 @@ const FAQS = [
     a: "As informações vêm do Google e são atualizadas quando você busca ou atualiza os detalhes de um lead — não é um retrato ao vivo minuto a minuto.",
   },
   {
-    q: "Posso buscar qualquer tipo de empresa?",
-    a: "Sim, qualquer nicho pesquisável no Google (ex: barbearia, clínica, restaurante), dentro da região e raio que você escolher.",
-  },
-  {
-    q: "O que significa lead processado?",
-    a: "Cada empresa que entra na sua busca e é processada pela plataforma conta como um lead processado — é a métrica de consumo do seu plano.",
-  },
-  {
-    q: "Os créditos acumulam?",
-    a: "A franquia mensal do plano não acumula de um mês pro outro. Créditos comprados à parte seguem regra própria de validade, explicada na compra.",
-  },
-  {
     q: "Posso cancelar quando quiser?",
     a: "Sim. Durante o piloto, a ativação e o cancelamento são tratados diretamente com você, sem contratação automática ou multa.",
-  },
-  {
-    q: "Preciso instalar alguma coisa?",
-    a: "Não, é 100% web. Funciona direto no navegador, sem instalar nada.",
   },
   {
     q: "Funciona no celular?",
     a: "Sim, a interface é responsiva, mas o fluxo de trabalho completo é mais confortável no desktop.",
   },
   {
-    q: "Posso exportar os dados?",
-    a: "Sim, exportação em CSV está disponível conforme o limite do seu plano.",
-  },
-  {
     q: "O plano gratuito exige cartão?",
     a: "Não. Você começa a usar sem informar nenhum dado de pagamento.",
   },
   {
-    q: "Posso trabalhar em equipe?",
-    a: "O piloto atual é individual por organização. A experiência completa de equipes ainda está no roadmap e não é vendida como disponível.",
-  },
-  {
     q: "Como funciona o score?",
     a: "Cada empresa recebe pontos por sinais comerciais (sem site, telefone encontrado, boa avaliação, proximidade, etc.) — o cálculo é transparente, não é uma caixa-preta.",
-  },
-  {
-    q: "Existe limite de buscas?",
-    a: "Sim, cada plano tem uma franquia mensal de buscas e de leads processados. No piloto pago, os limites são confirmados durante a ativação assistida.",
   },
   {
     q: "Como funciona a privacidade?",

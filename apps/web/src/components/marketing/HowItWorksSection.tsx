@@ -105,9 +105,7 @@ function SearchDemo() {
                 {lead.category} · {lead.distanceKm} km
               </div>
             </div>
-            <span className="shrink-0 text-[11px] text-muted-foreground">
-              {lead.rating} ★
-            </span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">{lead.rating} ★</span>
           </div>
         ))}
       </div>
@@ -150,10 +148,9 @@ function MessageDemo() {
       {/* Message preview */}
       <div className="rounded-lg border border-border bg-[#d9fdd3] p-3">
         <p className="text-[12px] leading-relaxed text-[#075e54]">
-          Oi {lead.contactName}! Vi que a{" "}
-          <strong>{lead.companyName}</strong> ainda não tem site. Com{" "}
-          {lead.rating}★ e {lead.reviewCount} avaliações no Google, um site
-          profissional pode transformar esse reconhecimento em clientes.
+          Oi {lead.contactName}! Vi que a <strong>{lead.companyName}</strong> ainda não tem site.
+          Com {lead.rating}★ e {lead.reviewCount} avaliações no Google, um site profissional pode
+          transformar esse reconhecimento em clientes.
         </p>
         <span className="mt-1.5 block text-[10px] text-[#667781]">12:34</span>
       </div>
@@ -218,33 +215,39 @@ export function HowItWorksSection() {
           eyebrow="Como funciona"
           title={
             <>
-              Da descoberta à reunião
+              Da busca ao próximo contato
               <br />
-              marcada, sem atalhos
+              em um fluxo que você controla
             </>
           }
-          description="Cada etapa visível e sob seu controle. A IA sugere, você decide."
+          description="Encontre, priorize, aborde e acompanhe. A plataforma organiza o trabalho; você conduz a conversa."
         />
 
         <div className="mt-12 grid items-start gap-10 md:grid-cols-[0.95fr_1.05fr] md:gap-16">
           {/* Left: toggles + text */}
           <div>
             {/* Pill toggles */}
-            <div className="inline-flex gap-1 rounded-full bg-surface-2 p-1">
+            <div
+              className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-surface-2 p-1 sm:inline-flex sm:w-auto sm:rounded-full"
+              role="tablist"
+              aria-label="Etapas da prospecção"
+            >
               {TABS.map((t) => (
                 <button
                   key={t.key}
                   type="button"
                   onClick={() => setTab(t.key)}
+                  role="tab"
+                  aria-selected={tab === t.key}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium transition-all",
+                    "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all sm:rounded-full sm:px-4",
                     tab === t.key
                       ? "bg-surface text-foreground shadow-card"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {t.icon}
-                  <span className="hidden sm:inline">{t.label}</span>
+                  <span>{t.label}</span>
                 </button>
               ))}
             </div>
@@ -259,7 +262,7 @@ export function HowItWorksSection() {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Button size="sm" asChild>
-                <Link to="/cadastro">Começar grátis</Link>
+                <Link to="/cadastro">Criar conta grátis</Link>
               </Button>
               <Button size="sm" variant="outline" asChild>
                 <a href="#precos">Ver planos</a>

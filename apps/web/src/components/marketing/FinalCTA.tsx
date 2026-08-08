@@ -11,11 +11,13 @@ export function FinalCTA() {
       <MarketingContainer width="narrow" className="py-20 md:py-28">
         <div className="text-center">
           <h2 className="text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground md:text-[2.25rem]">
-            Sua próxima oportunidade pode estar<br />a poucos quilômetros de você
+            Encontre sua próxima oportunidade
+            <br />
+            antes da próxima hora de pesquisa manual
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
-            Crie sua primeira busca em poucos minutos, encontre empresas que precisam do seu
-            serviço e organize sua prospecção num pipeline visual.
+            Crie sua primeira busca, entenda quais empresas merecem atenção e organize o próximo
+            contato sem planilhas espalhadas.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
@@ -25,7 +27,7 @@ export function FinalCTA() {
               onClick={() => track("hero_cta_clicked", { location: "final_cta" })}
             >
               <Link to="/cadastro">
-                Começar gratuitamente
+                Criar conta grátis
                 <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
             </Button>
@@ -39,7 +41,7 @@ export function FinalCTA() {
             />
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Sem cartão de crédito. Configure em poucos minutos.
+            Sem cartão de crédito. Plano grátis disponível.
           </p>
         </div>
       </MarketingContainer>

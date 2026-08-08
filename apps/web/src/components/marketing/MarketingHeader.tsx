@@ -41,22 +41,13 @@ export function MarketingHeader() {
     >
       <div className="mx-auto flex h-[50px] items-center justify-between px-4 md:px-5">
         {/* Logo */}
-        <Link
-          to="/"
-          className="flex items-center gap-2 shrink-0"
-          aria-label="Prospeca — Início"
-        >
+        <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Prospeca — Início">
           <LogoMark className="h-5 w-5 text-primary" />
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">
-            Prospeca
-          </span>
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">Prospeca</span>
         </Link>
 
         {/* Desktop nav — centered */}
-        <nav
-          className="hidden items-center gap-0.5 md:flex"
-          aria-label="Navegação principal"
-        >
+        <nav className="hidden items-center gap-0.5 md:flex" aria-label="Navegação principal">
           {NAV_ITEMS.map((item) =>
             "to" in item && item.to ? (
               <Link
@@ -95,7 +86,7 @@ export function MarketingHeader() {
                 asChild
                 onClick={() => track("hero_cta_clicked", { location: "header" })}
               >
-                <Link to="/cadastro">Começar grátis</Link>
+                <Link to="/cadastro">Criar conta grátis</Link>
               </Button>
             </>
           )}
@@ -115,6 +106,8 @@ export function MarketingHeader() {
 
       {/* Mobile menu */}
       <div
+        aria-hidden={!open}
+        inert={!open}
         className={cn(
           "overflow-hidden rounded-b-2xl border-t border-border bg-white transition-all duration-300 md:hidden",
           open ? "max-h-[480px]" : "max-h-0 border-transparent",
@@ -168,7 +161,7 @@ export function MarketingHeader() {
                   track("hero_cta_clicked", { location: "header_mobile" });
                 }}
               >
-                Começar gratuitamente
+                Criar conta grátis
               </Link>
             </>
           )}

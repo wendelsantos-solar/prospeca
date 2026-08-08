@@ -23,7 +23,7 @@ export function MarketingFooter() {
             </h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/#recursos" className="text-muted-foreground hover:text-foreground">
+                <a href="/#como-funciona" className="text-muted-foreground hover:text-foreground">
                   Recursos
                 </a>
               </li>
@@ -59,6 +59,16 @@ export function MarketingFooter() {
                     </button>
                   }
                 />
+              </li>
+              <li>
+                <Link to="/privacidade" className="text-muted-foreground hover:text-foreground">
+                  Privacidade
+                </Link>
+              </li>
+              <li>
+                <Link to="/termos" className="text-muted-foreground hover:text-foreground">
+                  Termos de uso
+                </Link>
               </li>
             </ul>
           </div>

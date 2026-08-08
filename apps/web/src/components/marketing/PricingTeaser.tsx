@@ -107,18 +107,18 @@ export function PricingTeaser() {
   const { data: plans } = useQuery({ queryKey: ["billing-plans"], queryFn: fetchBillingPlans });
   const shown = (plans ?? []).filter((p) => ["free", "professional", "agency"].includes(p.code));
   return (
-    <MarketingSection id="recursos" spacing="lg">
+    <MarketingSection id="precos" spacing="lg">
       <MarketingContainer width="default">
         <SectionHeading
           eyebrow="Preços"
           title={
             <>
-              Planos que custam menos
+              Comece grátis. Evolua quando
               <br />
-              que contratar um SDR
+              sua prospecção pedir.
             </>
           }
-          description="7 dias grátis no Profissional. Cancele quando quiser. Sem letra miúda."
+          description="Sem cartão no plano grátis. No Profissional, a ativação é assistida e sem contratação automática."
           center
         />
         <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-3">
@@ -133,7 +133,9 @@ export function PricingTeaser() {
             </p>
             <div className="mt-1">
               <p className="text-[11px] text-muted-foreground">a partir de</p>
-              <span className="text-[2rem] font-bold tracking-tight text-foreground">Personalizado</span>
+              <span className="text-[2rem] font-bold tracking-tight text-foreground">
+                Personalizado
+              </span>
             </div>
             <ul className="mt-5 flex-1 space-y-2.5">
               {[

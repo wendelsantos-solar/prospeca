@@ -23,10 +23,6 @@ import { Check } from "lucide-react";
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome"),
   email: z.string().email("E-mail inválido"),
-  company: z.string().optional(),
-  teamSize: z.string().optional(),
-  sellsWhat: z.string().optional(),
-  prospectingVolume: z.string().optional(),
   whatsapp: z.string().optional(),
   message: z.string().min(5, "Conte um pouco mais"),
   // honeypot — hidden from real users via CSS, bots fill every field they see
@@ -87,7 +83,7 @@ export function SalesContactForm({ trigger, source }: { trigger: ReactNode; sour
             <DialogHeader>
               <DialogTitle>Falar com vendas</DialogTitle>
               <DialogDescription>
-                Conte um pouco sobre sua operação — respondemos por e-mail.
+                Deixe seu contato e um breve contexto. Respondemos por e-mail.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={onSubmit} className="space-y-3">
@@ -113,44 +109,24 @@ export function SalesContactForm({ trigger, source }: { trigger: ReactNode; sour
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="company">Empresa</Label>
-                  <Input id="company" {...register("company")} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="teamSize">Tamanho da equipe</Label>
-                  <Input id="teamSize" placeholder="ex: só eu, 2-5, 6+" {...register("teamSize")} />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="sellsWhat">O que você vende</Label>
-                  <Input
-                    id="sellsWhat"
-                    placeholder="ex: sites, tráfego pago"
-                    {...register("sellsWhat")}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="prospectingVolume">Volume de prospecção</Label>
-                  <Input
-                    id="prospectingVolume"
-                    placeholder="ex: 20 empresas/semana"
-                    {...register("prospectingVolume")}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
-                <Input id="whatsapp" {...register("whatsapp")} />
+                <Input
+                  id="whatsapp"
+                  inputMode="tel"
+                  placeholder="(11) 99999-9999"
+                  {...register("whatsapp")}
+                />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="message">Mensagem</Label>
-                <Textarea id="message" rows={3} {...register("message")} />
+                <Label htmlFor="message">Como podemos ajudar?</Label>
+                <Textarea
+                  id="message"
+                  rows={3}
+                  placeholder="Conte brevemente o que você vende e como prospecta hoje."
+                  {...register("message")}
+                />
                 {errors.message && (
                   <p className="text-xs text-destructive">{errors.message.message}</p>
                 )}
