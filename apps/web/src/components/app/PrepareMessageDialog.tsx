@@ -3,7 +3,7 @@ import { Copy, MessageCircle, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
-  DialogContent,
+  SheetDialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -85,7 +85,7 @@ export function PrepareMessageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <SheetDialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Preparar mensagem</DialogTitle>
           <DialogDescription>Revise antes de enviar — o envio não é automático.</DialogDescription>
@@ -139,7 +139,7 @@ export function PrepareMessageDialog({
             </div>
           </div>
         </div>
-      </DialogContent>
+      </SheetDialogContent>
     </Dialog>
   );
 }

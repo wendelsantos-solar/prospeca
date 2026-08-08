@@ -225,8 +225,54 @@ export class DemoLeadRepository implements LeadRepository {
 }
 
 export class DemoSearchRepository implements SearchRepository {
+  // Map searchId → discovery results so the sidebar list + map stay populated.
+  private discoveryCache = new Map<string, DiscoveryResult[]>();
+
   async create(input: CreateSearchInput): Promise<{ searchId: string }> {
     const id = `demo-search-${Date.now()}`;
+
+    // Build discovery results from mock leads — same data the service returns
+    // so the sidebar (useDiscoveryResults) is populated, not just Zustand.
+    const presence =
+      input.presenceFilter === "without_website"
+        ? "no-website"
+        : input.presenceFilter === "with_website"
+          ? "with-website"
+          : "all";
+    const nicheLower = input.query.toLowerCase();
+    const results: DiscoveryResult[] = MOCK_LEADS.filter((l) =>
+      presence === "no-website" ? !l.hasWebsite : presence === "with-website" ? l.hasWebsite : true,
+    )
+      .filter(
+        (l) =>
+          l.category.toLowerCase().includes(nicheLower) ||
+          l.companyName.toLowerCase().includes(nicheLower),
+      )
+      .map((l) => ({
+        placeId: l.id,
+        name: l.companyName,
+        category: l.category,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        address: l.address,
+        neighborhood: l.neighborhood ?? null,
+        city: l.city,
+        state: l.state,
+        phone: l.phone ?? null,
+        website: l.website ?? null,
+        hasWebsite: l.hasWebsite,
+        email: l.email ?? null,
+        instagram: l.instagram ?? null,
+        whatsapp: l.whatsapp ?? null,
+        rating: l.rating ?? null,
+        reviewCount: l.reviewCount ?? null,
+        distanceKm: l.distanceKm,
+        score: l.score,
+        temperature: l.temperature,
+        importedLeadId: null, // starts unimported; updated by addToFunnel
+      }));
+    this.discoveryCache.set(id, results);
+
     demoSearches.unshift({
       id,
       niche: input.query,
@@ -234,26 +280,22 @@ export class DemoSearchRepository implements SearchRepository {
       latitude: input.location.latitude ?? -23.55,
       longitude: input.location.longitude ?? -46.63,
       radiusKm: input.radiusMeters / 1000,
-      presence:
-        input.presenceFilter === "without_website"
-          ? "no-website"
-          : input.presenceFilter === "with_website"
-            ? "with-website"
-            : "all",
+      presence,
       createdAt: new Date().toISOString(),
-      totalFound: MOCK_LEADS.length,
-      enrichedCount: 0,
+      totalFound: results.length,
+      enrichedCount: results.filter((d) => d.phone || d.email || d.whatsapp).length,
       addedToPipeline: 0,
-      contactsFound: 0,
+      contactsFound: results.filter((d) => d.phone || d.email || d.whatsapp).length,
     });
     return { searchId: id };
   }
 
   async getStatus(searchId: string): Promise<SearchStatusSnapshot> {
+    const cached = this.discoveryCache.get(searchId);
     return {
       id: searchId,
       status: "completed",
-      foundCount: MOCK_LEADS.length,
+      foundCount: cached?.length ?? MOCK_LEADS.length,
       importedCount: 0,
       enrichedCount: 0,
       providerRequestCount: 0,
@@ -270,20 +312,66 @@ export class DemoSearchRepository implements SearchRepository {
     return { imported: 0, duplicates: 0 };
   }
 
-  async getDiscovery(): Promise<DiscoveryResult[]> {
-    // Demo usa o mock de leads; descoberta real só no modo Supabase.
-    return [];
+  async getDiscovery(searchId: string): Promise<DiscoveryResult[]> {
+    return this.discoveryCache.get(searchId) ?? [];
   }
 
-  async enrichDiscovery(): Promise<{ enriched: number }> {
-    return { enriched: 0 };
+  async enrichDiscovery(_searchId: string, placeId?: string): Promise<{ enriched: number }> {
+    if (!placeId) return { enriched: 0 };
+    // Simulate enrichment by copying contact fields from the matching mock lead.
+    const lead = MOCK_LEADS.find((l) => l.id === placeId);
+    if (!lead) return { enriched: 0 };
+    for (const [, results] of this.discoveryCache) {
+      const r = results.find((d) => d.placeId === placeId);
+      if (r) {
+        r.email = lead.email ?? r.email;
+        r.instagram = lead.instagram ?? r.instagram;
+        r.whatsapp = lead.whatsapp ?? r.whatsapp;
+        r.phone = lead.phone ?? r.phone;
+      }
+    }
+    return { enriched: 1 };
   }
 
-  async addToFunnel(): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }> {
-    return { enrichableLeadIds: [], leadIds: [] };
+  async addToFunnel(
+    _searchId: string,
+    placeId: string,
+    stage: "new" | "contacted",
+  ): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }> {
+    // Create an actual lead in demoLeads so the Kanban (useLeadsList) sees it.
+    const mockLead = MOCK_LEADS.find((l) => l.id === placeId);
+    if (!mockLead) return { enrichableLeadIds: [], leadIds: [] };
+
+    const newLead: Lead = {
+      ...mockLead,
+      id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      stage,
+      discoveredAt: new Date().toISOString(),
+      notes: [...mockLead.notes],
+      activities: [],
+      timeline: [
+        ...mockLead.timeline,
+        {
+          id: `t-${Date.now()}`,
+          kind: stage,
+          label: stage === "contacted" ? "Contatado via WhatsApp" : "Adicionado ao pipeline",
+          at: new Date().toISOString(),
+        },
+      ],
+    };
+    demoLeads = [newLead, ...demoLeads];
+
+    // Update discovery cache so the sidebar shows "No pipeline" immediately.
+    for (const [, results] of this.discoveryCache) {
+      const r = results.find((d) => d.placeId === placeId);
+      if (r) r.importedLeadId = newLead.id;
+    }
+
+    const enrichable = newLead.hasWebsite ? [newLead.id] : [];
+    return { enrichableLeadIds: enrichable, leadIds: [newLead.id] };
   }
 
-  async enrichLead(): Promise<void> {
+  async enrichLead(_leadId: string): Promise<void> {
     // no-op no modo demo.
   }
 }

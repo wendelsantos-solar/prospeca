@@ -28,7 +28,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { MapIcon, Sunrise, Kanban, CalendarDays, Search } from "lucide-react";
+import { MapIcon, Sunrise, Kanban, BarChart3, Search } from "lucide-react";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
@@ -116,7 +116,7 @@ function MobileNav() {
     { to: "/app/mapa", icon: MapIcon, label: "Mapa" },
     { to: "/app/hoje", icon: Sunrise, label: "Hoje" },
     { to: "/app/kanban", icon: Kanban, label: "Pipeline" },
-    { to: "/app/agenda", icon: CalendarDays, label: "Agenda" },
+    { to: "/app/painel", icon: BarChart3, label: "Painel" },
   ];
   return (
     <nav

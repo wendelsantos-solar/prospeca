@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -23,11 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLeadsStore, useSettingsStore } from "@/stores";
-import { useLeadDetail } from "@/hooks/useLeadsQuery";
-import { getLeadRepository } from "@/repositories";
-import type { MoveLeadInput } from "@/repositories/types";
+import { useLeadDetail, useMoveLeadMutation } from "@/hooks/useLeadsQuery";
 import { DISCARD_REASONS } from "@/lib/constants";
-import type { Lead, LeadStage } from "@/types";
+import type { Lead } from "@/types";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -41,45 +38,12 @@ const wonSchema = z.object({
 });
 type WonForm = z.infer<typeof wonSchema>;
 
-function useStageMutation(onDone: () => void) {
-  return useMutation({
-    mutationFn: async ({
-      lead,
-      stage,
-      extra,
-    }: {
-      lead: Lead;
-      stage: LeadStage;
-      extra?: Omit<MoveLeadInput, "toStage">;
-    }) => {
-      const input: MoveLeadInput = {
-        toStage: stage,
-        closedValue: extra?.closedValue,
-        closedService: extra?.closedService,
-        closedAt: extra?.closedAt,
-        discardReason: extra?.discardReason,
-        note: extra?.note,
-        owner: extra?.owner,
-        nextOpportunity: extra?.nextOpportunity,
-      };
-      return getLeadRepository().moveStage(lead.id, input);
-    },
-    onSuccess: () => {
-      onDone();
-    },
-    onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Falha ao atualizar estágio", {
-        description: "O lead não foi movido.",
-      });
-    },
-  });
-}
-
 export function WonDialog() {
   const pendingWinId = useLeadsStore((s) => s.pendingWinId);
   const setPendingWin = useLeadsStore((s) => s.setPendingWin);
   const { data: lead } = useLeadDetail(pendingWinId);
   const userName = useSettingsStore((s) => s.userName);
+  const moveMutation = useMoveLeadMutation();
 
   const {
     register,
@@ -111,25 +75,28 @@ export function WonDialog() {
     }
   }, [lead, reset, userName]);
 
-  const mutation = useStageMutation(() => {
-    toast.success("Negócio marcado como ganho");
-    setPendingWin(null);
-  });
-
   const onSubmit = (data: WonForm) => {
     if (!lead) return;
-    mutation.mutate({
-      lead,
-      stage: "won",
-      extra: {
-        closedValue: data.value,
-        closedService: data.service,
-        closedAt: new Date(`${data.closedAt}T12:00:00`).toISOString(),
-        owner: data.owner || undefined,
-        note: data.note || undefined,
-        nextOpportunity: data.nextOpportunity || undefined,
+    moveMutation.mutate(
+      {
+        id: lead.id,
+        input: {
+          toStage: "won",
+          closedValue: data.value,
+          closedService: data.service,
+          closedAt: new Date(`${data.closedAt}T12:00:00`).toISOString(),
+          owner: data.owner || undefined,
+          note: data.note || undefined,
+          nextOpportunity: data.nextOpportunity || undefined,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          toast.success("Negócio marcado como ganho");
+          setPendingWin(null);
+        },
+      },
+    );
   };
 
   return (
@@ -183,8 +150,8 @@ export function WonDialog() {
             <Button type="button" variant="ghost" onClick={() => setPendingWin(null)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={mutation.isPending} className="gap-1.5">
-              {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <Button type="submit" disabled={moveMutation.isPending} className="gap-1.5">
+              {moveMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Confirmar ganho
             </Button>
           </DialogFooter>
@@ -198,6 +165,7 @@ export function DiscardDialog() {
   const pendingDiscardId = useLeadsStore((s) => s.pendingDiscardId);
   const setPendingDiscard = useLeadsStore((s) => s.setPendingDiscard);
   const { data: lead } = useLeadDetail(pendingDiscardId);
+  const moveMutation = useMoveLeadMutation();
   const [reason, setReason] = useState<string>(DISCARD_REASONS[0]);
   const [note, setNote] = useState("");
 
@@ -207,11 +175,6 @@ export function DiscardDialog() {
       setNote("");
     }
   }, [pendingDiscardId]);
-
-  const mutation = useStageMutation(() => {
-    toast.success("Lead descartado");
-    setPendingDiscard(null);
-  });
 
   return (
     <Dialog open={!!pendingDiscardId} onOpenChange={(v) => !v && setPendingDiscard(null)}>
@@ -247,18 +210,29 @@ export function DiscardDialog() {
           </Button>
           <Button
             variant="destructive"
-            disabled={mutation.isPending}
+            disabled={moveMutation.isPending}
             className="gap-1.5"
-            onClick={() =>
-              lead &&
-              mutation.mutate({
-                lead,
-                stage: "discarded",
-                extra: { discardReason: reason, note: note.trim() || undefined },
-              })
-            }
+            onClick={() => {
+              if (!lead) return;
+              moveMutation.mutate(
+                {
+                  id: lead.id,
+                  input: {
+                    toStage: "discarded",
+                    discardReason: reason,
+                    note: note.trim() || undefined,
+                  },
+                },
+                {
+                  onSuccess: () => {
+                    toast.success("Lead descartado");
+                    setPendingDiscard(null);
+                  },
+                },
+              );
+            }}
           >
-            {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {moveMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Descartar
           </Button>
         </DialogFooter>

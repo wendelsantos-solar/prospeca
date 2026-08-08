@@ -382,7 +382,10 @@ export const useLeadsStore = create<LeadsState>()(
       name: `${STORAGE_KEY}:leads`,
       storage: createJSONStorage(() => safeStorage()),
       partialize: (s) => ({
-        leads: s.leads,
+        // leads removed from persist — the full array (notes, activities,
+        // timeline) can reach 200KB+ and serializing on every keystroke-level
+        // state change blocks the main thread. The CRM list is now served by
+        // TanStack Query (useLeadsList) which has its own cache layer.
         loaded: s.loaded,
         currentSearch: s.currentSearch,
         history: s.history,

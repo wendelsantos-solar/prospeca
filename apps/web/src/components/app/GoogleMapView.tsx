@@ -29,14 +29,23 @@ import { env } from "@/lib/env";
 import { toast } from "sonner";
 import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
 
+// Hides Google's default POI/transit clutter (restaurants, shops, bus stops…) so
+// the only markers on the map are ours. Roads, water and parks stay visible —
+// those are the reference points people actually navigate by.
+const CLEAN_STYLE: google.maps.MapTypeStyle[] = [
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
+
 // Minimal dark map style (Google Maps styled maps) — mirrors the OSM dark toggle.
 const DARK_STYLE: google.maps.MapTypeStyle[] = [
+  ...CLEAN_STYLE,
   { elementType: "geometry", stylers: [{ color: "#1f2733" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#9aa7b8" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#1f2733" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#2a3441" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#16202b" }] },
-  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
 ];
 
 // setOptions must run exactly once per page load (the loader warns and ignores
@@ -170,7 +179,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
-          styles: useUIStore.getState().mapDark ? DARK_STYLE : undefined,
+          styles: useUIStore.getState().mapDark ? DARK_STYLE : CLEAN_STYLE,
         });
         mapRef.current = map;
         infoRef.current = new InfoWindow();
@@ -407,7 +416,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   // React to the dark toggle after init.
   useEffect(() => {
     const map = mapRef.current;
-    if (map && mapReady) map.setOptions({ styles: mapDark ? DARK_STYLE : undefined });
+    if (map && mapReady) map.setOptions({ styles: mapDark ? DARK_STYLE : CLEAN_STYLE });
   }, [mapDark, mapReady]);
 
   const legend = useMemo(

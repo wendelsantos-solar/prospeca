@@ -140,8 +140,13 @@ export class AppError extends Error {
 }
 
 // Structured log — never log keys, tokens or full payloads.
+// Sampling: 100% of errors, 10% of successful operations to keep log
+// volume manageable and reduce Deno stdout pressure at scale.
 export function logEvent(fields: Record<string, unknown>): void {
-  console.log(JSON.stringify(fields));
+  const isError = fields.status === "error" || fields.errorCode != null;
+  if (isError || Math.random() < 0.1) {
+    console.log(JSON.stringify(fields));
+  }
 }
 
 export function handleOptions(req: Request): Response | null {

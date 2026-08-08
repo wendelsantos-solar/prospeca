@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { useLeadsStore } from "@/stores";
 import {
   useLeadDetail,
@@ -5,7 +6,6 @@ import {
   useRemoveNoteMutation,
   useUpdateNoteMutation,
   useToggleNotePinMutation,
-  useAddActivityMutation,
   useAddToFunnelMutation,
   useRemoveLeadMutation,
   useSuppressMutation,
@@ -65,6 +65,11 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { LoaderCircle } from "lucide-react";
+
+// Lazy tab — only downloaded when the user clicks "Atividades".
+const LeadActivitiesTab = lazy(() =>
+  import("./LeadActivitiesTab").then((m) => ({ default: m.LeadActivitiesTab })),
+);
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,7 +107,7 @@ export function LeadDetailsDrawer() {
   const removeNoteMut = useRemoveNoteMutation();
   const updateNoteMut = useUpdateNoteMutation();
   const toggleNotePinMut = useToggleNotePinMutation();
-  const addActivityMut = useAddActivityMutation();
+
   const [noteText, setNoteText] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
   const [prepareOpen, setPrepareOpen] = useState(false);
@@ -110,21 +115,6 @@ export function LeadDetailsDrawer() {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [act, setAct] = useState<{
-    type: ActivityType;
-    title: string;
-    date: string;
-    time: string;
-    note: string;
-    priority: "low" | "medium" | "high";
-  }>({
-    type: "call",
-    title: "",
-    date: new Date().toISOString().slice(0, 10),
-    time: "",
-    note: "",
-    priority: "medium",
-  });
 
   // Keep Sheet mounted during fetch to avoid overlay flicker
   const isLoading = detailsId != null && !lead;
@@ -606,147 +596,17 @@ export function LeadDetailsDrawer() {
                 )}
               </TabsContent>
 
-              <TabsContent value="activities" className="space-y-3 mt-4">
-                {readOnly ? (
-                  <FunnelGate feature="atividades" />
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3">
-                      <div>
-                        <Label className="text-xs">Tipo</Label>
-                        <Select
-                          value={act.type}
-                          onValueChange={(v) => setAct({ ...act, type: v as ActivityType })}
-                        >
-                          <SelectTrigger className="h-8 bg-surface">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[
-                              ["call", "Ligação"],
-                              ["message", "Mensagem"],
-                              ["meeting", "Reunião"],
-                              ["followup", "Retorno"],
-                              ["proposal", "Proposta"],
-                              ["visit", "Visita"],
-                              ["other", "Outra"],
-                            ].map(([v, l]) => (
-                              <SelectItem key={v} value={v}>
-                                {l}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Data</Label>
-                        <Input
-                          type="date"
-                          className="h-8 bg-surface"
-                          value={act.date}
-                          onChange={(e) => setAct({ ...act, date: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Horário</Label>
-                        <Input
-                          type="time"
-                          className="h-8 bg-surface"
-                          value={act.time}
-                          onChange={(e) => setAct({ ...act, time: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Prioridade</Label>
-                        <Select
-                          value={act.priority}
-                          onValueChange={(v) =>
-                            setAct({ ...act, priority: v as typeof act.priority })
-                          }
-                        >
-                          <SelectTrigger className="h-8 bg-surface">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Baixa</SelectItem>
-                            <SelectItem value="medium">Média</SelectItem>
-                            <SelectItem value="high">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs">Título</Label>
-                        <Input
-                          className="h-8 bg-surface"
-                          value={act.title}
-                          onChange={(e) => setAct({ ...act, title: e.target.value })}
-                          placeholder="Ex.: Retorno inicial"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs">Observação</Label>
-                        <Textarea
-                          className="bg-surface"
-                          rows={2}
-                          value={act.note}
-                          onChange={(e) => setAct({ ...act, note: e.target.value })}
-                          placeholder="Detalhes da atividade (opcional)"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (!act.title.trim()) return toast.error("Informe um título");
-                            addActivityMut.mutate({
-                              leadId: lead.id,
-                              input: {
-                                type: act.type,
-                                title: act.title,
-                                date: act.date,
-                                time: act.time || undefined,
-                                note: act.note || undefined,
-                                priority: act.priority,
-                              },
-                            });
-                            setAct({ ...act, title: "", time: "", note: "" });
-                            toast.success("Atividade criada");
-                          }}
-                        >
-                          Criar atividade
-                        </Button>
-                      </div>
+              <TabsContent value="activities" className="mt-4">
+                <Suspense
+                  fallback={
+                    <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Carregando…
                     </div>
-                    <div className="space-y-2">
-                      {lead.activities.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Nenhuma atividade agendada.</p>
-                      )}
-                      {lead.activities.map((a) => (
-                        <div key={a.id} className="rounded-md border bg-surface p-3 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium">{a.title}</p>
-                            {a.priority && (
-                              <span
-                                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.priority === "high" ? "bg-hot/15 text-hot" : a.priority === "medium" ? "bg-warm/20 text-warm-foreground" : "bg-muted text-muted-foreground"}`}
-                              >
-                                {a.priority === "high"
-                                  ? "Alta"
-                                  : a.priority === "medium"
-                                    ? "Média"
-                                    : "Baixa"}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            {a.type} • {formatDate(a.date)}
-                            {a.time ? ` às ${a.time}` : ""}
-                          </p>
-                          {a.note && <p className="mt-1 text-xs text-muted-foreground">{a.note}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                  }
+                >
+                  <LeadActivitiesTab lead={lead} readOnly={readOnly} />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="timeline" className="mt-4">

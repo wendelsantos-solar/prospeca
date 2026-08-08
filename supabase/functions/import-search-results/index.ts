@@ -14,6 +14,7 @@ import {
   normalizeCompanyName,
   normalizeDomain,
   normalizePhone,
+  type NormalizedPhone,
 } from "@leads/domain/normalize";
 import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "@leads/domain/score";
 import { parseAddress } from "@leads/domain/address";
@@ -89,79 +90,132 @@ Deno.serve(async (req) => {
         const enrichable: { leadId: string; website: string }[] = [];
         const materializedLeadIds: string[] = [];
 
-        for (const row of results ?? []) {
-          const place = row.places as unknown as Record<string, unknown> | null;
+        // ── Pre-compute normalized phone/domain for dedup batch ──
+        // Instead of 3 sequential queries per place (N+1), we collect all
+        // dedup keys and run 3 batch queries once. For a typical 10-place
+        // import this drops from 30 queries to 3.
+        const rows = (results ?? []) as unknown as Array<{
+          place_id: string;
+          distance_meters: number | null;
+          places: Record<string, unknown> | null;
+        }>;
+        const nonsPlaceIds = rows.map((r) => r.place_id);
+        const phones: string[] = [];
+        const domains: string[] = [];
+        const phoneByPlaceId = new Map<string, NormalizedPhone>();
+        const domainByPlaceId = new Map<string, string>();
+        const placeMeta = new Map<string, { phoneRaw: string | null; website: string | null; phone: NormalizedPhone | null; domain: string | null; websiteReal: boolean }>();
+
+        for (const row of rows) {
+          const place = row.places;
           if (!place) continue;
-
-          const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as
-            | string
-            | null;
+          const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as string | null;
           const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
-          const domain = normalizeDomain(place.website_uri as string | null);
+          const website = (place.website_uri as string | null);
+          const domain = normalizeDomain(website);
+          const websiteReal = hasRealWebsite(website);
+          placeMeta.set(row.place_id, { phoneRaw, website, phone, domain, websiteReal });
+          if (phone?.e164) {
+            phones.push(phone.e164);
+            phoneByPlaceId.set(row.place_id, phone);
+          }
+          if (domain) {
+            domains.push(domain);
+            domainByPlaceId.set(row.place_id, domain);
+          }
+        }
 
-          // Dedupe chain
-          let existing: { id: string } | null = null;
-          const { data: byPlace } = await ctx.adminClient
+        // ── Batch dedup lookups (3 queries total, not 3×N) ──
+        const dedupByPlaceId = new Map<string, string>();
+        const dedupByPhone = new Map<string, string>();
+        const dedupByDomain = new Map<string, string>();
+
+        if (nonsPlaceIds.length > 0) {
+          const { data: byPlaceRows } = await ctx.adminClient
             .from("leads")
-            .select("id")
+            .select("id, place_id")
             .eq("organization_id", ctx.organizationId)
-            .eq("place_id", row.place_id)
-            .maybeSingle();
-          existing = byPlace;
-          if (!existing && phone?.e164) {
-            const { data } = await ctx.adminClient
-              .from("leads")
-              .select("id")
-              .eq("organization_id", ctx.organizationId)
-              .eq("phone_e164", phone.e164)
-              .maybeSingle();
-            existing = data;
+            .in("place_id", nonsPlaceIds);
+          for (const r of (byPlaceRows ?? []) as Array<{ id: string; place_id: string }>) {
+            dedupByPlaceId.set(r.place_id, r.id);
           }
-          if (!existing && domain) {
-            const { data } = await ctx.adminClient
-              .from("leads")
-              .select("id")
-              .eq("organization_id", ctx.organizationId)
-              .eq("website_domain", domain)
-              .maybeSingle();
-            existing = data;
+        }
+
+        if (phones.length > 0) {
+          const { data: byPhoneRows } = await ctx.adminClient
+            .from("leads")
+            .select("id, phone_e164")
+            .eq("organization_id", ctx.organizationId)
+            .in("phone_e164", phones);
+          for (const r of (byPhoneRows ?? []) as Array<{ id: string; phone_e164: string }>) {
+            if (r.phone_e164 && !dedupByPhone.has(r.phone_e164)) {
+              dedupByPhone.set(r.phone_e164, r.id);
+            }
+          }
+        }
+
+        if (domains.length > 0) {
+          const { data: byDomainRows } = await ctx.adminClient
+            .from("leads")
+            .select("id, website_domain")
+            .eq("organization_id", ctx.organizationId)
+            .in("website_domain", domains);
+          for (const r of (byDomainRows ?? []) as Array<{ id: string; website_domain: string }>) {
+            if (r.website_domain && !dedupByDomain.has(r.website_domain)) {
+              dedupByDomain.set(r.website_domain, r.id);
+            }
+          }
+        }
+
+        // ── Process each place ──
+        const rank: Record<string, number> = {
+          new: 0,
+          qualified: 1,
+          contacted: 2,
+          won: 3,
+          discarded: -1,
+        };
+
+        for (const row of rows) {
+          const place = row.places;
+          if (!place) continue;
+          const meta = placeMeta.get(row.place_id);
+          if (!meta) continue;
+
+          // Dedupe: check place_id → phone → domain (batch results).
+          let existingId = dedupByPlaceId.get(row.place_id) ?? null;
+          if (!existingId && meta.phone?.e164) {
+            existingId = dedupByPhone.get(meta.phone.e164) ?? null;
+          }
+          if (!existingId && meta.domain) {
+            existingId = dedupByDomain.get(meta.domain) ?? null;
           }
 
-          if (existing) {
+          if (existingId) {
             duplicates++;
-            materializedLeadIds.push(existing.id);
-            // Promove o estágio se o alvo for mais avançado — nunca rebaixa.
-            const rank: Record<string, number> = {
-              new: 0,
-              qualified: 1,
-              contacted: 2,
-              won: 3,
-              discarded: -1,
-            };
+            materializedLeadIds.push(existingId);
+            // Promote stage if target is more advanced — never downgrade.
             const { data: cur } = await ctx.adminClient
               .from("leads")
               .select("stage")
-              .eq("id", existing.id)
+              .eq("id", existingId)
               .maybeSingle();
             if (cur && (rank[input.stage] ?? 0) > (rank[cur.stage as string] ?? 0)) {
               await ctx.adminClient
                 .from("leads")
                 .update({ stage: input.stage, last_interaction_at: new Date().toISOString() })
-                .eq("id", existing.id);
+                .eq("id", existingId);
             }
             await ctx.adminClient
               .from("search_results")
-              .update({ imported_lead_id: existing.id })
+              .update({ imported_lead_id: existingId })
               .eq("search_id", input.searchId)
               .eq("place_id", row.place_id);
             continue;
           }
 
-          const websiteReal = hasRealWebsite(place.website_uri as string | null);
           // PostgREST serializes geography as hex EWKB, not GeoJSON — decode it.
           const coords = readPoint(place.location); // [lng, lat] | null
-          // Same signals as discovery — hand-building this input made an enriched
-          // business score lower here than it did on the map.
           const breakdown = calculateScore(
             scoreInputFromRow(place as PlaceRow, row.distance_meters),
           );
@@ -179,26 +233,23 @@ Deno.serve(async (req) => {
               company_name: place.name,
               category: place.primary_type ?? null,
               address: place.formatted_address ?? null,
-              // Bairro/cidade/UF vêm do endereço do Google — sem isso os filtros
-              // por cidade/bairro (leads.city / leads.neighborhood) ficam vazios.
               neighborhood: addressParts.neighborhood,
               city: addressParts.city,
               state: addressParts.state,
               latitude: coords?.[1] ?? null,
               longitude: coords?.[0] ?? null,
-              phone: phoneRaw,
-              phone_e164: phone?.e164 ?? null,
-              // A scraped WhatsApp (enrich-discovery) wins over phone inference.
+              phone: meta.phoneRaw,
+              phone_e164: meta.phone?.e164 ?? null,
               whatsapp:
-                (place.whatsapp as string | null) ?? (phone?.type === "mobile" ? phone.e164 : null),
+                (place.whatsapp as string | null) ?? (meta.phone?.type === "mobile" ? meta.phone.e164 : null),
               whatsapp_status: place.whatsapp
                 ? "verified"
-                : phone?.type === "mobile"
+                : meta.phone?.type === "mobile"
                   ? "possible"
                   : "unknown",
-              website: place.website_uri ?? null,
-              website_domain: domain,
-              has_website: websiteReal,
+              website: meta.website,
+              website_domain: meta.domain,
+              has_website: meta.websiteReal,
               rating: place.rating ?? null,
               review_count: place.user_rating_count ?? null,
               score: breakdown.total,
@@ -216,13 +267,11 @@ Deno.serve(async (req) => {
 
           imported++;
           materializedLeadIds.push(lead.id as string);
-          // Also enqueue instagram-as-website leads: not a "real" site, but
-          // enrichFromWebsite pulls the handle straight from that URL.
           if (
-            place.website_uri &&
-            (websiteReal || instagramHandleFromUrl(place.website_uri as string))
+            meta.website &&
+            (meta.websiteReal || instagramHandleFromUrl(meta.website))
           ) {
-            enrichable.push({ leadId: lead.id as string, website: place.website_uri as string });
+            enrichable.push({ leadId: lead.id as string, website: meta.website });
           }
           await ctx.adminClient
             .from("search_results")

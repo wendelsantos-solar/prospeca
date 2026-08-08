@@ -1,7 +1,8 @@
-import { useMemo, useState, Fragment } from "react";
+import { useMemo, useState } from "react";
 import { useLeadsStore, usePeriodStore } from "@/stores";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
+import { DashboardCityTable } from "./DashboardCityTable";
 import { formatBRL, formatNumber, formatPercent, formatDecimal } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, PERIOD_OPTIONS } from "@/lib/constants";
 import { resolvePeriod, previousWindow, leadsInWindow, deltaPct, inWindow } from "@/lib/period";
@@ -24,26 +25,9 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { Lead, LeadStage, DashboardPeriod } from "@/types";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import { Progress } from "@/components/ui/progress";
-import {
-  ArrowUpDown,
-  ChevronDown,
-  ChevronRight,
-  BarChart3,
-  Search,
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
-  Info,
-} from "lucide-react";
+import { ArrowRight, BarChart3, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { categoryLabel } from "@/lib/category";
 import {
@@ -128,69 +112,6 @@ function groupBy(leads: Lead[], key: (l: Lead) => string): Record<string, StageA
     }
   });
   return out;
-}
-
-type SortKey =
-  | "total"
-  | "qualified"
-  | "contacted"
-  | "won"
-  | "conv"
-  | "revenue"
-  | "ticket"
-  | "dist"
-  | "name";
-
-function sortRows(rows: [string, StageAgg][], key: SortKey, dir: 1 | -1) {
-  const val = ([name, v]: [string, StageAgg]) => {
-    switch (key) {
-      case "name":
-        return name;
-      case "conv":
-        return v.total ? v.won / v.total : 0;
-      case "ticket":
-        return v.won ? v.revenue / v.won : 0;
-      case "dist":
-        return v.total ? v.distSum / v.total : 0;
-      default:
-        return v[key];
-    }
-  };
-  return [...rows].sort((a, b) => {
-    const x = val(a),
-      y = val(b);
-    if (typeof x === "string" && typeof y === "string") return x.localeCompare(y) * dir;
-    return ((x as number) - (y as number)) * dir;
-  });
-}
-
-function SortableHead({
-  label,
-  k,
-  sort,
-  setSort,
-  className,
-}: {
-  label: string;
-  k: SortKey;
-  sort: { key: SortKey; dir: 1 | -1 };
-  setSort: (s: { key: SortKey; dir: 1 | -1 }) => void;
-  className?: string;
-}) {
-  return (
-    <TableHead className={className}>
-      <button
-        className="inline-flex items-center gap-1 hover:text-foreground"
-        onClick={() => setSort({ key: k, dir: sort.key === k ? (sort.dir === 1 ? -1 : 1) : -1 })}
-        aria-label={`Ordenar por ${label}`}
-      >
-        {label}
-        <ArrowUpDown
-          className={cn("h-3 w-3", sort.key === k ? "text-foreground" : "text-muted-foreground/50")}
-        />
-      </button>
-    </TableHead>
-  );
 }
 
 function ChartCard({
@@ -401,15 +322,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
     [byCity],
   );
 
-  const [citySort, setCitySort] = useState<{ key: SortKey; dir: 1 | -1 }>({
-    key: "total",
-    dir: -1,
-  });
-  const [citySearch, setCitySearch] = useState("");
-  const [cityPage, setCityPage] = useState(0);
-  const [expandedCity, setExpandedCity] = useState<string | null>(null);
-  const CITY_PAGE_SIZE = 5;
-
   const nicheRows = useMemo(() => Object.entries(byNiche) as [string, StageAgg][], [byNiche]);
   const nicheColumns: DataTableColumn<[string, StageAgg]>[] = useMemo(() => {
     const max = Math.max(...Object.values(byNiche).map((x) => x.total), 1);
@@ -484,23 +396,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
       },
     ];
   }, [byNiche]);
-  const cityRowsAll = useMemo(() => {
-    const rows = sortRows(Object.entries(byCity), citySort.key, citySort.dir);
-    return citySearch
-      ? rows.filter(([name]) => name.toLowerCase().includes(citySearch.toLowerCase()))
-      : rows;
-  }, [byCity, citySort, citySearch]);
-  const cityPages = Math.max(1, Math.ceil(cityRowsAll.length / CITY_PAGE_SIZE));
-  const cityRows = cityRowsAll.slice(cityPage * CITY_PAGE_SIZE, (cityPage + 1) * CITY_PAGE_SIZE);
-
-  const neighborhoodsOf = (city: string) => {
-    const rows = groupBy(
-      current.filter((l) => l.city === city && l.neighborhood),
-      (l) => l.neighborhood!,
-    );
-    return Object.entries(rows).sort((x, y) => y[1].total - x[1].total);
-  };
-
   const empty = current.length === 0;
 
   return (
@@ -904,185 +799,7 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
               />
             </div>
 
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="mb-3 flex flex-row items-center justify-between gap-3">
-                <div>
-                  <div className="text-[13px] font-semibold">Desempenho por cidade</div>
-                  <div className="text-[11.5px] text-muted-foreground">
-                    Onde você tem mais tração
-                  </div>
-                </div>
-                <div className="relative w-56">
-                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={citySearch}
-                    onChange={(e) => {
-                      setCitySearch(e.target.value);
-                      setCityPage(0);
-                    }}
-                    placeholder="Buscar cidade..."
-                    className="h-8 pl-7 text-xs"
-                    aria-label="Buscar cidade"
-                  />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8" />
-                      <SortableHead label="Cidade" k="name" sort={citySort} setSort={setCitySort} />
-                      <SortableHead
-                        label="Leads"
-                        k="total"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Qualificados"
-                        k="qualified"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Contatados"
-                        k="contacted"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Ganhos"
-                        k="won"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Conversão"
-                        k="conv"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Receita"
-                        k="revenue"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                      <SortableHead
-                        label="Dist. média"
-                        k="dist"
-                        sort={citySort}
-                        setSort={setCitySort}
-                        className="text-right"
-                      />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cityRows.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={9}
-                          className="text-center text-sm text-muted-foreground py-6"
-                        >
-                          Nenhuma cidade encontrada.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {cityRows.map(([city, v]) => (
-                      <Fragment key={city}>
-                        <TableRow
-                          className="cursor-pointer"
-                          onClick={() => setExpandedCity(expandedCity === city ? null : city)}
-                        >
-                          <TableCell>
-                            {expandedCity === city ? (
-                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                            ) : (
-                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium">{city}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.total}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.qualified}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.contacted}</TableCell>
-                          <TableCell className="text-right tabular-nums">{v.won}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {v.total ? ((v.won / v.total) * 100).toFixed(1) : "0"}%
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatBRL(v.revenue)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {v.total ? `${formatDecimal(v.distSum / v.total)} km` : "—"}
-                          </TableCell>
-                        </TableRow>
-                        {expandedCity === city &&
-                          neighborhoodsOf(city).map(([nb, nv]) => (
-                            <TableRow key={`${city}-${nb}`} className="bg-muted/30">
-                              <TableCell />
-                              <TableCell className="pl-8 text-xs text-muted-foreground">
-                                {nb}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.total}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.qualified}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.contacted}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.won}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.total ? ((nv.won / nv.total) * 100).toFixed(1) : "0"}%
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {formatBRL(nv.revenue)}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
-                                {nv.total ? `${formatDecimal(nv.distSum / nv.total)} km` : "—"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-                {cityPages > 1 && (
-                  <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                    <span>
-                      Página {cityPage + 1} de {cityPages}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2"
-                      disabled={cityPage === 0}
-                      onClick={() => setCityPage((p2) => p2 - 1)}
-                    >
-                      Anterior
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2"
-                      disabled={cityPage >= cityPages - 1}
-                      onClick={() => setCityPage((p2) => p2 + 1)}
-                    >
-                      Próxima
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DashboardCityTable byCity={byCity} />
           </>
         )}
       </div>

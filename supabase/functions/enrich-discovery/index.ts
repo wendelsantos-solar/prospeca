@@ -22,7 +22,13 @@ const InputSchema = z.union([
   z.object({ searchId: z.string().uuid(), placeId: z.string().uuid() }),
 ]);
 
-const TOP_N = 25;
+// Batch enrichment runs on the top-N scored places with a website that haven't
+// been enriched recently. Reduced from 25→10: each site fetch takes up to 4s
+// and runs at concurrency 5, so 25 places worst-case was 20s. At 10, worst-case
+// is 8s and the top-scoring results (what users see first) are still covered.
+// Individual on-open enrichment (single placeId) is unaffected — it always runs
+// immediately for the place the user clicked.
+const TOP_N = 10;
 const CONCURRENCY = 5;
 const SITE_TIMEOUT_MS = 4000;
 const STALE_DAYS = 30;

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useDeferredValue, useMemo, useState } from "react";
 import { useLeadsStore, useUIStore } from "@/stores";
 import { applyFilters, sortLeads } from "@/lib/filters";
-import { KanbanSkeleton, LeadListSkeleton } from "@/components/shared/Skeletons";
+import { KanbanSkeleton } from "@/components/shared/Skeletons";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 
@@ -87,7 +87,7 @@ function KanbanPage() {
   }, [allLeads, filters, sort, deferredSearch, kFilters]);
 
   if ((searching || isLoading) && allLeads.length === 0) {
-    return <LeadListSkeleton count={8} />;
+    return <KanbanSkeleton />;
   }
 
   if (error && allLeads.length === 0) {

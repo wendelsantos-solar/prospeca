@@ -77,6 +77,10 @@ export function PilotManagement() {
   const [durationDays, setDurationDays] = useState("30");
   const [notes, setNotes] = useState("");
   const [creating, setCreating] = useState(false);
+  // The invitation e-mail depends on RESEND_API_KEY being configured — when
+  // it isn't, sendEmail() no-ops silently and the admin has no other way to
+  // reach the invitee. Always surface the link so it can be copied by hand.
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<{ pilots: PilotOrg[]; stats: PilotStats }>({
     queryKey: ["admin-pilots"],

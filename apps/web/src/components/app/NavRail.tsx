@@ -21,7 +21,6 @@ const NAV: NavItem[] = [
   { to: "/app/mapa", label: "Mapa", icon: icons.navigation.map },
   { to: "/app/hoje", label: "Hoje", icon: icons.navigation.today },
   { to: "/app/kanban", label: "Pipeline", icon: icons.navigation.pipeline },
-  { to: "/app/agenda", label: "Agenda", icon: icons.agenda.calendar },
   { to: "/app/painel", label: "Análises", icon: icons.navigation.analytics },
 ];
 

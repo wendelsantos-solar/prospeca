@@ -12,6 +12,7 @@ import type {
 } from "@/types";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
+import { getStoredActiveOrganizationId } from "@/lib/active-organization";
 import { parseAddress, type ScoreBreakdown } from "@leads/domain";
 import type {
   CreateSearchInput,
@@ -224,8 +225,11 @@ function mapLead(row: LeadRow): Lead {
 
 // Lean select for list views (Kanban, Painel, Hoje): omits nested notes/activities
 // to cut payload by ~80%. Detail drawer fetches via getById with the full select.
+// Lean select for list views (Kanban, Painel, Hoje, Agenda). Includes
+// lead_activities so the Hoje/Agenda views can show scheduled calls,
+// follow-ups etc. without a separate query per lead.
 const LEAD_LIST_SELECT =
-  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at";
+  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*)";
 
 const LEAD_DETAIL_SELECT =
   "*, lead_notes(*), lead_activities(*), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
@@ -601,8 +605,12 @@ export class SupabaseSearchRepository implements SearchRepository {
   }
 
   async getDiscovery(searchId: string): Promise<DiscoveryResult[]> {
+    // Fast path: pass the organization_id directly so the RPC skips the
+    // expensive is_organization_member() subquery on every call.
+    const organizationId = getStoredActiveOrganizationId();
     const { data, error } = await getSupabase().rpc("get_search_discovery", {
       p_search_id: searchId,
+      ...(organizationId ? { p_organization_id: organizationId } : {}),
     });
     if (error) throw new Error(error.message);
     return (data as Record<string, unknown>[]).map((r) => {

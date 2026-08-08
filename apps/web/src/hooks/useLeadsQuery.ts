@@ -74,17 +74,27 @@ export function useLeadsList(
 }
 
 /** Discovery results for a search (map + sidebar list). Reads search_results ⋈
- * places via RPC; never creates leads. */
+ * places via RPC; never creates leads.
+ *
+ * structuralSharing keeps the same object references when data hasn't changed,
+ * preventing unnecessary re-renders on the map (GoogleMapView/LeafletMapView)
+ * and the sidebar list (Virtuoso) when the discovery refetches after enrichment
+ * or add-to-funnel invalidations. */
 export function useDiscoveryResults(searchId?: string) {
   return useQuery<DiscoveryResult[]>({
     queryKey: searchId ? discoveryKeys.bySearch(searchId) : ["discovery", "none"],
     queryFn: () => (searchId ? getSearchRepository().getDiscovery(searchId) : Promise.resolve([])),
     enabled: !!searchId,
     staleTime: 60_000,
+    structuralSharing: true,
   });
 }
 
-/** Materialize a discovered business as a lead in the funnel. */
+/** Materialize a discovered business as a lead in the funnel.
+ *
+ * Optimistic: the discovery result immediately shows "No pipeline" and a
+ * provisional lead card is appended to every cached leads-list page so the
+ * Kanban responds without waiting for the server round-trip + refetch. */
 export function useAddToFunnelMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -97,15 +107,85 @@ export function useAddToFunnelMutation() {
       placeId: string;
       stage: "new" | "contacted";
     }) => getSearchRepository().addToFunnel(searchId, placeId, stage),
-    onSuccess: (data, vars) => {
+    onMutate: async ({ searchId, placeId, stage }) => {
+      // Cancel outgoing discovery + list queries so they don't overwrite our
+      // optimistic update while the mutation is in-flight.
+      await queryClient.cancelQueries({ queryKey: discoveryKeys.bySearch(searchId) });
+      await queryClient.cancelQueries({ queryKey: ["leads", "list"] });
+
+      // Snapshot previous state for rollback.
+      const previousDiscovery = queryClient.getQueryData<DiscoveryResult[]>(
+        discoveryKeys.bySearch(searchId),
+      );
+      const previousLists = queryClient.getQueriesData({ queryKey: ["leads", "list"] });
+
+      // Optimistic: mark discovery item as imported so the button switches to
+      // "No pipeline" immediately (no blink waiting for refetch).
+      if (previousDiscovery) {
+        queryClient.setQueryData<DiscoveryResult[]>(
+          discoveryKeys.bySearch(searchId),
+          previousDiscovery.map((r) =>
+            r.placeId === placeId ? { ...r, importedLeadId: `optimistic-${placeId}` } : r,
+          ),
+        );
+      }
+
+      // Optimistic: append a provisional lead card to every cached list page.
+      // The real lead will replace it on the next refetch (onSuccess).
+      const optimisticLead = {
+        id: `optimistic-${placeId}`,
+        companyName: previousDiscovery?.find((r) => r.placeId === placeId)?.name ?? "…",
+        stage,
+        temperature: "warm" as const,
+        score: 50,
+        category: "",
+        city: "",
+        latitude: 0,
+        longitude: 0,
+        distanceKm: 0,
+        hasWebsite: false,
+        discoveredAt: new Date().toISOString(),
+        notes: [],
+        activities: [],
+        timeline: [],
+      };
+      queryClient.setQueriesData({ queryKey: ["leads", "list"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const paginated = old as { items?: unknown[] };
+        if (!paginated.items) return old;
+        return {
+          ...paginated,
+          items: [optimisticLead, ...paginated.items],
+        };
+      });
+
+      return { previousDiscovery, previousLists };
+    },
+    onError: (_err, vars, context) => {
+      // Rollback on failure — restore both discovery and list caches.
+      if (context?.previousDiscovery) {
+        queryClient.setQueryData(discoveryKeys.bySearch(vars.searchId), context.previousDiscovery);
+      }
+      if (context?.previousLists) {
+        for (const [queryKey, data] of context.previousLists) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+    },
+    onSettled: (_data, _err, vars) => {
+      // Always refetch to reconcile optimistic state with server truth.
       queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
+    },
+    onSuccess: (data) => {
       // Enriquecimento pesado (scrape de site) sob demanda, só para os leads
       // recém-criados que têm site. Fire-and-forget; refresca ao terminar.
-      const repo = getSearchRepository();
-      Promise.allSettled(data.enrichableLeadIds.map((id) => repo.enrichLead(id))).then(() => {
-        queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
-      });
+      if (data.enrichableLeadIds.length > 0) {
+        const repo = getSearchRepository();
+        Promise.allSettled(data.enrichableLeadIds.map((id) => repo.enrichLead(id))).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+        });
+      }
     },
   });
 }
