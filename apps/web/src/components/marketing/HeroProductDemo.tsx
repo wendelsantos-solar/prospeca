@@ -228,6 +228,23 @@ export function HeroProductDemo() {
               tem site...
             </p>
           </div>
+
+          {/* Illustrative activity toast — same demo data as the rest of this mockup */}
+          <div
+            className="animate-slide-up flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] shadow-card"
+            style={{ animationDelay: "0.65s" }}
+          >
+            <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-hot-soft text-hot">
+              <TrendingUp className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Nova empresa encontrada</span>
+              <span className="text-muted-foreground">
+                {" "}
+                · Score {hotLead.score} — {hotLead.companyName}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
