@@ -25,10 +25,10 @@ export function OpportunitySection() {
                 <>
                   Uma lista não basta.
                   <br />
-                  Você precisa de um score.
+                  Você precisa entender a oportunidade.
                 </>
               }
-              description="Cada empresa recebe uma nota de 0 a 100 baseada em site, telefone, WhatsApp, avaliações e distância. Você sabe exatamente por onde começar."
+              description="O score de oportunidade mostra quais sinais comerciais foram encontrados em cada empresa. Você sabe por onde começar e entende cada ponto."
             />
             <Button className="mt-6" asChild>
               <Link to="/cadastro">

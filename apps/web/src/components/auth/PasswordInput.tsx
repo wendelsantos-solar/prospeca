@@ -1,4 +1,4 @@
-import { useState, useCallback, type InputHTMLAttributes } from "react";
+import { useId, useState, type InputHTMLAttributes } from "react";
 import { Eye, EyeOff, AlertTriangle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { passwordPolicy } from "@/lib/password-policy";
@@ -27,21 +27,40 @@ export function PasswordInput({
   className,
   disabled,
   id,
+  onBlur,
+  onFocus,
+  onKeyUp,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
   ...props
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
   const [caps, setCaps] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const generatedId = useId();
+  const inputId = id ?? `password-${generatedId}`;
+  const errorId = `${inputId}-error`;
+  const requirementsId = `${inputId}-requirements`;
   const reqs = showRequirements ? passwordPolicy(value ?? "") : [];
   const strength = showRequirements ? getStrength(value ?? "") : null;
+  const allRequirementsMet = reqs.length > 0 && reqs.every((requirement) => requirement.met);
+  const showRequirementList = showRequirements && !allRequirementsMet && (focused || !!error);
+  const describedBy = [
+    ariaDescribedBy,
+    error ? errorId : undefined,
+    showRequirementList || allRequirementsMet ? requirementsId : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={cn("space-y-1.5", wrapperClassName)}>
       <div className="relative">
         <input
-          id={id}
+          id={inputId}
           type={visible ? "text" : "password"}
           className={cn(
-            "flex h-10 w-full rounded-[10px] border border-input bg-surface px-3 pr-10 text-body text-foreground placeholder:text-muted-foreground/60 transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-11 w-full rounded-[10px] border border-input bg-surface px-3 pr-11 text-body text-foreground placeholder:text-muted-foreground/60 transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
             error && "border-destructive focus:border-destructive focus:ring-destructive/20",
             className,
           )}
@@ -49,16 +68,29 @@ export function PasswordInput({
           spellCheck={false}
           {...(value !== undefined ? { value } : {})}
           disabled={disabled}
-          onKeyUp={(e) => setCaps(e.getModifierState("CapsLock"))}
+          aria-invalid={ariaInvalid ?? !!error}
+          aria-describedby={describedBy || undefined}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          onKeyUp={(event) => {
+            setCaps(event.getModifierState("CapsLock"));
+            onKeyUp?.(event);
+          }}
           {...props}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           disabled={disabled}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground disabled:opacity-50"
-          tabIndex={-1}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-[10px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30 disabled:opacity-50"
           aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+          aria-pressed={visible}
         >
           {visible ? (
             <EyeOff className="h-4 w-4" strokeWidth={1.75} />
@@ -73,9 +105,13 @@ export function PasswordInput({
           Caps Lock ativado
         </p>
       )}
-      {error && <p className="text-caption text-destructive">{error}</p>}
-      {showRequirements && reqs.length > 0 && (
-        <div className="pt-1">
+      {error && (
+        <p id={errorId} className="text-caption text-destructive">
+          {error}
+        </p>
+      )}
+      {showRequirementList && (
+        <div id={requirementsId} className="pt-1" aria-live="polite">
           {strength && (
             <div className="mb-2">
               <div className="flex items-center gap-2">
@@ -129,6 +165,18 @@ export function PasswordInput({
             ))}
           </ul>
         </div>
+      )}
+      {showRequirements && allRequirementsMet && (
+        <p
+          id={requirementsId}
+          className="flex items-center gap-1.5 pt-0.5 text-caption font-medium text-success"
+          aria-live="polite"
+        >
+          <span className="grid h-4 w-4 place-items-center rounded-full bg-success-soft">
+            <Check className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
+          </span>
+          Senha segura
+        </p>
       )}
     </div>
   );

@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
-import { toast } from "sonner";
 import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthFormAlert } from "@/components/auth/AuthFormAlert";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { AuthDivider } from "@/components/auth/AuthDivider";
 import { PasswordInput } from "@/components/auth/PasswordInput";
@@ -13,7 +13,7 @@ import { SalesContactForm } from "@/components/marketing/SalesContactForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUp } from "@/hooks/useAuth";
+import { rememberPendingVerificationEmail, signUp } from "@/hooks/useAuth";
 import { readUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
@@ -39,17 +39,11 @@ export const Route = createFileRoute("/cadastro")({
   component: SignUpPage,
 });
 
-const schema = z
-  .object({
-    fullName: z.string().min(2, "Informe seu nome"),
-    email: z.string().min(1, "Informe seu e-mail").email("E-mail inválido"),
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirme sua senha"),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "As senhas não conferem",
-    path: ["confirmPassword"],
-  });
+const schema = z.object({
+  fullName: z.string().min(2, "Informe seu nome"),
+  email: z.string().min(1, "Informe seu e-mail").email("E-mail inválido"),
+  password: passwordSchema,
+});
 type FormData = z.infer<typeof schema>;
 
 function SignUpPage() {
@@ -60,6 +54,9 @@ function SignUpPage() {
   const [terms, setTerms] = useState(false);
   const [success, setSuccess] = useState(false);
   const [selPlan, setSelPlan] = useState<string | null>(null);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(true);
+  const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -71,13 +68,14 @@ function SignUpPage() {
   const isPaid = plan && plan !== "free";
 
   const onSubmit = handleSubmit(async (data) => {
+    setFormError(null);
     setSubmitting(true);
     track("signup_started", {
       plan: plan ?? (hasInv ? "pilot" : "free"),
       source: hasInv ? "invitation" : "direct",
     });
     try {
-      await signUp(data.email, data.password, data.fullName, {
+      const auth = await signUp(data.email, data.password, data.fullName, {
         intended_plan: plan ?? null,
         invitation_token: invitation ?? null,
         utm: readUtm() ?? undefined,
@@ -87,17 +85,21 @@ function SignUpPage() {
         terms_accepted_at: new Date().toISOString(),
         terms_version: TERMS_VERSION,
       });
+      setRegisteredEmail(data.email);
+      setNeedsEmailConfirmation(!auth.session);
+      if (!auth.session) rememberPendingVerificationEmail(data.email);
       track("signup_completed", { plan: plan ?? (hasInv ? "pilot" : "free") });
       if (isPaid) {
         setSelPlan(plan!);
         setSuccess(true);
+      } else if (auth.session) {
+        navigate({ to: "/app/mapa" });
       } else {
-        toast.success("Conta criada! Verifique seu e-mail.");
-        navigate({ to: "/login" });
+        navigate({ to: "/verificar-email" });
       }
     } catch (err) {
       track("signup_failed", { error_category: err instanceof Error ? "validation" : "unknown" });
-      toast.error(err instanceof Error ? err.message : "Falha ao criar conta.");
+      setFormError(err instanceof Error ? err.message : "Falha ao criar conta.");
     } finally {
       setSubmitting(false);
     }
@@ -113,27 +115,38 @@ function SignUpPage() {
     );
   if (success && selPlan)
     return (
-      <AuthLayout title="Conta criada" description="Verifique seu e-mail para confirmar.">
+      <AuthLayout
+        title="Conta criada"
+        description={
+          needsEmailConfirmation
+            ? "Confirme seu e-mail para ativar o acesso."
+            : "Agora vamos concluir a ativação do seu plano."
+        }
+        showLegalNotice={false}
+      >
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-soft">
             <Sparkles className="h-6 w-6 text-primary" strokeWidth={1.75} />
           </div>
           <p className="text-body-sm text-muted-foreground">
-            Plano <span className="font-medium text-foreground">{PAID[selPlan] ?? selPlan}</span>{" "}
-            selecionado. Ainda não temos checkout automático — fale com a gente para combinar o
-            pagamento e ativar seu plano.
+            {needsEmailConfirmation ? "Enviamos a confirmação para " : "Conta criada com "}
+            <span className="font-medium text-foreground break-all">{registeredEmail}</span>. O
+            plano <span className="font-medium text-foreground">{PAID[selPlan] ?? selPlan}</span>{" "}
+            foi selecionado; fale com a gente para combinar o pagamento e a ativação.
           </p>
           <SalesContactForm
             source={`cadastro_plano_${selPlan}`}
             trigger={<Button className="w-full h-11">Falar com a gente</Button>}
           />
-          <Button
-            variant="outline"
-            className="w-full h-11"
-            onClick={() => navigate({ to: "/login" })}
-          >
-            Ir para o login
-          </Button>
+          {needsEmailConfirmation && (
+            <Button
+              variant="outline"
+              className="w-full h-11"
+              onClick={() => navigate({ to: "/verificar-email" })}
+            >
+              Ver instruções do e-mail
+            </Button>
+          )}
         </div>
       </AuthLayout>
     );
@@ -164,15 +177,23 @@ function SignUpPage() {
           </div>
         ) : undefined
       }
+      showLegalNotice={false}
     >
       <div className="space-y-5">
         <GoogleAuthButton
           label="Cadastrar com Google"
-          onStart={() => setGoogleLoading(true)}
-          onError={() => setGoogleLoading(false)}
+          onStart={() => {
+            setFormError(null);
+            setGoogleLoading(true);
+          }}
+          onError={(message) => {
+            setGoogleLoading(false);
+            setFormError(message);
+          }}
         />
         <AuthDivider label="ou cadastre-se com e-mail" />
         <form onSubmit={onSubmit} className="space-y-4">
+          <AuthFormAlert message={formError} />
           {isPaid && (
             <div className="flex items-center gap-2 rounded-[8px] bg-primary-subtle px-3 py-2 text-body-sm">
               <span className="font-medium text-primary">Plano {PAID[plan!] ?? plan}</span>
@@ -187,11 +208,16 @@ function SignUpPage() {
               id="fullName"
               autoComplete="name"
               placeholder="Seu nome completo"
+              className="h-11"
               disabled={submitting || googleLoading}
+              aria-invalid={!!errors.fullName}
+              aria-describedby={errors.fullName ? "signup-name-error" : undefined}
               {...register("fullName")}
             />
             {errors.fullName && (
-              <p className="text-caption text-destructive">{errors.fullName.message}</p>
+              <p id="signup-name-error" className="text-caption text-destructive">
+                {errors.fullName.message}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -203,11 +229,16 @@ function SignUpPage() {
               type="email"
               autoComplete="email"
               placeholder="seu@email.com"
+              className="h-11"
               disabled={submitting || googleLoading}
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "signup-email-error" : undefined}
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-caption text-destructive">{errors.email.message}</p>
+              <p id="signup-email-error" className="text-caption text-destructive">
+                {errors.email.message}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -225,20 +256,11 @@ function SignUpPage() {
               error={errors.password?.message}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-body-sm">
-              Confirmar senha
-            </Label>
-            <PasswordInput
-              id="confirmPassword"
-              autoComplete="new-password"
-              placeholder="Repita sua senha"
-              disabled={submitting || googleLoading}
-              {...register("confirmPassword")}
-              error={errors.confirmPassword?.message}
-            />
-          </div>
-          <TermsGate accepted={terms} onAcceptChange={setTerms} />
+          <TermsGate
+            accepted={terms}
+            onAcceptChange={setTerms}
+            disabled={submitting || googleLoading}
+          />
           <Button
             type="submit"
             className="w-full h-11"
@@ -246,6 +268,9 @@ function SignUpPage() {
           >
             {submitting ? "Criando sua conta…" : "Criar minha conta"}
           </Button>
+          <p className="-mt-1 text-center text-caption text-muted-foreground">
+            Comece gratuitamente. Sem cartão de crédito.
+          </p>
         </form>
       </div>
     </AuthLayout>

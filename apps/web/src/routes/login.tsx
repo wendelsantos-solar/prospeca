@@ -3,8 +3,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
-import { toast } from "sonner";
 import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthFormAlert } from "@/components/auth/AuthFormAlert";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { AuthDivider } from "@/components/auth/AuthDivider";
 import { PasswordInput } from "@/components/auth/PasswordInput";
@@ -35,6 +35,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -52,6 +53,7 @@ function LoginPage() {
     );
 
   const onSubmit = handleSubmit(async (data) => {
+    setFormError(null);
     setSubmitting(true);
     track("email_login_started");
     try {
@@ -66,7 +68,7 @@ function LoginPage() {
       track("email_login_failed", {
         error_category: err instanceof Error ? "credentials" : "unknown",
       });
-      toast.error(err instanceof Error ? err.message : "Falha ao entrar.");
+      setFormError(err instanceof Error ? err.message : "Falha ao entrar.");
     } finally {
       setSubmitting(false);
     }
@@ -87,14 +89,23 @@ function LoginPage() {
           </Link>
         </span>
       }
+      showLegalNotice={false}
     >
       <div className="space-y-5">
         <GoogleAuthButton
-          onStart={() => setGoogleLoading(true)}
-          onError={() => setGoogleLoading(false)}
+          label="Entrar com Google"
+          onStart={() => {
+            setFormError(null);
+            setGoogleLoading(true);
+          }}
+          onError={(message) => {
+            setGoogleLoading(false);
+            setFormError(message);
+          }}
         />
         <AuthDivider />
         <form onSubmit={onSubmit} className="space-y-4">
+          <AuthFormAlert message={formError} />
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-body-sm">
               E-mail
@@ -104,11 +115,16 @@ function LoginPage() {
               type="email"
               autoComplete="email"
               placeholder="seu@email.com"
+              className="h-11"
               disabled={submitting || googleLoading}
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "login-email-error" : undefined}
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-caption text-destructive">{errors.email.message}</p>
+              <p id="login-email-error" className="text-caption text-destructive">
+                {errors.email.message}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">

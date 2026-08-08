@@ -86,7 +86,7 @@ export function MarketingHeader() {
                 asChild
                 onClick={() => track("hero_cta_clicked", { location: "header" })}
               >
-                <Link to="/cadastro">Criar conta grátis</Link>
+                <Link to="/cadastro">Começar grátis</Link>
               </Button>
             </>
           )}
@@ -161,7 +161,7 @@ export function MarketingHeader() {
                   track("hero_cta_clicked", { location: "header_mobile" });
                 }}
               >
-                Criar conta grátis
+                Encontrar oportunidades grátis
               </Link>
             </>
           )}

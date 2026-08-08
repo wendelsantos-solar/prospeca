@@ -19,7 +19,9 @@ import {
   type SortValue,
 } from "@/lib/constants";
 import { isDemoMode } from "@/lib/env";
+import { track } from "@/lib/analytics";
 import { seedDemoLeads } from "@/repositories";
+import { useActivationStore } from "@/stores/activation";
 
 function seedRepo(leads: Lead[]) {
   if (!isDemoMode) return;
@@ -182,6 +184,12 @@ const defaultFilters: LeadFilters = { quick: [] };
 const now = () => new Date().toISOString();
 let seq = 0;
 const uid = (p: string) => `${p}-${Date.now()}-${++seq}`;
+
+function recordLeadViewed(surface: "discovery" | "pipeline", score?: number) {
+  const metadata = { surface, ...(score == null ? {} : { score }) };
+  track("lead_viewed", metadata);
+  useActivationStore.getState().mark("firstLeadViewed", metadata);
+}
 
 export const useLeadsStore = create<LeadsState>()(
   persist(
@@ -364,8 +372,14 @@ export const useLeadsStore = create<LeadsState>()(
       selectVisible: (ids, limit = BULK_SELECTION_LIMIT) =>
         set({ selectedIds: ids.slice(0, limit) }),
       setFocused: (focusedId) => set({ focusedId }),
-      setDetails: (detailsId) => set({ detailsId }),
-      setPreview: (preview) => set({ preview }),
+      setDetails: (detailsId) => {
+        if (detailsId) recordLeadViewed("pipeline");
+        set({ detailsId, ...(detailsId ? { preview: null } : {}) });
+      },
+      setPreview: (preview) => {
+        if (preview) recordLeadViewed("discovery", preview.score);
+        set({ preview, ...(preview ? { detailsId: null } : {}) });
+      },
       setPendingWin: (pendingWinId) => set({ pendingWinId }),
       setPendingDiscard: (pendingDiscardId) => set({ pendingDiscardId }),
       reorderInColumn: (_stage, orderedIds) =>

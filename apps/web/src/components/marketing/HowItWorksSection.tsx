@@ -36,9 +36,9 @@ const TABS: TabDef[] = [
     key: "search",
     icon: <Search className="h-4 w-4" />,
     label: "Busca",
-    title: "Encontre seu ICP em segundos",
+    title: "Encontre o tipo certo de empresa",
     description:
-      "Defina nicho, região e raio. A plataforma varre CNPJs e Google Maps e devolve uma lista ranqueada com dados reais de cada empresa.",
+      "Defina o tipo de empresa, a região e o raio. A plataforma consulta CNPJs e Google Maps e devolve uma lista ranqueada com dados reais.",
   },
   {
     key: "score",

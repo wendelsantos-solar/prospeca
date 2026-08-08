@@ -8,8 +8,10 @@ import { useOutbound } from "@/hooks/useOutbound";
 import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useActivationStore } from "@/stores/activation";
 
 type Temperature = DiscoveryResult["temperature"];
 
@@ -143,6 +145,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
   const addToFunnel = useAddToFunnelMutation();
   const enrichDiscovery = useEnrichDiscoveryMutation();
   const { openWhatsApp } = useOutbound();
+  const markMilestone = useActivationStore((state) => state.mark);
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
   const missingContact = !result.email && !result.instagram && !result.whatsapp;
@@ -160,17 +163,27 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     }
   };
 
-  const openWhats = () => {
-    void openWhatsApp(result, {
+  const openWhats = async () => {
+    const sent = await openWhatsApp(result, {
       // Contacting a discovered business materializes it as 'contacted'.
       materialize: inFunnel ? undefined : { searchId, placeId: result.placeId },
     });
+    if (sent && !inFunnel) {
+      track("lead_added_to_pipeline", { source: "whatsapp", score: result.score });
+      markMilestone("firstLeadAdded", { source: "whatsapp", score: result.score });
+    }
   };
 
   const addFunnel = () =>
     addToFunnel.mutate(
       { searchId, placeId: result.placeId, stage: "new" },
-      { onSuccess: () => toast.success("Adicionado ao funil") },
+      {
+        onSuccess: () => {
+          toast.success("Adicionado ao funil");
+          track("lead_added_to_pipeline", { source: "discovery", score: result.score });
+          markMilestone("firstLeadAdded", { source: "discovery", score: result.score });
+        },
+      },
     );
 
   // Only offer WhatsApp when one can actually be resolved (landline → no button).
@@ -242,7 +255,7 @@ export const DiscoveryCard = memo(function DiscoveryCard({
             tone="primary"
             onClick={(e) => {
               e.stopPropagation();
-              openWhats();
+              void openWhats();
             }}
           >
             <MessageCircle className="h-3 w-3" /> WhatsApp

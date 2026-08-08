@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/env";
 
 // ── Redirect preservation ────────────────────────────────────────────────
 const RETURN_TO_KEY = "radar-local:returnTo";
+const PENDING_VERIFICATION_EMAIL_KEY = "prospeca:pending-verification-email";
 const REDIRECT_ALLOWLIST = [
   "/app",
   "/app/mapa",
@@ -40,6 +41,33 @@ export function consumeReturnTo(): string | null {
     return s && isAllowedRedirect(s) ? s : null;
   } catch {
     return null;
+  }
+}
+
+export function rememberPendingVerificationEmail(email: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, email);
+  } catch {
+    /* noop */
+  }
+}
+
+export function readPendingVerificationEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingVerificationEmail(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
+  } catch {
+    /* noop */
   }
 }
 
@@ -104,6 +132,15 @@ export async function signUp(
   });
   if (error) throw new Error(traduzErroAuth(error.message));
   return data;
+}
+
+export async function resendSignupEmail(email: string) {
+  const { error } = await getSupabase().auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${window.location.origin}/verificar-email` },
+  });
+  if (error) throw new Error(traduzErroAuth(error.message));
 }
 
 export async function requestPasswordReset(email: string) {

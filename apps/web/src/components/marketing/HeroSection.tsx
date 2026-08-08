@@ -37,12 +37,12 @@ export function HeroSection() {
             <SocialProofBadges />
 
             <h1 className="mx-auto mt-6 max-w-[680px] text-[2.65rem] font-bold leading-[1.01] tracking-[-0.04em] text-foreground md:text-[3.35rem] lg:mx-0 lg:text-[3.8rem] xl:text-[4.2rem]">
-              Encontre negócios locais com <span className="text-primary">alto potencial</span>
+              Encontre quem abordar primeiro — <span className="text-primary">e por quê</span>
             </h1>
 
             <p className="mx-auto mt-6 max-w-[560px] text-[16px] leading-relaxed text-muted-foreground md:text-[17px] lg:mx-0">
-              Pesquise por nicho e região, identifique sinais comerciais reais e saiba quais
-              empresas merecem sua atenção primeiro.
+              Pesquise empresas por nicho e região, identifique sinais reais de oportunidade e
+              organize o próximo contato — sempre com você no controle.
             </p>
 
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -53,7 +53,7 @@ export function HeroSection() {
                 onClick={() => track("hero_cta_clicked", { location: "hero_primary" })}
               >
                 <Link to="/cadastro">
-                  Criar conta grátis
+                  Encontrar oportunidades grátis
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Link>
               </Button>
@@ -63,12 +63,12 @@ export function HeroSection() {
                 className="h-12 px-7 text-[15px] border-border/80"
                 asChild
               >
-                <a href="#como-funciona">Ver como funciona</a>
+                <a href="#como-funciona">Ver uma busca real</a>
               </Button>
             </div>
 
             <p className="mt-4 text-xs text-muted-foreground">
-              Sem cartão de crédito. Configure sua primeira busca em poucos minutos.
+              Sem cartão de crédito. Sua primeira lista em poucos minutos.
             </p>
           </div>
 

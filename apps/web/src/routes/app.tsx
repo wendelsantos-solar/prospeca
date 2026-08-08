@@ -32,6 +32,7 @@ import { MapIcon, Sunrise, Kanban, BarChart3, Search } from "lucide-react";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
+import { ActivationChecklist } from "@/components/app/ActivationChecklist";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
@@ -41,6 +42,7 @@ import { usePendingInvitation } from "@/hooks/usePendingInvitation";
 import { useTenant } from "@/lib/tenant";
 import { setAnalyticsContext } from "@/lib/analytics";
 import { isDemoMode, isRealMode, realConfigMissing } from "@/lib/env";
+import { useActivationStore } from "@/stores/activation";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -170,12 +172,42 @@ function AppLayout() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [routeOpen, setRouteOpen] = useState(false);
   const onboarding = useOnboarding();
+  const onboardingProgress = onboarding.progress;
+  const onboardingLoaded = onboarding.loaded;
+  const onboardingCompleted = onboarding.isCompleted;
+  const saveOnboarding = onboarding.save;
+  const configureActivation = useActivationStore((state) => state.configure);
   // Dismissing is local UI state; the wizard itself already persisted
   // completed/skipped via onboarding.save before calling these.
   const [dismissedLocally, setDismissedLocally] = useState(false);
   // Gate on `loaded` (real mode fetches the profile async) so an in-flight
   // request doesn't flash the wizard open for an already-onboarded user.
-  const showOnboarding = onboarding.loaded && !onboarding.isCompleted && !dismissedLocally;
+  const showOnboarding = onboardingLoaded && !onboardingCompleted && !dismissedLocally;
+
+  useEffect(() => {
+    if (!onboardingLoaded) return;
+    const legacyCompleted =
+      onboardingProgress?.completed &&
+      !onboardingProgress.searchDraft &&
+      !onboardingProgress.milestones;
+    const initialMilestones = legacyCompleted
+      ? {
+          firstSearch: true,
+          firstLeadViewed: true,
+          firstLeadAdded: true,
+          firstMessagePrepared: true,
+        }
+      : onboardingProgress?.milestones;
+    configureActivation(initialMilestones, (milestones) => {
+      saveOnboarding({
+        step: onboardingProgress?.step ?? 0,
+        completed: onboardingProgress?.completed ?? false,
+        skippedSteps: onboardingProgress?.skippedSteps ?? [],
+        searchDraft: onboardingProgress?.searchDraft,
+        milestones,
+      });
+    });
+  }, [configureActivation, onboardingLoaded, onboardingProgress, saveOnboarding]);
 
   // Consome o convite pendente do cadastro (entra na organização que convidou).
   usePendingInvitation();
@@ -226,36 +258,42 @@ function AppLayout() {
     <AuthGate>
       <ErrorBoundary location="AppLayout">
         <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
-          <NavRail />
-          <AppSidebar />
-          <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
-            <TopNav />
-            {showOnboarding && (
-              <div className="px-3 pt-3">
-                <OnboardingWizard
-                  onComplete={handleOnboardingComplete}
-                  onSkip={handleOnboardingSkip}
-                  initialProgress={onboarding.progress ?? undefined}
-                  onSaveProgress={onboarding.save}
-                />
-              </div>
-            )}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Outlet />
-            </div>
-          </main>
-          <MobileNav />
-          <Suspense fallback={null}>
-            <LeadDetailsDrawer />
-          </Suspense>
-          <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
-          <RouteDialog open={routeOpen} onOpenChange={setRouteOpen} />
-          <Suspense fallback={null}>
-            <WonDialog />
-          </Suspense>
-          <Suspense fallback={null}>
-            <DiscardDialog />
-          </Suspense>
+          {!onboardingLoaded ? (
+            <main className="grid min-h-dvh w-full place-items-center">
+              <p className="text-sm text-muted-foreground">Preparando seu workspace…</p>
+            </main>
+          ) : showOnboarding ? (
+            <OnboardingWizard
+              onComplete={handleOnboardingComplete}
+              onSkip={handleOnboardingSkip}
+              initialProgress={onboardingProgress ?? undefined}
+              onSaveProgress={saveOnboarding}
+            />
+          ) : (
+            <>
+              <NavRail />
+              <AppSidebar />
+              <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
+                <TopNav />
+                <ActivationChecklist />
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <Outlet />
+                </div>
+              </main>
+              <MobileNav />
+              <Suspense fallback={null}>
+                <LeadDetailsDrawer />
+              </Suspense>
+              <BulkMessageDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+              <RouteDialog open={routeOpen} onOpenChange={setRouteOpen} />
+              <Suspense fallback={null}>
+                <WonDialog />
+              </Suspense>
+              <Suspense fallback={null}>
+                <DiscardDialog />
+              </Suspense>
+            </>
+          )}
           <DemoModeBanner />
         </div>
       </ErrorBoundary>

@@ -97,7 +97,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
+          "Encontre empresas por nicho e região, entenda o score de oportunidade e organize o próximo contato com você no controle.",
       },
       { property: "og:title", content: "Prospeca" },
       { property: "og:description", content: "Encontre, qualifique e converta negócios locais." },
@@ -143,7 +143,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description:
-            "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
+            "Encontre empresas por nicho e região, entenda o score de oportunidade e organize o próximo contato com você no controle.",
           url: "https://prospeca.com.br",
           offers: {
             "@type": "Offer",
