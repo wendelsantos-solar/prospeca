@@ -10,6 +10,11 @@ import { track } from "@/lib/analytics";
 export function HeroSection() {
   return (
     <section id="produto" className="relative overflow-hidden pt-24 md:pt-32 lg:pt-36">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute left-1/2 top-0 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute left-1/2 top-1/3 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/10" />
+        <div className="absolute left-1/2 top-1/3 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/5" />
+      </div>
       <MarketingContainer width="default">
         <div className="mx-auto max-w-3xl text-center">
           <SocialProofBadges />
