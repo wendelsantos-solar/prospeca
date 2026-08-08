@@ -42,15 +42,15 @@ export function PipelineSection() {
     <MarketingSection spacing="lg">
       <MarketingContainer width="wide">
         <SectionHeading
-          eyebrow="Pipeline"
+          eyebrow="Acompanhe"
           title={
             <>
-              Da descoberta ao fechamento,
+              Pipeline visual:
               <br />
-              sem perder o contexto
+              cada lead no seu estágio
             </>
           }
-          description="Mova leads entre estágios, registre follow-ups e veja seu funil crescer — tudo num quadro visual."
+          description="Arraste entre colunas, defina próximas ações e nunca perca o momento certo de fazer o follow-up."
           center
         />
         <div className="mt-12 grid gap-3 md:grid-cols-5">

@@ -1,98 +1,60 @@
-import { TrendingUp, GitBranch, FileSpreadsheet, MessageCircle } from "lucide-react";
+import { TrendingUp, GitBranch, FileSpreadsheet, MessageCircle, Search, MapPin, Building2 } from "lucide-react";
 import { GoogleIcon, WhatsAppIcon } from "./brand-icons";
 
 /**
- * Orbital constellation — SVG ellipses + badges sharing the same coordinate
- * system inside a single centered container.
+ * Orbital constellation — SVG ellipses with white circular badges at precise
+ * points. All elements share one coordinate system inside a centered container,
+ * so badges always land exactly on the orbit lines regardless of screen size.
  *
- * Container is centered at the headline position (--orbit-center-y from top,
- * 50% from left). Inside it, the SVG draws 3 concentric ellipses and the
- * badges are positioned absolutely using viewBox coordinates — so they always
- * sit exactly on the ellipse paths, at any screen size.
+ * 8 badges at 45° intervals on the outer ellipse.
  */
 
-interface BadgeSpec {
-  icon: React.ReactNode;
-  label: string;
-  /** Position in viewBox space (0-1200, 0-900) */
-  x: number;
-  y: number;
-  delay: string;
-}
-
-// ViewBox dimensions
 const VB_W = 1200;
 const VB_H = 900;
-const CX = VB_W / 2; // 600
-const CY = VB_H / 2; // 450
+const CX = VB_W / 2;
+const CY = VB_H / 2;
 
-// Middle ellipse radii (where badges sit)
-const RX = 440;
-const RY = 280;
+// Outer ellipse (badges here)
+const RX = 520;
+const RY = 360;
 
-// Pre-compute badge positions at 60° intervals on the middle ellipse
-function ellipsePoint(angleDeg: number) {
-  const rad = (angleDeg * Math.PI) / 180;
+interface Badge {
+  icon: React.ReactNode;
+  label: string;
+  angle: number;
+  delay: string;
+  size: number; // px
+}
+
+function orbit(angleDeg: number) {
+  const r = (angleDeg * Math.PI) / 180;
   return {
-    x: CX + RX * Math.sin(rad),
-    y: CY - RY * Math.cos(rad),
+    x: CX + RX * Math.sin(r),
+    y: CY - RY * Math.cos(r),
   };
 }
 
-const BADGES: BadgeSpec[] = [
-  {
-    icon: <TrendingUp className="h-4 w-4 text-primary" />,
-    label: "Score 0-100",
-    ...ellipsePoint(0),
-    delay: "0s",
-  },
-  {
-    icon: <WhatsAppIcon className="h-4 w-4" />,
-    label: "WhatsApp",
-    ...ellipsePoint(60),
-    delay: "0.4s",
-  },
-  {
-    icon: <GoogleIcon className="h-4 w-4" />,
-    label: "Google Maps",
-    ...ellipsePoint(120),
-    delay: "0.8s",
-  },
-  {
-    icon: <MessageCircle className="h-4 w-4 text-primary" />,
-    label: "Mensagens",
-    ...ellipsePoint(180),
-    delay: "1.2s",
-  },
-  {
-    icon: <FileSpreadsheet className="h-4 w-4 text-[#34a853]" />,
-    label: "Exporta CSV",
-    ...ellipsePoint(240),
-    delay: "1.6s",
-  },
-  {
-    icon: <GitBranch className="h-4 w-4 text-primary" />,
-    label: "Pipeline",
-    ...ellipsePoint(300),
-    delay: "2.0s",
-  },
+const BADGES: Badge[] = [
+  { icon: <Search className="h-5 w-5 text-foreground" />, label: "Pesquisa", angle: 0, delay: "0s", size: 52 },
+  { icon: <WhatsAppIcon className="h-5 w-5" />, label: "WhatsApp", angle: 45, delay: "0.6s", size: 44 },
+  { icon: <MapPin className="h-5 w-5 text-[#ea4335]" />, label: "Google Maps", angle: 90, delay: "1.2s", size: 60 },
+  { icon: <Building2 className="h-5 w-5 text-foreground" />, label: "Empresas", angle: 135, delay: "1.8s", size: 48 },
+  { icon: <MessageCircle className="h-5 w-5 text-foreground" />, label: "Mensagens", angle: 180, delay: "2.4s", size: 52 },
+  { icon: <FileSpreadsheet className="h-5 w-5 text-[#34a853]" />, label: "Exporta CSV", angle: 225, delay: "3.0s", size: 44 },
+  { icon: <GitBranch className="h-5 w-5 text-foreground" />, label: "Pipeline", angle: 270, delay: "3.6s", size: 56 },
+  { icon: <TrendingUp className="h-5 w-5 text-foreground" />, label: "Score", angle: 315, delay: "4.2s", size: 48 },
 ];
 
 export function FloatingIcons() {
   return (
     <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
-      {/*
-        Single container, centered on the headline.
-        SVG and badges share this coordinate origin, so the badges
-        always land exactly on the ellipse paths regardless of screen size.
-      */}
+      {/* ── Centered container with aspect ratio matching viewBox ── */}
       <div
         className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{
-          top: "var(--orbit-center-y, 18%)",
-          // Aspect ratio = VB_W / VB_H = 4:3
-          width: "min(1100px, 90vw)",
-          height: "calc(min(1100px, 90vw) * 0.75)",
+          top: "var(--orbit-center-y, 46%)",
+          width: "min(1200px, 94vw)",
+          height: "calc(min(1200px, 94vw) * 0.75)",
         }}
       >
         {/* ── SVG orbit traces ── */}
@@ -101,52 +63,55 @@ export function FloatingIcons() {
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Outer ellipse */}
-          <ellipse
-            cx={CX} cy={CY} rx={520} ry={340}
-            fill="none"
-            stroke="var(--color-border)"
-            strokeWidth="1"
-            opacity="0.35"
-          />
-          {/* Middle ellipse — badges on this ring */}
-          <ellipse
-            cx={CX} cy={CY} rx={RX} ry={RY}
-            fill="none"
-            stroke="var(--color-border)"
-            strokeWidth="1"
-            opacity="0.25"
-          />
-          {/* Inner ellipse — subtle accent */}
-          <ellipse
-            cx={CX} cy={CY} rx={340} ry={200}
-            fill="none"
-            stroke="var(--color-primary)"
-            strokeWidth="1.5"
-            opacity="0.1"
-            strokeDasharray="60 9999"
-          />
+          {/* Outer orbit */}
+          <ellipse cx={CX} cy={CY} rx={RX} ry={RY}
+            fill="none" stroke="currentColor" strokeWidth="0.7"
+            className="text-border opacity-30" />
+          {/* Middle orbit */}
+          <ellipse cx={CX} cy={CY} rx={390} ry={260}
+            fill="none" stroke="currentColor" strokeWidth="0.7"
+            className="text-border opacity-20" />
+          {/* Inner orbit — subtle accent */}
+          <ellipse cx={CX} cy={CY} rx={250} ry={160}
+            fill="none" stroke="currentColor" strokeWidth="1"
+            className="text-primary/12" />
         </svg>
 
         {/* ── Badges ── */}
-        {BADGES.map((badge) => (
-          <div
-            key={badge.label}
-            className="animate-float absolute flex items-center gap-2 rounded-full border border-border/60 bg-surface/90 px-3 py-2 shadow-card backdrop-blur-sm"
-            style={{
-              // Convert viewBox coords to percentage of container
-              left: `${(badge.x / VB_W) * 100}%`,
-              top: `${(badge.y / VB_H) * 100}%`,
-              transform: "translate(-50%, -50%)",
-              animationDelay: badge.delay,
-            }}
-          >
-            {badge.icon}
-            <span className="text-[11px] font-semibold whitespace-nowrap text-foreground">
-              {badge.label}
-            </span>
-          </div>
-        ))}
+        {BADGES.map((b) => {
+          const p = orbit(b.angle);
+          return (
+            <div
+              key={b.label}
+              className="animate-float-slow absolute flex flex-col items-center gap-1"
+              style={{
+                left: `${(p.x / VB_W) * 100}%`,
+                top: `${(p.y / VB_H) * 100}%`,
+                animationDelay: b.delay,
+              }}
+            >
+              {/* White circle badge */}
+              <div
+                className="flex items-center justify-center rounded-full bg-white"
+                style={{
+                  width: b.size,
+                  height: b.size,
+                  border: "1px solid rgba(15, 23, 42, 0.06)",
+                  boxShadow: "0 6px 20px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03)",
+                }}
+              >
+                {b.icon}
+              </div>
+              {/* Label below */}
+              <span
+                className="text-[10px] font-medium whitespace-nowrap rounded-full px-2 py-0.5"
+                style={{ color: "var(--color-muted-foreground)" }}
+              >
+                {b.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

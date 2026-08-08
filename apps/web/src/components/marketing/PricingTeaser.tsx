@@ -51,13 +51,18 @@ function PricingCard({ plan, highlighted }: { plan: BillingPlan; highlighted?: b
       )}
       <h3 className="text-base font-semibold text-foreground">{plan.name}</h3>
       <p className="mt-1 text-body text-muted-foreground">{plan.description ?? ""}</p>
-      <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-display font-bold text-foreground">
-          {formatPriceCents(plan.monthlyPriceCents)}
-        </span>
+      <div className="mt-1">
         {!isFree && plan.monthlyPriceCents !== null && (
-          <span className="text-body text-muted-foreground">/mês</span>
+          <p className="text-[11px] text-muted-foreground">a partir de</p>
         )}
+        <div className="flex items-baseline gap-1">
+          <span className="text-display font-bold text-foreground">
+            {formatPriceCents(plan.monthlyPriceCents)}
+          </span>
+          {!isFree && plan.monthlyPriceCents !== null && (
+            <span className="text-body text-muted-foreground">/mês</span>
+          )}
+        </div>
       </div>
       <ul className="mt-5 flex-1 space-y-2.5">
         {features.map((f) => (
@@ -126,8 +131,9 @@ export function PricingTeaser() {
             <p className="mt-1 text-body text-muted-foreground">
               Para operações com meta agressiva e times maiores.
             </p>
-            <div className="mt-4">
-              <span className="text-display font-bold text-foreground">Personalizado</span>
+            <div className="mt-1">
+              <p className="text-[11px] text-muted-foreground">a partir de</p>
+              <span className="text-[2rem] font-bold tracking-tight text-foreground">Personalizado</span>
             </div>
             <ul className="mt-5 flex-1 space-y-2.5">
               {[

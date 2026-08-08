@@ -33,17 +33,17 @@ export function MapSection() {
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.2fr]">
           <div>
             <SectionHeading
-              eyebrow="Mapa"
+              eyebrow="Descubra"
               title={
                 <>
-                  Veja onde estão suas
+                  Veja no mapa onde estão
                   <br />
-                  próximas oportunidades
+                  suas próximas oportunidades
                 </>
               }
-              description="Visualize concentrações de empresas por bairro e priorize por distância real até você."
+              description="Empresas encontradas aparecem no mapa com o score visível. Filtre por região e priorize por distância real."
             />
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {BENEFITS.map((b) => (
                 <div
                   key={b.label}

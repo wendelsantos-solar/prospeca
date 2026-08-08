@@ -19,9 +19,15 @@ export function OpportunitySection() {
         <div className="grid items-center gap-10 md:grid-cols-2">
           <div>
             <SectionHeading
-              eyebrow="Oportunidades"
-              title="Uma lista de empresas não é suficiente."
-              description="A Prospeca analisa os sinais disponíveis e ajuda você a identificar quais negócios merecem atenção primeiro."
+              eyebrow="Encontre e priorize"
+              title={
+                <>
+                  Uma lista não basta.
+                  <br />
+                  Você precisa de um score.
+                </>
+              }
+              description="Cada empresa recebe uma nota de 0 a 100 baseada em site, telefone, WhatsApp, avaliações e distância. Você sabe exatamente por onde começar."
             />
             <Button className="mt-6" asChild>
               <Link to="/cadastro">

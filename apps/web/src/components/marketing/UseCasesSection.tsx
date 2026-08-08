@@ -41,7 +41,13 @@ export function UseCasesSection() {
       <MarketingContainer width="default">
         <SectionHeading
           eyebrow="Para quem é"
-          title="Feito para quem vende serviço pra negócio local"
+          title={
+            <>
+              Feito para quem vende
+              <br />
+              serviço pra negócio local
+            </>
+          }
           description="Freelancers, agências pequenas e consultores que prospectam empresas locais."
           center
         />

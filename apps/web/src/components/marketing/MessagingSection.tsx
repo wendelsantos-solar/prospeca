@@ -19,8 +19,15 @@ export function MessagingSection() {
         <div className="grid items-center gap-10 md:grid-cols-2">
           <div>
             <SectionHeading
-              eyebrow="Mensagens"
-              title="Abordagens personalizadas sem começar do zero."
+              eyebrow="Aborde e converta"
+              title={
+                <>
+                  Mensagens prontas,
+                  <br />
+                  abordagem com contexto
+                </>
+              }
+              description="Nome do dono, dor do negócio e oportunidade detectada — tudo preenchido automaticamente. Você revisa, confirma e envia."
             />
             <ul className="mt-6 space-y-3">
               {HIGHLIGHTS.map((h) => (
