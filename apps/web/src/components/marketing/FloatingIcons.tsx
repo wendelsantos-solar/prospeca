@@ -18,11 +18,13 @@ interface FloatingIconSpec {
  * product actually does. No Google Calendar: that integration doesn't
  * exist yet.
  */
+// Kept within 0-100% on both axes — the hero section has overflow-hidden,
+// so anything positioned outside the container bounds gets clipped.
 const ICONS: FloatingIconSpec[] = [
   {
     Icon: WhatsAppIcon,
     top: "6%",
-    left: "-4%",
+    left: "2%",
     delay: "0s",
     bg: "bg-[#25D366]/10",
     iconClass: "text-[#25D366]",
@@ -30,16 +32,16 @@ const ICONS: FloatingIconSpec[] = [
   {
     Icon: MapPin,
     top: "58%",
-    left: "-6%",
+    left: "3%",
     delay: "0.6s",
     bg: "bg-primary-soft",
     iconClass: "text-primary",
   },
-  { Icon: GoogleIcon, top: "88%", left: "10%", delay: "1.2s", bg: "bg-surface", iconClass: "" },
+  { Icon: GoogleIcon, top: "88%", left: "12%", delay: "1.2s", bg: "bg-surface", iconClass: "" },
   {
     Icon: Target,
     top: "4%",
-    left: "92%",
+    left: "90%",
     delay: "0.3s",
     bg: "bg-primary-soft",
     iconClass: "text-primary",
@@ -47,7 +49,7 @@ const ICONS: FloatingIconSpec[] = [
   {
     Icon: GitBranch,
     top: "52%",
-    left: "100%",
+    left: "97%",
     delay: "0.9s",
     bg: "bg-primary-soft",
     iconClass: "text-primary",
@@ -55,7 +57,7 @@ const ICONS: FloatingIconSpec[] = [
   {
     Icon: MessageCircle,
     top: "86%",
-    left: "82%",
+    left: "84%",
     delay: "1.5s",
     bg: "bg-primary-soft",
     iconClass: "text-primary",
