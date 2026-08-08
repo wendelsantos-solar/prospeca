@@ -38,15 +38,15 @@ function PricingCard({ plan, highlighted }: { plan: BillingPlan; highlighted?: b
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border p-6",
+        "relative flex flex-col rounded-2xl border p-6",
         highlighted
-          ? "border-primary bg-surface shadow-card ring-1 ring-primary/20"
+          ? "border-primary bg-surface shadow-elevated ring-1 ring-primary/30"
           : "border-border bg-surface",
       )}
     >
       {highlighted && (
-        <span className="mb-3 w-fit rounded-full bg-primary-soft px-3 py-0.5 text-caption font-semibold text-primary">
-          Mais escolhido
+        <span className="-top-3.5 absolute left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground shadow-card">
+          Mais popular
         </span>
       )}
       <h3 className="text-base font-semibold text-foreground">{plan.name}</h3>
@@ -106,8 +106,14 @@ export function PricingTeaser() {
       <MarketingContainer width="default">
         <SectionHeading
           eyebrow="Preços"
-          title="Um plano pra cada estágio da sua prospecção"
-          description="Comece de graça. Peça acesso ao piloto pago quando fizer sentido."
+          title={
+            <>
+              Planos que custam menos
+              <br />
+              que contratar um SDR
+            </>
+          }
+          description="7 dias grátis no Profissional. Cancele quando quiser. Sem letra miúda."
           center
         />
         {shown.length > 0 && (

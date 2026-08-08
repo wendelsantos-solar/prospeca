@@ -420,6 +420,11 @@
       stroke-dashoffset: 0;
     }
   }
+  /* Logo carousel — infinite linear scroll, duplicated for seamless loop */
+  @keyframes logo-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
 
   .animate-fade-in {
     animation: fade-in 0.6s var(--ease-enter) forwards;
@@ -438,13 +443,17 @@
     stroke-dashoffset: 100;
     animation: draw-arc 1s var(--ease-enter) forwards;
   }
+  .animate-logo-scroll {
+    animation: logo-scroll 42s linear infinite;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .animate-fade-in,
     .animate-slide-up,
     .animate-pulse-soft,
     .animate-float,
-    .animate-draw-arc {
+    .animate-draw-arc,
+    .animate-logo-scroll {
       animation: none;
       opacity: 1;
       transform: none;

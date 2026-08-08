@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SalesContactForm } from "./SalesContactForm";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -32,13 +33,13 @@ export function MarketingHeader() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 w-full border-b transition-colors",
+        "fixed left-1/2 top-3 z-40 w-[calc(100%-24px)] max-w-7xl -translate-x-1/2 rounded-2xl border transition-all duration-300",
         scrolled
-          ? "border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-          : "border-transparent bg-background",
+          ? "border-border bg-surface/85 shadow-elevated backdrop-blur-lg supports-[backdrop-filter]:bg-surface/75"
+          : "border-border/60 bg-surface/80 backdrop-blur-md supports-[backdrop-filter]:bg-surface/70",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 items-center justify-between px-4 md:px-5">
         <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Prospeca — Início">
           <LogoMark className="h-5 w-5 text-primary" />
           <span className="text-base font-semibold tracking-tight text-foreground">Prospeca</span>
@@ -73,6 +74,14 @@ export function MarketingHeader() {
             </Button>
           ) : (
             <>
+              <SalesContactForm
+                source="header"
+                trigger={
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                    Falar com vendas
+                  </Button>
+                }
+              />
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/login">Entrar</Link>
               </Button>
@@ -100,7 +109,7 @@ export function MarketingHeader() {
 
       <div
         className={cn(
-          "overflow-hidden border-t border-border bg-background transition-all duration-200 md:hidden",
+          "overflow-hidden rounded-b-2xl border-t border-border bg-surface transition-all duration-300 md:hidden",
           open ? "max-h-[500px]" : "max-h-0 border-transparent",
         )}
       >

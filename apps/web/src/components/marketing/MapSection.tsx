@@ -32,7 +32,17 @@ export function MapSection() {
       <MarketingContainer width="wide">
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.2fr]">
           <div>
-            <SectionHeading eyebrow="Mapa" title="Veja onde estão suas próximas oportunidades." />
+            <SectionHeading
+              eyebrow="Mapa"
+              title={
+                <>
+                  Veja onde estão suas
+                  <br />
+                  próximas oportunidades
+                </>
+              }
+              description="Visualize concentrações de empresas por bairro e priorize por distância real até você."
+            />
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {BENEFITS.map((b) => (
                 <div

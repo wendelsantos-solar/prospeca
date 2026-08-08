@@ -1,79 +1,102 @@
-import { Target, GitBranch, MessageCircle, MapPin, type LucideIcon } from "lucide-react";
+import { MapPin, TrendingUp, GitBranch, FileSpreadsheet, MessageCircle } from "lucide-react";
 import { GoogleIcon, WhatsAppIcon } from "./brand-icons";
 
-interface FloatingIconSpec {
-  Icon: LucideIcon | typeof GoogleIcon;
-  top: string;
-  left: string;
+/**
+ * Integration orbit — badges positioned in an elliptical pattern around
+ * the hero headline, exactly like Kaptto's ".ob" constellation.
+ *
+ * Reference point: left 50% / top 45% (hero content center).
+ * Each badge is offset by a calc() expression to create the orbit.
+ *
+ * On mobile (<900px) the orbit is hidden to keep the hero clean.
+ */
+
+interface BadgeSpec {
+  icon: React.ReactNode;
+  label: string;
+  /** Horizontal offset from center — negative = left, positive = right */
+  x: string;
+  /** Vertical offset from center — negative = up, positive = down */
+  y: string;
+  /** Animation delay for the float */
   delay: string;
-  bg: string;
-  iconClass: string;
+  /** Extra classes */
+  className?: string;
 }
 
-/**
- * Icons orbiting the hero product demo. Only WhatsApp and Google represent
- * real integrations (wa.me deep link, Google OAuth login). MapPin is a
- * generic location glyph — not a reproduction of Google's Maps logo — and
- * the rest are conceptual (score, pipeline, messaging), matching what the
- * product actually does. No Google Calendar: that integration doesn't
- * exist yet.
- */
-// Kept within 0-100% on both axes — the hero section has overflow-hidden,
-// so anything positioned outside the container bounds gets clipped.
-const ICONS: FloatingIconSpec[] = [
+const BADGES: BadgeSpec[] = [
+  // ── Left side (counter-clockwise) ──
   {
-    Icon: WhatsAppIcon,
-    top: "6%",
-    left: "2%",
+    icon: <WhatsAppIcon className="h-4 w-4" />,
+    label: "WhatsApp",
+    x: "calc(50% - min(300px, 40vw))",
+    y: "calc(45% - 170px)",
     delay: "0s",
-    bg: "bg-[#25D366]",
-    iconClass: "text-white",
   },
   {
-    Icon: MapPin,
-    top: "58%",
-    left: "3%",
-    delay: "0.6s",
-    bg: "bg-primary",
-    iconClass: "text-primary-foreground",
-  },
-  { Icon: GoogleIcon, top: "88%", left: "12%", delay: "1.2s", bg: "bg-surface", iconClass: "" },
-  {
-    Icon: Target,
-    top: "4%",
-    left: "90%",
-    delay: "0.3s",
-    bg: "bg-primary",
-    iconClass: "text-primary-foreground",
+    icon: <MapPin className="h-4 w-4 text-[#ea4335]" />,
+    label: "Google Maps",
+    x: "calc(50% - min(440px, 40vw))",
+    y: "calc(45% - 10px)",
+    delay: "0.5s",
   },
   {
-    Icon: GitBranch,
-    top: "52%",
-    left: "97%",
-    delay: "0.9s",
-    bg: "bg-primary",
-    iconClass: "text-primary-foreground",
+    icon: <FileSpreadsheet className="h-4 w-4 text-[#34a853]" />,
+    label: "Exporta pra Sheets",
+    x: "calc(50% - min(300px, 40vw))",
+    y: "calc(45% + 150px)",
+    delay: "1.0s",
+  },
+
+  // ── Right side (clockwise) ──
+  {
+    icon: <TrendingUp className="h-4 w-4 text-primary" />,
+    label: "Score 0-100",
+    x: "calc(50% + min(300px, 40vw))",
+    y: "calc(45% - 170px)",
+    delay: "0.25s",
   },
   {
-    Icon: MessageCircle,
-    top: "86%",
-    left: "84%",
+    icon: <GitBranch className="h-4 w-4 text-primary" />,
+    label: "Pipeline visual",
+    x: "calc(50% + min(440px, 40vw))",
+    y: "calc(45% - 10px)",
+    delay: "0.75s",
+  },
+  {
+    icon: <MessageCircle className="h-4 w-4 text-primary" />,
+    label: "Mensagens prontas",
+    x: "calc(50% + min(300px, 40vw))",
+    y: "calc(45% + 150px)",
+    delay: "1.25s",
+  },
+  {
+    icon: <GoogleIcon className="h-4 w-4" />,
+    label: "Google login",
+    x: "calc(50% + min(440px, 40vw))",
+    y: "calc(45% + 120px)",
     delay: "1.5s",
-    bg: "bg-primary",
-    iconClass: "text-primary-foreground",
   },
 ];
 
 export function FloatingIcons() {
   return (
     <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
-      {ICONS.map(({ Icon, top, left, delay, bg, iconClass }, i) => (
+      {BADGES.map((badge) => (
         <div
-          key={i}
-          className={`animate-float absolute grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-border shadow-elevated ${bg}`}
-          style={{ top, left, animationDelay: delay }}
+          key={badge.label}
+          className="animate-float absolute flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/90 px-2.5 py-1.5 shadow-card backdrop-blur-sm"
+          style={{
+            left: badge.x,
+            top: badge.y,
+            transform: "translate(-50%, -50%)",
+            animationDelay: badge.delay,
+          }}
         >
-          <Icon className={`h-6 w-6 ${iconClass}`} />
+          {badge.icon}
+          <span className="text-[10px] font-medium whitespace-nowrap text-foreground">
+            {badge.label}
+          </span>
         </div>
       ))}
     </div>
