@@ -76,3 +76,28 @@ Nenhum número, logo ou claim de feature entra na landing sem corresponder a alg
 Sem lógica nova — mudança de copy e composição visual. Verificação:
 - `bun run typecheck`, `bun run lint`, `bun run build`
 - Checagem visual no browser: light/dark, mobile e desktop, hero com ícones flutuantes não quebrando layout em telas pequenas
+
+## Revisão 2 — acabamento visual
+
+**Data:** 2026-08-07 (mesmo dia, pós-review do usuário)
+**Motivo:** primeira versão implementada ficou fiel aos dados mas visualmente morna perto da referência (Kaptto). Gap é puramente de craft visual, não de veracidade — os 3 ajustes abaixo são decoração/estilo, nenhum introduz claim novo.
+
+### 1. Fundo decorativo no hero
+
+Glow radial suave (verde primary, blur, baixa opacidade) + 2 anéis concêntricos finos atrás do conteúdo do hero. Puro CSS (`radial-gradient` + bordas arredondadas grandes), sem texto nem claim — só profundidade visual. Fica contido pelo `overflow-hidden` já existente na section.
+
+### 2. Ícones flutuantes — versão forte
+
+`FloatingIcons.tsx`: 44px → 56px, fundo passa de tonalizado (`bg-primary-soft`) pra sólido na cor de marca:
+- WhatsApp: bolha verde sólida (`#25D366`) com ícone branco
+- Google: círculo branco com o G colorido (já é assim, mantém)
+- MapPin: fundo azul sólido (`bg-primary`) com ícone branco
+- Conceituais (Target, GitBranch, MessageCircle): fundo `bg-primary` sólido, ícone branco
+
+### 3. Card de atividade — versão rica
+
+`HeroProductDemo.tsx`: de 1 card pra 2 cards empilhados com leve rotação/offset (efeito de profundidade), reaproveitando leads existentes de `DEMO_LEADS`:
+- Card 1: "Nova empresa encontrada · Score 89 — Rústica Barbearia" (já existe)
+- Card 2 (novo, atrás/abaixo): "Mensagem pronta · Studio Aurora"
+
+Sem timestamp relativo ("há 1 min") em nenhum dos dois — mantém o guardrail de não implicar atividade em tempo real.
