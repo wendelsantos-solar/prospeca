@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { MarketingSection, MarketingContainer, SectionHeading } from "./MarketingLayout";
 import { DEMO_LEADS } from "@/marketing/demo-data";
+import { WhatsAppIcon } from "./brand-icons";
 
 const HIGHLIGHTS = [
   "Variáveis preenchidas com dados reais do lead",
@@ -33,15 +34,7 @@ export function MessagingSection() {
           <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
             <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <div className="grid h-6 w-6 place-items-center rounded bg-primary-soft text-primary">
-                <svg
-                  className="h-3.5 w-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                </svg>
+                <WhatsAppIcon className="h-3.5 w-3.5" />
               </div>
               Pré-visualização WhatsApp
             </div>
