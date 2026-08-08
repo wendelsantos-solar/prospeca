@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eyebrow, MarketingContainer } from "./MarketingLayout";
 import { HeroProductDemo } from "./HeroProductDemo";
 import { SocialProofBadges } from "./SocialProofBadges";
+import { FloatingIcons } from "./FloatingIcons";
 import { track } from "@/lib/analytics";
 
 export function HeroSection() {
@@ -51,7 +52,8 @@ export function HeroSection() {
         </div>
       </MarketingContainer>
 
-      <MarketingContainer width="showcase" className="mt-14 md:mt-16">
+      <MarketingContainer width="showcase" className="relative mt-14 md:mt-16">
+        <FloatingIcons />
         <HeroProductDemo />
       </MarketingContainer>
 
