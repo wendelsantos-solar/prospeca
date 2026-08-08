@@ -233,7 +233,7 @@ export function HeroProductDemo() {
           {/* Illustrative activity — two stacked example cards, no fake timestamps */}
           <div className="relative">
             <div
-              className="animate-slide-up absolute inset-x-2 -top-2 -z-10 -rotate-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] opacity-80 shadow-card"
+              className="animate-slide-up absolute inset-x-2 -top-2 -rotate-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] opacity-80 shadow-card"
               style={{ animationDelay: "0.6s" }}
             >
               <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export function HeroProductDemo() {
                   <MessageCircle className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Mensagem pronta</span>
+                  <span className="font-medium text-foreground">Abordagem pronta</span>
                   <span className="text-muted-foreground"> · {secondLead.companyName}</span>
                 </div>
               </div>
