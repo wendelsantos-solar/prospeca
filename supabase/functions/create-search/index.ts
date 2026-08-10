@@ -5,6 +5,7 @@ import { AppError, handleOptions, json, logEvent, newRequestId } from "../_share
 import { requireAuth } from "../_shared/auth.ts";
 import { captureError } from "../_shared/error-tracking.ts";
 import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
+import { assertUsageAvailable, recordEntitlementUsage } from "../_shared/entitlements.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
 import { readPoint } from "@leads/geo";
@@ -29,6 +30,28 @@ Deno.serve(async (req) => {
     const input = parsed.data;
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "search_request", 5);
+
+    // Entitlements gate (new system) — takes precedence over legacy quota.
+    // Falls back to legacy quota if the entitlement check passes but the
+    // legacy quota is more restrictive (e.g. pilot plan with custom limits).
+    try {
+      await assertUsageAvailable(ctx.adminClient, ctx.organizationId, "searchesPerMonth", 1);
+    } catch (entErr) {
+      if (entErr instanceof AppError && entErr.code === "PLAN_LIMIT_REACHED") {
+        throw entErr; // entitlement limit reached → block the search
+      }
+      // Entitlement system unavailable but legacy quota is the backstop.
+      console.warn(
+        JSON.stringify({
+          level: "warning",
+          event: "entitlements_degraded",
+          organizationId: ctx.organizationId,
+          message: entErr instanceof Error ? entErr.message : "Unknown",
+        }),
+      );
+    }
+
+    // Legacy quota — backstop for orgs not yet on entitlement system.
     await assertSearchQuota(ctx.adminClient, ctx.organizationId);
 
     const idempotencyKey = req.headers.get("x-idempotency-key");
@@ -106,6 +129,20 @@ Deno.serve(async (req) => {
           eventType: "search_request",
           metadata: { searchId: search.id },
         });
+
+        // Record entitlement consumption (new system) — fire-and-forget.
+        try {
+          await recordEntitlementUsage(ctx.adminClient, {
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            metric: "searchesPerMonth",
+            quantity: 1,
+            sourceType: "search",
+            sourceId: search.id,
+          });
+        } catch {
+          // Non-blocking: the legacy recordUsage above already tracks this.
+        }
         await writeAudit(ctx.adminClient, {
           organizationId: ctx.organizationId,
           actorUserId: ctx.userId,

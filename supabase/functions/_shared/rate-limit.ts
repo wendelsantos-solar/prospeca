@@ -52,11 +52,11 @@ export const scope = {
  * Aplica rate limit para a operação no escopo dado.
  * Lança RATE_LIMIT_EXCEEDED se estourar.
  *
- * Fail-open: se a checagem falhar (banco indisponível), a requisição passa —
- * decisão consciente para o beta, porque negar acesso por indisponibilidade do
- * contador é pior que deixar passar uma operação não faturável. O erro é
- * logado como `rate_limit_degraded` para ser visível. Reavaliar antes de abrir
- * cadastro público (ver docs/SECURITY_AUDIT.md).
+ * Comportamento em falha: configurável via `RATE_LIMIT_FAIL_OPEN`.
+ * - Produção (padrão): fail-closed — indisponibilidade do contador bloqueia a
+ *   operação (mais seguro para ambientes com cadastro público).
+ * - Desenvolvimento/beta: pode ser configurado como fail-open para não
+ *   bloquear operações legítimas durante incidentes de banco.
  */
 export async function assertRateLimit(
   admin: SupabaseClient,
@@ -77,19 +77,23 @@ export async function assertRateLimit(
     .gte("created_at", windowStart);
 
   if (error) {
-    // Fail-open, mas visível: sem este log o limitador pode ficar inerte sem
-    // ninguém perceber (exatamente o que aconteceu com o CHECK de usage_events).
+    const failOpen = Deno.env.get("RATE_LIMIT_FAIL_OPEN") === "true";
     console.error(
       JSON.stringify({
         level: "error",
-        event: "rate_limit_degraded",
+        event: failOpen ? "rate_limit_degraded" : "rate_limit_blocked",
         phase: "count",
         operation,
         errorCode: error.code,
         message: error.message,
       }),
     );
-    return;
+    if (failOpen) return;
+    throw new AppError(
+      "RATE_LIMIT_UNAVAILABLE",
+      "Serviço temporariamente indisponível. Tente novamente.",
+      { operation, retryAfterSeconds: 30 },
+    );
   }
 
   if ((count ?? 0) >= maxPerMinute) {

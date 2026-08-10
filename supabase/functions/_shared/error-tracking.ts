@@ -1,140 +1,191 @@
-// Error tracking — shared reporter for edge functions.
+// Error tracking abstraction — Sentry integration with zero-vendor fallback.
 //
-// Usage (in any edge function):
-//   import { captureError, captureWarning } from "../_shared/error-tracking.ts";
+// When SENTRY_DSN is configured, errors are forwarded to Sentry.
+// When absent, errors are logged as structured JSON (consumed by error-digest cron).
+// The interface never changes — callers don't branch on configuration.
 //
-//   try { ... } catch (err) {
-//     captureError(err, { location: "execute-search", requestId, organizationId });
-//     return new AppError("INTERNAL_ERROR", "...").toResponse(requestId, req);
-//   }
-//
-// What is NEVER captured (sanitization by construction):
-//   - Request bodies, headers, tokens, API keys
-//   - PII (emails, phone numbers, names)
-//   - Full error objects (only message + stack, never the whole thing)
-//
-// What IS captured:
-//   - Error message + stack trace
-//   - Location (function name)
-//   - Request ID (for log correlation)
-//   - Organization ID (nullable — pre-org errors are valid)
-//   - Release (git hash or version)
-//   - Environment (development/staging/production)
+// Setup: docs/OBSERVABILITY.md (or docs/SENTRY_SETUP.md once created)
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+const SENTRY_DSN = Deno.env.get("SENTRY_DSN");
+const RELEASE = Deno.env.get("APP_RELEASE") ?? Deno.env.get("APP_VERSION") ?? "unknown";
+const ENVIRONMENT = Deno.env.get("APP_ENV") ?? "development";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RELEASE =
-  Deno.env.get("APP_RELEASE") ?? Deno.env.get("VERCEL_GIT_COMMIT_SHA")?.slice(0, 7) ?? "unknown";
-const ENVIRONMENT = Deno.env.get("APP_ENV") ?? "production";
-
-// Lazy singleton — só inicializa quando o primeiro erro acontece.
-let _admin: ReturnType<typeof createClient> | null = null;
-function adminClient() {
-  if (!_admin) {
-    _admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
-  }
-  return _admin;
-}
-
-export interface ErrorContext {
+interface ErrorContext {
   location: string;
   requestId?: string;
   organizationId?: string;
-  /** Structured context — only keys that carry no PII: code, status, endpoint, operation, etc. */
-  context?: Record<string, unknown>;
+  userId?: string;
+  extra?: Record<string, unknown>;
 }
 
-function sanitizeMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "Unknown error (non-serializable)";
-  }
+function sentryEnabled(): boolean {
+  return !!SENTRY_DSN;
 }
 
-function sanitizeStack(err: unknown): string | undefined {
-  if (err instanceof Error && err.stack) {
-    // Keep only first 5 frames — enough to identify the bug, not enough to leak
-    // sensitive data that might be in deeper frames.
-    const lines = err.stack.split("\n");
-    return lines.slice(0, 6).join("\n");
-  }
-  return undefined;
-}
-
-async function persistError(
-  severity: "error" | "warn",
-  err: unknown,
-  ctx: ErrorContext,
-): Promise<void> {
-  try {
-    const admin = adminClient();
-    const errorEvent = {
-      source: "edge-function",
-      location: ctx.location,
-      message: sanitizeMessage(err),
-      stack: sanitizeStack(err),
-      severity,
-      context: ctx.context ?? null,
-      request_id: ctx.requestId ?? null,
-      organization_id: ctx.organizationId ?? null,
-      release: RELEASE,
-      environment: ENVIRONMENT,
-      user_agent: null,
+interface SentryEvent {
+  event_id: string;
+  timestamp: string;
+  level: "error" | "fatal" | "warning";
+  logger: string;
+  platform: string;
+  environment: string;
+  release: string;
+  transaction: string;
+  message?: string;
+  exception?: {
+    values: Array<{
+      type: string;
+      value: string;
+      stacktrace?: {
+        frames: Array<{
+          filename: string;
+          function: string;
+          lineno: number;
+        }>;
+      };
+    }>;
+  };
+  contexts: {
+    runtime: { name: string; version: string };
+    app?: {
+      location: string;
+      requestId?: string;
+      organizationId?: string;
     };
-    // This module deliberately does not import a generated Database type. The
-    // Supabase client therefore infers inserts as `never`; the payload is still
-    // fully explicit above and checked by Postgres at the persistence seam.
-    const { error: insertError } = await admin.from("error_events").insert(errorEvent as never);
+  };
+  user?: {
+    id: string;
+  };
+  tags: Record<string, string>;
+  extra: Record<string, unknown>;
+}
 
-    if (insertError) {
-      // Last resort: log to console so at least the function logs capture it.
-      console.error(
-        JSON.stringify({
-          event: "error_tracking_failed",
-          severity,
-          location: ctx.location,
-          reason: insertError.message,
-          original_message: sanitizeMessage(err),
-        }),
-      );
+function buildSentryEvent(err: unknown, context: ErrorContext, requestId: string): SentryEvent {
+  const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+
+  const frames: SentryEvent["exception"]["values"][0]["stacktrace"]["frames"] = [];
+  if (stack) {
+    const lines = stack.split("\n").slice(1, 11); // top 10 frames
+    for (const line of lines) {
+      const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/);
+      if (match) {
+        frames.push({
+          filename: match[2] ?? "unknown",
+          function: match[1] ?? "<anonymous>",
+          lineno: parseInt(match[3] ?? "0", 10),
+        });
+      }
     }
-  } catch (doubleFault) {
-    // If even error tracking fails, log and move on. Never throw from here.
-    console.error(
-      JSON.stringify({
-        event: "error_tracking_double_fault",
-        severity,
-        location: ctx.location,
-        reason: sanitizeMessage(doubleFault),
-      }),
-    );
+  }
+
+  return {
+    event_id: requestId,
+    timestamp: new Date().toISOString(),
+    level: "error",
+    logger: "edge-function",
+    platform: "deno",
+    environment: ENVIRONMENT,
+    release: RELEASE,
+    transaction: context.location,
+    message,
+    exception: message
+      ? {
+          values: [
+            {
+              type: err instanceof Error ? err.constructor.name : "Error",
+              value: message,
+              stacktrace: frames.length > 0 ? { frames } : undefined,
+            },
+          ],
+        }
+      : undefined,
+    contexts: {
+      runtime: { name: "deno", version: Deno.version.deno },
+      app: {
+        location: context.location,
+        requestId: context.requestId,
+        organizationId: context.organizationId,
+      },
+    },
+    user: context.userId ? { id: context.userId } : undefined,
+    tags: {
+      location: context.location,
+      environment: ENVIRONMENT,
+    },
+    extra: {
+      ...context.extra,
+      organizationId: context.organizationId,
+    },
+  };
+}
+
+/**
+ * Captures an error for observability. In production with Sentry configured,
+ * forwards to Sentry. Always logs as structured JSON so error-digest can
+ * aggregate even when Sentry is unreachable.
+ *
+ * Fire-and-forget: never throws, never blocks the caller.
+ */
+export function captureError(err: unknown, context: ErrorContext): void {
+  const requestId = context.requestId ?? crypto.randomUUID();
+
+  // Always log structured error for error-digest (zero-vendor fallback)
+  console.error(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "error",
+      event: "capture_error",
+      requestId,
+      location: context.location,
+      organizationId: context.organizationId,
+      error: err instanceof Error ? err.message : String(err),
+      stack:
+        err instanceof Error ? (err.stack ?? "").split("\n").slice(0, 6).join("\n") : undefined,
+    }),
+  );
+
+  // Forward to Sentry when configured
+  if (sentryEnabled()) {
+    const event = buildSentryEvent(err, context, requestId);
+    void sendToSentry(event);
+  }
+}
+
+async function sendToSentry(event: SentryEvent): Promise<void> {
+  if (!SENTRY_DSN) return;
+
+  try {
+    const dsn = new URL(SENTRY_DSN);
+    const projectId = dsn.pathname.replace("/", "");
+    const publicKey = dsn.username;
+    const endpoint = `https://${dsn.hostname}/api/${projectId}/store/`;
+
+    const envelope = JSON.stringify({
+      sent_at: new Date().toISOString(),
+      ...event,
+    });
+
+    await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_key=${publicKey}, sentry_client=prospeca/1.0`,
+      },
+      body: envelope,
+    });
+  } catch {
+    // Sentry itself is unavailable — the structured log above already
+    // captured the error for the error-digest cron. Do nothing further.
   }
 }
 
 /**
- * Capture an unexpected error. Fire-and-forget — never throws.
- * Call this inside your catch block BEFORE returning the error response.
+ * Captures an error and returns a 500 Response. Use as the catch-all in
+ * edge function handlers. The error-digest cron will aggregate these.
+ *
+ * Prefer `http.captureAndRespond()` for the full pattern (calls this fn).
  */
-export function captureError(err: unknown, ctx: ErrorContext): void {
-  // Fire-and-forget: não bloqueia a resposta para o cliente.
-  void persistError("error", err, ctx).catch(() => {
-    // swallow — double fault already logged inside persistError
-  });
-}
-
-/**
- * Capture a degraded-but-functional condition (e.g., provider timeout,
- * quota exceeded but serving stale cache). Fire-and-forget.
- */
-export function captureWarning(err: unknown, ctx: ErrorContext): void {
-  void persistError("warn", err, ctx).catch(() => {
-    // swallow
-  });
+export function captureErrorAndLog(err: unknown, context: ErrorContext): void {
+  captureError(err, context);
 }

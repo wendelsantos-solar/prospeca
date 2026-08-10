@@ -104,14 +104,25 @@ Deno.serve(async (req) => {
         const domains: string[] = [];
         const phoneByPlaceId = new Map<string, NormalizedPhone>();
         const domainByPlaceId = new Map<string, string>();
-        const placeMeta = new Map<string, { phoneRaw: string | null; website: string | null; phone: NormalizedPhone | null; domain: string | null; websiteReal: boolean }>();
+        const placeMeta = new Map<
+          string,
+          {
+            phoneRaw: string | null;
+            website: string | null;
+            phone: NormalizedPhone | null;
+            domain: string | null;
+            websiteReal: boolean;
+          }
+        >();
 
         for (const row of rows) {
           const place = row.places;
           if (!place) continue;
-          const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as string | null;
+          const phoneRaw = (place.national_phone_number ?? place.international_phone_number) as
+            | string
+            | null;
           const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
-          const website = (place.website_uri as string | null);
+          const website = place.website_uri as string | null;
           const domain = normalizeDomain(website);
           const websiteReal = hasRealWebsite(website);
           placeMeta.set(row.place_id, { phoneRaw, website, phone, domain, websiteReal });
@@ -241,7 +252,8 @@ Deno.serve(async (req) => {
               phone: meta.phoneRaw,
               phone_e164: meta.phone?.e164 ?? null,
               whatsapp:
-                (place.whatsapp as string | null) ?? (meta.phone?.type === "mobile" ? meta.phone.e164 : null),
+                (place.whatsapp as string | null) ??
+                (meta.phone?.type === "mobile" ? meta.phone.e164 : null),
               whatsapp_status: place.whatsapp
                 ? "verified"
                 : meta.phone?.type === "mobile"
@@ -267,10 +279,7 @@ Deno.serve(async (req) => {
 
           imported++;
           materializedLeadIds.push(lead.id as string);
-          if (
-            meta.website &&
-            (meta.websiteReal || instagramHandleFromUrl(meta.website))
-          ) {
+          if (meta.website && (meta.websiteReal || instagramHandleFromUrl(meta.website))) {
             enrichable.push({ leadId: lead.id as string, website: meta.website });
           }
           await ctx.adminClient

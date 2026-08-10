@@ -49,6 +49,12 @@ function securityHeaders(): Record<string, string> {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Permitted-Cross-Domain-Policies": "none",
+    // CSP for API responses (defense-in-depth; the main CSP lives on the frontend server).
+    "Content-Security-Policy": [
+      "default-src 'none'",
+      "frame-ancestors 'none'",
+      "base-uri 'none'",
+    ].join("; "),
   };
   // HSTS: only in production over HTTPS
   const env = Deno.env.get("APP_ENV") ?? "development";
