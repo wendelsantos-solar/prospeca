@@ -84,16 +84,11 @@ export function FeatureQuad() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2">
               {CELLS.map((cell, i) => (
-                <div
-                  key={cell.title}
-                  className="group px-8 py-12 text-center sm:py-14"
-                >
+                <div key={cell.title} className="group px-8 py-12 text-center sm:py-14">
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface shadow-card">
                     <cell.icon className="h-5 w-5 text-primary" />
                   </span>
-                  <h3 className="mt-5 text-[15px] font-semibold text-foreground">
-                    {cell.title}
-                  </h3>
+                  <h3 className="mt-5 text-[15px] font-semibold text-foreground">{cell.title}</h3>
                   <p className="mx-auto mt-3 max-w-[260px] text-[13px] leading-relaxed text-muted-foreground">
                     {cell.description}
                   </p>

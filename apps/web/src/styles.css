@@ -250,13 +250,19 @@
 }
 
 @media (min-width: 768px) {
-  :root { --orbit-r: 280px; }
+  :root {
+    --orbit-r: 280px;
+  }
 }
 @media (min-width: 1024px) {
-  :root { --orbit-r: 340px; }
+  :root {
+    --orbit-r: 340px;
+  }
 }
 @media (min-width: 1280px) {
-  :root { --orbit-r: 400px; }
+  :root {
+    --orbit-r: 400px;
+  }
 }
 
 .dark {
@@ -437,22 +443,79 @@
   }
   /* Stack card rotation — continuous loop through 3 positions */
   @keyframes card-stack-1 {
-    0%, 27%   { transform: translateY(0) scale(1); opacity: 1; z-index: 3; }
-    33%, 60%  { transform: translateY(12px) scale(0.975); opacity: 0.65; z-index: 2; }
-    66%, 93%  { transform: translateY(22px) scale(0.95); opacity: 0.3; z-index: 1; }
-    100%      { transform: translateY(22px) scale(0.95); opacity: 0.3; z-index: 1; }
+    0%,
+    27% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    33%,
+    60% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    66%,
+    93% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    100% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
   }
   @keyframes card-stack-2 {
-    0%, 27%   { transform: translateY(12px) scale(0.975); opacity: 0.65; z-index: 2; }
-    33%, 60%  { transform: translateY(22px) scale(0.95); opacity: 0.3; z-index: 1; }
-    66%, 93%  { transform: translateY(0) scale(1); opacity: 1; z-index: 3; }
-    100%      { transform: translateY(0) scale(1); opacity: 1; z-index: 3; }
+    0%,
+    27% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    33%,
+    60% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    66%,
+    93% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
   }
   @keyframes card-stack-3 {
-    0%, 27%   { transform: translateY(22px) scale(0.95); opacity: 0.3; z-index: 1; }
-    33%, 60%  { transform: translateY(0) scale(1); opacity: 1; z-index: 3; }
-    66%, 93%  { transform: translateY(12px) scale(0.975); opacity: 0.65; z-index: 2; }
-    100%      { transform: translateY(12px) scale(0.975); opacity: 0.65; z-index: 2; }
+    0%,
+    27% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    33%,
+    60% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    66%,
+    93% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    100% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
   }
   @keyframes draw-arc {
     from {
@@ -464,8 +527,12 @@
   }
   /* Logo carousel — infinite linear scroll, duplicated for seamless loop */
   @keyframes logo-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
   }
 
   .animate-fade-in {

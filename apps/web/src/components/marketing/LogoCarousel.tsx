@@ -27,10 +27,8 @@ export function LogoCarousel({ label, logos, speed = 42, className }: LogoCarous
       <div
         className="relative overflow-hidden"
         style={{
-          WebkitMaskImage:
-            "linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent)",
-          maskImage:
-            "linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent)",
+          WebkitMaskImage: "linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent)",
+          maskImage: "linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent)",
         }}
       >
         <div

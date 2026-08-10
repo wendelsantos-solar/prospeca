@@ -31,7 +31,8 @@ export function ProblemSection() {
           eyebrow="O problema"
           title={
             <>
-              Pare de garimpar leads<br />
+              Pare de garimpar leads
+              <br />
               no mapa e na planilha
             </>
           }

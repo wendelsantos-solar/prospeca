@@ -43,7 +43,8 @@ export function BenefitsSection() {
           eyebrow="Por que o Prospeca"
           title={
             <>
-              Tudo que você precisa<br />
+              Tudo que você precisa
+              <br />
               pra prospectar melhor
             </>
           }

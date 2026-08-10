@@ -5,10 +5,26 @@ import { DEMO_LEADS } from "@/marketing/demo-data";
 import { cn } from "@/lib/utils";
 
 const BENEFITS = [
-  { icon: Eye, label: "Visualize concentrações", description: "Veja onde as oportunidades se agrupam por região." },
-  { icon: Target, label: "Priorize por proximidade", description: "Distância real entre você e cada lead no mapa." },
-  { icon: Layers, label: "Explore bairros inteiros", description: "Um raio de busca cobre dezenas de estabelecimentos." },
-  { icon: Navigation, label: "Identifique áreas novas", description: "Descubra regiões ainda pouco trabalhadas." },
+  {
+    icon: Eye,
+    label: "Visualize concentrações",
+    description: "Veja onde as oportunidades se agrupam por região.",
+  },
+  {
+    icon: Target,
+    label: "Priorize por proximidade",
+    description: "Distância real entre você e cada lead no mapa.",
+  },
+  {
+    icon: Layers,
+    label: "Explore bairros inteiros",
+    description: "Um raio de busca cobre dezenas de estabelecimentos.",
+  },
+  {
+    icon: Navigation,
+    label: "Identifique áreas novas",
+    description: "Descubra regiões ainda pouco trabalhadas.",
+  },
 ];
 
 export function MapSection() {
@@ -48,8 +64,12 @@ export function MapSection() {
                 ))}
                 <div className="absolute bottom-3 left-3 right-3 rounded-lg border border-border bg-surface p-2.5 shadow-elevated text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-foreground">{DEMO_LEADS[0].companyName}</span>
-                    <span className="rounded-md bg-hot-soft px-2 py-0.5 text-[10px] font-bold text-hot">Score {DEMO_LEADS[0].score}</span>
+                    <span className="font-semibold text-foreground">
+                      {DEMO_LEADS[0].companyName}
+                    </span>
+                    <span className="rounded-md bg-hot-soft px-2 py-0.5 text-[10px] font-bold text-hot">
+                      Score {DEMO_LEADS[0].score}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -60,12 +80,21 @@ export function MapSection() {
           <div className="order-1 lg:order-2">
             <SectionHeading
               eyebrow="Descubra"
-              title={<>Veja no mapa onde estão<br />suas próximas oportunidades</>}
+              title={
+                <>
+                  Veja no mapa onde estão
+                  <br />
+                  suas próximas oportunidades
+                </>
+              }
               description="Empresas encontradas aparecem no mapa com o score visível. Filtre por região e priorize por distância real."
             />
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {BENEFITS.map((b) => (
-                <div key={b.label} className="flex gap-3 rounded-lg border border-border bg-surface p-3">
+                <div
+                  key={b.label}
+                  className="flex gap-3 rounded-lg border border-border bg-surface p-3"
+                >
                   <b.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{b.label}</p>

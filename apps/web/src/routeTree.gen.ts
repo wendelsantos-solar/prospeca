@@ -31,6 +31,12 @@ import { Route as AppHistoricoRouteImport } from './routes/app.historico'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppAgendaRouteImport } from './routes/app.agenda'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as AppConfiguracoesIndexRouteImport } from './routes/app.configuracoes.index'
+import { Route as AppConfiguracoesPlanoRouteImport } from './routes/app.configuracoes.plano'
+import { Route as AppConfiguracoesMotorRouteImport } from './routes/app.configuracoes.motor'
+import { Route as AppConfiguracoesIntegracoesRouteImport } from './routes/app.configuracoes.integracoes'
+import { Route as AppConfiguracoesDadosRouteImport } from './routes/app.configuracoes.dados'
+import { Route as AppConfiguracoesContaRouteImport } from './routes/app.configuracoes.conta'
 
 const VerificarEmailRoute = VerificarEmailRouteImport.update({
   id: '/verificar-email',
@@ -142,6 +148,37 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConfiguracoesIndexRoute = AppConfiguracoesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
+const AppConfiguracoesPlanoRoute = AppConfiguracoesPlanoRouteImport.update({
+  id: '/plano',
+  path: '/plano',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
+const AppConfiguracoesMotorRoute = AppConfiguracoesMotorRouteImport.update({
+  id: '/motor',
+  path: '/motor',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
+const AppConfiguracoesIntegracoesRoute =
+  AppConfiguracoesIntegracoesRouteImport.update({
+    id: '/integracoes',
+    path: '/integracoes',
+    getParentRoute: () => AppConfiguracoesRoute,
+  } as any)
+const AppConfiguracoesDadosRoute = AppConfiguracoesDadosRouteImport.update({
+  id: '/dados',
+  path: '/dados',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
+const AppConfiguracoesContaRoute = AppConfiguracoesContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
+  getParentRoute: () => AppConfiguracoesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -156,7 +193,7 @@ export interface FileRoutesByFullPath {
   '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
-  '/app/configuracoes': typeof AppConfiguracoesRoute
+  '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -166,6 +203,12 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/contato/': typeof ContatoIndexRoute
   '/para-agencias/': typeof ParaAgenciasIndexRoute
+  '/app/configuracoes/conta': typeof AppConfiguracoesContaRoute
+  '/app/configuracoes/dados': typeof AppConfiguracoesDadosRoute
+  '/app/configuracoes/integracoes': typeof AppConfiguracoesIntegracoesRoute
+  '/app/configuracoes/motor': typeof AppConfiguracoesMotorRoute
+  '/app/configuracoes/plano': typeof AppConfiguracoesPlanoRoute
+  '/app/configuracoes/': typeof AppConfiguracoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,7 +222,6 @@ export interface FileRoutesByTo {
   '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
-  '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -189,6 +231,12 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/contato': typeof ContatoIndexRoute
   '/para-agencias': typeof ParaAgenciasIndexRoute
+  '/app/configuracoes/conta': typeof AppConfiguracoesContaRoute
+  '/app/configuracoes/dados': typeof AppConfiguracoesDadosRoute
+  '/app/configuracoes/integracoes': typeof AppConfiguracoesIntegracoesRoute
+  '/app/configuracoes/motor': typeof AppConfiguracoesMotorRoute
+  '/app/configuracoes/plano': typeof AppConfiguracoesPlanoRoute
+  '/app/configuracoes': typeof AppConfiguracoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -204,7 +252,7 @@ export interface FileRoutesById {
   '/verificar-email': typeof VerificarEmailRoute
   '/app/admin': typeof AppAdminRoute
   '/app/agenda': typeof AppAgendaRoute
-  '/app/configuracoes': typeof AppConfiguracoesRoute
+  '/app/configuracoes': typeof AppConfiguracoesRouteWithChildren
   '/app/historico': typeof AppHistoricoRoute
   '/app/hoje': typeof AppHojeRoute
   '/app/kanban': typeof AppKanbanRoute
@@ -214,6 +262,12 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/contato/': typeof ContatoIndexRoute
   '/para-agencias/': typeof ParaAgenciasIndexRoute
+  '/app/configuracoes/conta': typeof AppConfiguracoesContaRoute
+  '/app/configuracoes/dados': typeof AppConfiguracoesDadosRoute
+  '/app/configuracoes/integracoes': typeof AppConfiguracoesIntegracoesRoute
+  '/app/configuracoes/motor': typeof AppConfiguracoesMotorRoute
+  '/app/configuracoes/plano': typeof AppConfiguracoesPlanoRoute
+  '/app/configuracoes/': typeof AppConfiguracoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -240,6 +294,12 @@ export interface FileRouteTypes {
     | '/app/'
     | '/contato/'
     | '/para-agencias/'
+    | '/app/configuracoes/conta'
+    | '/app/configuracoes/dados'
+    | '/app/configuracoes/integracoes'
+    | '/app/configuracoes/motor'
+    | '/app/configuracoes/plano'
+    | '/app/configuracoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -253,7 +313,6 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/app/admin'
     | '/app/agenda'
-    | '/app/configuracoes'
     | '/app/historico'
     | '/app/hoje'
     | '/app/kanban'
@@ -263,6 +322,12 @@ export interface FileRouteTypes {
     | '/app'
     | '/contato'
     | '/para-agencias'
+    | '/app/configuracoes/conta'
+    | '/app/configuracoes/dados'
+    | '/app/configuracoes/integracoes'
+    | '/app/configuracoes/motor'
+    | '/app/configuracoes/plano'
+    | '/app/configuracoes'
   id:
     | '__root__'
     | '/'
@@ -287,6 +352,12 @@ export interface FileRouteTypes {
     | '/app/'
     | '/contato/'
     | '/para-agencias/'
+    | '/app/configuracoes/conta'
+    | '/app/configuracoes/dados'
+    | '/app/configuracoes/integracoes'
+    | '/app/configuracoes/motor'
+    | '/app/configuracoes/plano'
+    | '/app/configuracoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -461,13 +532,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/configuracoes/': {
+      id: '/app/configuracoes/'
+      path: '/'
+      fullPath: '/app/configuracoes/'
+      preLoaderRoute: typeof AppConfiguracoesIndexRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/plano': {
+      id: '/app/configuracoes/plano'
+      path: '/plano'
+      fullPath: '/app/configuracoes/plano'
+      preLoaderRoute: typeof AppConfiguracoesPlanoRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/motor': {
+      id: '/app/configuracoes/motor'
+      path: '/motor'
+      fullPath: '/app/configuracoes/motor'
+      preLoaderRoute: typeof AppConfiguracoesMotorRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/integracoes': {
+      id: '/app/configuracoes/integracoes'
+      path: '/integracoes'
+      fullPath: '/app/configuracoes/integracoes'
+      preLoaderRoute: typeof AppConfiguracoesIntegracoesRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/dados': {
+      id: '/app/configuracoes/dados'
+      path: '/dados'
+      fullPath: '/app/configuracoes/dados'
+      preLoaderRoute: typeof AppConfiguracoesDadosRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
+    '/app/configuracoes/conta': {
+      id: '/app/configuracoes/conta'
+      path: '/conta'
+      fullPath: '/app/configuracoes/conta'
+      preLoaderRoute: typeof AppConfiguracoesContaRouteImport
+      parentRoute: typeof AppConfiguracoesRoute
+    }
   }
 }
+
+interface AppConfiguracoesRouteChildren {
+  AppConfiguracoesContaRoute: typeof AppConfiguracoesContaRoute
+  AppConfiguracoesDadosRoute: typeof AppConfiguracoesDadosRoute
+  AppConfiguracoesIntegracoesRoute: typeof AppConfiguracoesIntegracoesRoute
+  AppConfiguracoesMotorRoute: typeof AppConfiguracoesMotorRoute
+  AppConfiguracoesPlanoRoute: typeof AppConfiguracoesPlanoRoute
+  AppConfiguracoesIndexRoute: typeof AppConfiguracoesIndexRoute
+}
+
+const AppConfiguracoesRouteChildren: AppConfiguracoesRouteChildren = {
+  AppConfiguracoesContaRoute: AppConfiguracoesContaRoute,
+  AppConfiguracoesDadosRoute: AppConfiguracoesDadosRoute,
+  AppConfiguracoesIntegracoesRoute: AppConfiguracoesIntegracoesRoute,
+  AppConfiguracoesMotorRoute: AppConfiguracoesMotorRoute,
+  AppConfiguracoesPlanoRoute: AppConfiguracoesPlanoRoute,
+  AppConfiguracoesIndexRoute: AppConfiguracoesIndexRoute,
+}
+
+const AppConfiguracoesRouteWithChildren =
+  AppConfiguracoesRoute._addFileChildren(AppConfiguracoesRouteChildren)
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppAgendaRoute: typeof AppAgendaRoute
-  AppConfiguracoesRoute: typeof AppConfiguracoesRoute
+  AppConfiguracoesRoute: typeof AppConfiguracoesRouteWithChildren
   AppHistoricoRoute: typeof AppHistoricoRoute
   AppHojeRoute: typeof AppHojeRoute
   AppKanbanRoute: typeof AppKanbanRoute
@@ -479,7 +613,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppAgendaRoute: AppAgendaRoute,
-  AppConfiguracoesRoute: AppConfiguracoesRoute,
+  AppConfiguracoesRoute: AppConfiguracoesRouteWithChildren,
   AppHistoricoRoute: AppHistoricoRoute,
   AppHojeRoute: AppHojeRoute,
   AppKanbanRoute: AppKanbanRoute,
