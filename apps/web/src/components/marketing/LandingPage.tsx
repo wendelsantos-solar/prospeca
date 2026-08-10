@@ -12,6 +12,7 @@ import { PricingTeaser } from "./PricingTeaser";
 import { FounderOffer } from "./FounderOffer";
 import { FAQSection } from "./FAQSection";
 import { FinalCTA } from "./FinalCTA";
+import { SoftwareApplicationSchema, FAQSchema } from "./StructuredData";
 import { captureUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 
@@ -28,6 +29,9 @@ export function LandingPage() {
 
   return (
     <MarketingPage>
+      <SoftwareApplicationSchema />
+      <FAQSchema />
+
       <HeroSection />
       <TrustStrip />
       <AnimatedSection>

@@ -1,4 +1,5 @@
 import { Database, Eye, ShieldCheck } from "lucide-react";
+import { GoogleIcon, WhatsAppIcon } from "./brand-icons";
 import { MarketingContainer } from "./MarketingLayout";
 
 const GUARANTEES = [
@@ -30,7 +31,7 @@ export function TrustStrip() {
           {GUARANTEES.map((item) => (
             <div key={item.title} className="flex items-start gap-3">
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-subtle text-primary">
-                <item.icon className="h-4.5 w-4.5" />
+                <item.icon className="h-4 w-4" />
               </div>
               <div>
                 <h2 className="text-[13px] font-semibold text-foreground">{item.title}</h2>
@@ -40,6 +41,18 @@ export function TrustStrip() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Tech badges */}
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-6 border-t border-border/50 pt-7">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+            <GoogleIcon className="h-3.5 w-3.5" />
+            Google Maps + OAuth
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+            <WhatsAppIcon className="h-3.5 w-3.5" />
+            WhatsApp Business
+          </span>
         </div>
       </MarketingContainer>
     </section>
