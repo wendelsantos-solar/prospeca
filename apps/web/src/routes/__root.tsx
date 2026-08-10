@@ -97,13 +97,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
+          "Encontre empresas por nicho e região, entenda o score de oportunidade e organize o próximo contato com você no controle.",
       },
       { property: "og:title", content: "Prospeca" },
       { property: "og:description", content: "Encontre, qualifique e converta negócios locais." },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "pt_BR" },
-      { property: "og:image", content: "/og-image.png" },
+      {
+        property: "og:image",
+        content: "https://prospeca.com.br/og-image-v2.png",
+      },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -112,7 +115,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:description",
         content: "Encontre, qualifique e converta negócios locais.",
       },
-      { name: "twitter:image", content: "/og-image.png" },
+      {
+        name: "twitter:image",
+        content: "https://prospeca.com.br/og-image-v2.png",
+      },
       { name: "theme-color", content: "#0D9E5A" },
     ],
     links: [
@@ -137,7 +143,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description:
-            "Plataforma de prospecção de leads locais: descubra empresas por nicho, priorize oportunidades e organize seu funil comercial.",
+            "Encontre empresas por nicho e região, entenda o score de oportunidade e organize o próximo contato com você no controle.",
+          url: "https://prospeca.com.br",
           offers: {
             "@type": "Offer",
             price: "0",
@@ -151,8 +158,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "Prospeca",
-          url: "/",
-          logo: "/favicon-512.png",
+          url: "https://prospeca.com.br",
+          logo: "https://prospeca.com.br/favicon-512.png",
         }),
       },
     ],

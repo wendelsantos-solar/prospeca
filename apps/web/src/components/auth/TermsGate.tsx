@@ -7,15 +7,17 @@ import { Label } from "@/components/ui/label";
 interface TermsGateProps {
   accepted: boolean;
   onAcceptChange: (accepted: boolean) => void;
+  disabled?: boolean;
 }
 
-export function TermsGate({ accepted, onAcceptChange }: TermsGateProps) {
+export function TermsGate({ accepted, onAcceptChange, disabled }: TermsGateProps) {
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 p-3">
       <Checkbox
         id="terms"
         checked={accepted}
         onCheckedChange={(v) => onAcceptChange(v === true)}
+        disabled={disabled}
         className="mt-0.5"
       />
       <Label htmlFor="terms" className="text-[12.5px] leading-relaxed text-muted-foreground">
@@ -37,7 +39,7 @@ export function TermsGate({ accepted, onAcceptChange }: TermsGateProps) {
         >
           Política de Privacidade
         </a>
-        , incluindo o tratamento de dados pessoais conforme a LGPD.
+        .
       </Label>
     </div>
   );

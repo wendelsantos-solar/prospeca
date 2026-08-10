@@ -1,61 +1,48 @@
-// Google Calendar integration hook — feature preview.
-// Full implementation pending credentials / product decision.
-// When GOOGLE_CALENDAR_CLIENT_ID is not set, the feature is unavailable
-// (the UI shows appropriate "não configurado" state).
+// Google Calendar integration hooks.
+// Depends on GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET being
+// configured. When they are absent, status queries return { configured: false }
+// and the UI shows appropriate "não configurado" state.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { invokeFunction } from "@/lib/supabase";
+import {
+  connectGoogleCalendar,
+  createGoogleMeeting,
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+} from "@/lib/google-calendar-integration";
 import { isDemoMode } from "@/lib/env";
 
-export interface GoogleCalendarStatus {
-  configured: boolean;
-  connection?: {
-    status: "connected" | "expired" | "revoked";
-    account_email: string;
-    connected_at: string;
-  };
-}
+const QUERY_KEY = ["integration", "google-calendar"] as const;
 
 export function useGoogleCalendarStatus() {
-  return useQuery<GoogleCalendarStatus>({
-    queryKey: ["google-calendar-status"],
-    queryFn: async () => {
-      if (isDemoMode) return { configured: false };
-      const data = await invokeFunction("google-calendar", { action: "status" });
-      return data as GoogleCalendarStatus;
-    },
-    staleTime: 5 * 60_000,
-    retry: false,
+  return useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: getGoogleCalendarStatus,
     enabled: !isDemoMode,
+    staleTime: 30_000,
+    retry: false,
   });
 }
 
 export function useConnectGoogleCalendar() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (returnPath: string) => {
-      const data = await invokeFunction("google-calendar", {
-        action: "connect",
-        return_url: `${window.location.origin}${returnPath}`,
-      });
-      if (typeof data === "object" && data !== null && "auth_url" in data) {
-        window.location.href = (data as { auth_url: string }).auth_url;
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
-    },
-  });
+  return useMutation({ mutationFn: (returnTo?: string) => connectGoogleCalendar(returnTo) });
 }
 
 export function useDisconnectGoogleCalendar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      await invokeFunction("google-calendar", { action: "disconnect" });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
+    mutationFn: disconnectGoogleCalendar,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+}
+
+export function useCreateGoogleMeeting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createGoogleMeeting,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
     },
   });
 }

@@ -243,6 +243,26 @@
   --sidebar-accent-foreground: oklch(0.34 0.09 152);
   --sidebar-border: oklch(0.92 0.007 95);
   --sidebar-ring: oklch(0.58 0.15 152);
+
+  /* Hero orbital ring */
+  --orbit-r: 220px;
+  --orbit-center-y: 46%;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --orbit-r: 280px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --orbit-r: 340px;
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --orbit-r: 400px;
+  }
 }
 
 .dark {
@@ -409,7 +429,92 @@
       transform: translateY(0);
     }
     50% {
-      transform: translateY(-4px);
+      transform: translateY(-6px);
+    }
+  }
+  @keyframes float-slow {
+    0%,
+    100% {
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    50% {
+      transform: translate(-50%, -50%) translateY(-5px);
+    }
+  }
+  /* Stack card rotation — continuous loop through 3 positions */
+  @keyframes card-stack-1 {
+    0%,
+    27% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    33%,
+    60% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    66%,
+    93% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    100% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+  }
+  @keyframes card-stack-2 {
+    0%,
+    27% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    33%,
+    60% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    66%,
+    93% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+  }
+  @keyframes card-stack-3 {
+    0%,
+    27% {
+      transform: translateY(22px) scale(0.95);
+      opacity: 0.3;
+      z-index: 1;
+    }
+    33%,
+    60% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      z-index: 3;
+    }
+    66%,
+    93% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
+    }
+    100% {
+      transform: translateY(12px) scale(0.975);
+      opacity: 0.65;
+      z-index: 2;
     }
   }
   @keyframes draw-arc {
@@ -418,6 +523,15 @@
     }
     to {
       stroke-dashoffset: 0;
+    }
+  }
+  /* Logo carousel — infinite linear scroll, duplicated for seamless loop */
+  @keyframes logo-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
     }
   }
 
@@ -431,12 +545,30 @@
     animation: pulse-soft 2s ease-in-out infinite;
   }
   .animate-float {
-    animation: float 3s ease-in-out infinite;
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float-slow 10s ease-in-out infinite;
+  }
+  .animate-card-stack-1 {
+    animation: card-stack-1 9s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .animate-card-stack-2 {
+    animation: card-stack-2 9s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .animate-card-stack-3 {
+    animation: card-stack-3 9s ease-in-out infinite;
+    will-change: transform, opacity;
   }
   .animate-draw-arc {
     stroke-dasharray: 100;
     stroke-dashoffset: 100;
     animation: draw-arc 1s var(--ease-enter) forwards;
+  }
+  .animate-logo-scroll {
+    animation: logo-scroll 42s linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -444,7 +576,12 @@
     .animate-slide-up,
     .animate-pulse-soft,
     .animate-float,
-    .animate-draw-arc {
+    .animate-float-slow,
+    .animate-card-stack-1,
+    .animate-card-stack-2,
+    .animate-card-stack-3,
+    .animate-draw-arc,
+    .animate-logo-scroll {
       animation: none;
       opacity: 1;
       transform: none;

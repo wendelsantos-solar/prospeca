@@ -1,43 +1,60 @@
-import { Search, Target, MessageCircle, CalendarDays, BadgeCheck } from "lucide-react";
+import { Database, Eye, ShieldCheck } from "lucide-react";
+import { GoogleIcon, WhatsAppIcon } from "./brand-icons";
+import { MarketingContainer } from "./MarketingLayout";
 
-const STEPS = [
-  { icon: Search, label: "Encontre", description: "Pesquise por nicho, cidade e raio de busca." },
+const GUARANTEES = [
   {
-    icon: Target,
-    label: "Priorize",
-    description: "O score explica quem vale seu tempo primeiro — sem caixa-preta.",
+    icon: Database,
+    title: "Dados com origem identificada",
+    description: "CNPJ e informações públicas atualizados durante a busca.",
   },
   {
-    icon: MessageCircle,
-    label: "Aborde",
-    description: "Mensagem pronta com os dados reais do lead.",
+    icon: Eye,
+    title: "Prioridade que você entende",
+    description: "Cada ponto do score mostra o sinal comercial encontrado.",
   },
   {
-    icon: CalendarDays,
-    label: "Acompanhe",
-    description: "Pipeline com próxima ação e lembrete, sem perder o fio.",
-  },
-  {
-    icon: BadgeCheck,
-    label: "Converta",
-    description: "Do primeiro contato ao fechamento, com contexto completo.",
+    icon: ShieldCheck,
+    title: "Automação sob seu controle",
+    description: "A plataforma sugere; você revisa e decide o que enviar.",
   },
 ];
 
 export function TrustStrip() {
   return (
-    <div className="border-y border-border bg-surface-2 py-10 md:py-12">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 sm:grid-cols-3 md:grid-cols-5 md:px-6 lg:px-8">
-        {STEPS.map((step) => (
-          <div key={step.label} className="group flex flex-col items-center text-center">
-            <div className="mb-3 grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary-subtle">
-              <step.icon className="h-5 w-5" />
+    <section
+      aria-label="Garantias do produto"
+      className="border-y border-border/60 bg-surface-2 py-7 md:py-9"
+    >
+      <MarketingContainer width="default">
+        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
+          {GUARANTEES.map((item) => (
+            <div key={item.title} className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-subtle text-primary">
+                <item.icon className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-[13px] font-semibold text-foreground">{item.title}</h2>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
             </div>
-            <div className="text-body font-semibold text-foreground">{step.label}</div>
-            <div className="mt-1 text-caption text-muted-foreground">{step.description}</div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+
+        {/* Tech badges */}
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-6 border-t border-border/50 pt-7">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+            <GoogleIcon className="h-3.5 w-3.5" />
+            Google Maps + OAuth
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+            <WhatsAppIcon className="h-3.5 w-3.5" />
+            WhatsApp Business
+          </span>
+        </div>
+      </MarketingContainer>
+    </section>
   );
 }

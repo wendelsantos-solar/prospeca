@@ -3,25 +3,24 @@ import { MarketingPage } from "./MarketingLayout";
 import { AnimatedSection } from "./AnimatedSection";
 import { HeroSection } from "./HeroSection";
 import { TrustStrip } from "./TrustStrip";
-import { ProblemSection } from "./ProblemSection";
 import { HowItWorksSection } from "./HowItWorksSection";
 import { OpportunitySection } from "./OpportunitySection";
-import { ScoreSection } from "./ScoreSection";
-import { MapSection } from "./MapSection";
-import { PipelineSection } from "./PipelineSection";
-import { MessagingSection } from "./MessagingSection";
+import { IntegrationsSection } from "./IntegrationsSection";
 import { UseCasesSection } from "./UseCasesSection";
-import { AgencySection } from "./AgencySection";
-import { BenefitsSection } from "./BenefitsSection";
-import { TestimonialsSection } from "./TestimonialsSection";
-import { CaseStudySection } from "./CaseStudySection";
+import { PilotSection } from "./PilotSection";
 import { PricingTeaser } from "./PricingTeaser";
 import { FounderOffer } from "./FounderOffer";
 import { FAQSection } from "./FAQSection";
 import { FinalCTA } from "./FinalCTA";
+import { SoftwareApplicationSchema, FAQSchema } from "./StructuredData";
 import { captureUtm } from "@/lib/utm";
 import { track } from "@/lib/analytics";
 
+/**
+ * Landing page — conversion-focused flow:
+ * Hero → trust guarantees → product demo → score differentiation →
+ * use cases → pilot transparency → pricing → FAQ → CTA
+ */
 export function LandingPage() {
   useEffect(() => {
     captureUtm();
@@ -30,11 +29,11 @@ export function LandingPage() {
 
   return (
     <MarketingPage>
+      <SoftwareApplicationSchema />
+      <FAQSchema />
+
       <HeroSection />
       <TrustStrip />
-      <AnimatedSection>
-        <ProblemSection />
-      </AnimatedSection>
       <AnimatedSection>
         <HowItWorksSection />
       </AnimatedSection>
@@ -42,28 +41,12 @@ export function LandingPage() {
         <OpportunitySection />
       </AnimatedSection>
       <AnimatedSection>
-        <ScoreSection />
-      </AnimatedSection>
-      <AnimatedSection>
-        <MapSection />
-      </AnimatedSection>
-      <AnimatedSection>
-        <PipelineSection />
-      </AnimatedSection>
-      <AnimatedSection>
-        <MessagingSection />
+        <IntegrationsSection />
       </AnimatedSection>
       <AnimatedSection>
         <UseCasesSection />
       </AnimatedSection>
-      <AnimatedSection>
-        <AgencySection />
-      </AnimatedSection>
-      <AnimatedSection>
-        <BenefitsSection />
-      </AnimatedSection>
-      <TestimonialsSection />
-      <CaseStudySection />
+      <PilotSection />
       <AnimatedSection>
         <PricingTeaser />
       </AnimatedSection>

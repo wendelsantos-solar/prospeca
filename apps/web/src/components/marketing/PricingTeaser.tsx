@@ -38,26 +38,31 @@ function PricingCard({ plan, highlighted }: { plan: BillingPlan; highlighted?: b
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border p-6",
+        "relative flex flex-col rounded-2xl border p-6",
         highlighted
-          ? "border-primary bg-surface shadow-card ring-1 ring-primary/20"
+          ? "border-primary bg-surface shadow-elevated ring-1 ring-primary/30"
           : "border-border bg-surface",
       )}
     >
       {highlighted && (
-        <span className="mb-3 w-fit rounded-full bg-primary-soft px-3 py-0.5 text-caption font-semibold text-primary">
-          Mais escolhido
+        <span className="-top-3.5 absolute left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground shadow-card">
+          Mais popular
         </span>
       )}
       <h3 className="text-base font-semibold text-foreground">{plan.name}</h3>
       <p className="mt-1 text-body text-muted-foreground">{plan.description ?? ""}</p>
-      <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-display font-bold text-foreground">
-          {formatPriceCents(plan.monthlyPriceCents)}
-        </span>
+      <div className="mt-1">
         {!isFree && plan.monthlyPriceCents !== null && (
-          <span className="text-body text-muted-foreground">/mês</span>
+          <p className="text-[11px] text-muted-foreground">a partir de</p>
         )}
+        <div className="flex items-baseline gap-1">
+          <span className="text-display font-bold text-foreground">
+            {formatPriceCents(plan.monthlyPriceCents)}
+          </span>
+          {!isFree && plan.monthlyPriceCents !== null && (
+            <span className="text-body text-muted-foreground">/mês</span>
+          )}
+        </div>
       </div>
       <ul className="mt-5 flex-1 space-y-2.5">
         {features.map((f) => (
@@ -102,21 +107,62 @@ export function PricingTeaser() {
   const { data: plans } = useQuery({ queryKey: ["billing-plans"], queryFn: fetchBillingPlans });
   const shown = (plans ?? []).filter((p) => ["free", "professional", "agency"].includes(p.code));
   return (
-    <MarketingSection id="recursos" spacing="lg">
+    <MarketingSection id="precos" spacing="lg">
       <MarketingContainer width="default">
         <SectionHeading
           eyebrow="Preços"
-          title="Um plano pra cada estágio da sua prospecção"
-          description="Comece de graça. Peça acesso ao piloto pago quando fizer sentido."
+          title={
+            <>
+              Comece grátis. Evolua quando
+              <br />
+              sua prospecção pedir.
+            </>
+          }
+          description="Sem cartão no plano grátis. No Profissional, a ativação é assistida e sem contratação automática."
           center
         />
-        {shown.length > 0 && (
-          <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-3">
-            {shown.map((plan) => (
-              <PricingCard key={plan.code} plan={plan} highlighted={plan.code === "professional"} />
-            ))}
+        <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-3">
+          {shown.map((plan) => (
+            <PricingCard key={plan.code} plan={plan} highlighted={plan.code === "professional"} />
+          ))}
+          {/* Static Enterprise card — always shown as the 3rd option */}
+          <div className="relative flex flex-col rounded-2xl border border-border bg-surface p-6">
+            <h3 className="text-base font-semibold text-foreground">Empresarial</h3>
+            <p className="mt-1 text-body text-muted-foreground">
+              Para operações com meta agressiva e times maiores.
+            </p>
+            <div className="mt-1">
+              <p className="text-[11px] text-muted-foreground">a partir de</p>
+              <span className="text-[2rem] font-bold tracking-tight text-foreground">
+                Personalizado
+              </span>
+            </div>
+            <ul className="mt-5 flex-1 space-y-2.5">
+              {[
+                "Tudo do Profissional",
+                "Leads e buscas sob medida",
+                "Usuários ilimitados",
+                "Onboarding dedicado",
+                "Suporte prioritário",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-body text-muted-foreground">
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6">
+              <SalesContactForm
+                source="landing_pricing_enterprise"
+                trigger={
+                  <Button className="w-full" variant="outline">
+                    Falar com vendas
+                  </Button>
+                }
+              />
+            </div>
           </div>
-        )}
+        </div>
         <div className="mt-10 flex justify-center">
           <Button variant="outline" asChild>
             <Link to="/precos">

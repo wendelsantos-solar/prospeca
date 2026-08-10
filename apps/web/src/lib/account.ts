@@ -48,6 +48,47 @@ export interface OnboardingProgress {
   step: number;
   completed: boolean;
   skippedSteps: string[];
+  searchDraft?: {
+    niche: string;
+    presence: "all" | "no-website" | "with-website";
+    location: string;
+    latitude?: number;
+    longitude?: number;
+    radiusKm: number;
+  };
+  milestones?: ActivationMilestones;
+}
+
+export interface ActivationMilestones {
+  firstSearch: boolean;
+  firstLeadViewed: boolean;
+  firstLeadAdded: boolean;
+  firstMessagePrepared: boolean;
+}
+
+export function mergeOnboardingProgress(
+  current: OnboardingProgress | null,
+  next: OnboardingProgress,
+): OnboardingProgress {
+  return {
+    ...current,
+    ...next,
+    skippedSteps: next.skippedSteps ?? current?.skippedSteps ?? [],
+    searchDraft: next.searchDraft ?? current?.searchDraft,
+    milestones: {
+      firstSearch:
+        (current?.milestones?.firstSearch ?? false) || (next.milestones?.firstSearch ?? false),
+      firstLeadViewed:
+        (current?.milestones?.firstLeadViewed ?? false) ||
+        (next.milestones?.firstLeadViewed ?? false),
+      firstLeadAdded:
+        (current?.milestones?.firstLeadAdded ?? false) ||
+        (next.milestones?.firstLeadAdded ?? false),
+      firstMessagePrepared:
+        (current?.milestones?.firstMessagePrepared ?? false) ||
+        (next.milestones?.firstMessagePrepared ?? false),
+    },
+  };
 }
 
 /** Onboarding progress lives on the user's own profile row — not

@@ -10,11 +10,17 @@
 import { useState } from "react";
 import type { Lead, ActivityType } from "@/types";
 import { useAddActivityMutation } from "@/hooks/useLeadsQuery";
+import {
+  useConnectGoogleCalendar,
+  useCreateGoogleMeeting,
+  useGoogleCalendarStatus,
+} from "@/hooks/useGoogleCalendar";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput, TimePickerInput } from "@/components/ui/date-picker";
 import {
   Select,
@@ -32,6 +38,9 @@ import {
   FileText,
   MapPin,
   Sparkles,
+  CalendarDays,
+  ExternalLink,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -96,10 +105,16 @@ interface NewActivity {
   time: string;
   note: string;
   priority: "low" | "medium" | "high";
+  attendeeEmail: string;
+  durationMinutes: number;
+  addToGoogleCalendar: boolean;
 }
 
 export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: boolean }) {
   const addActivityMut = useAddActivityMutation();
+  const calendarQuery = useGoogleCalendarStatus();
+  const connectCalendarMut = useConnectGoogleCalendar();
+  const createMeetingMut = useCreateGoogleMeeting();
   const [act, setAct] = useState<NewActivity>({
     type: "call",
     title: "",
@@ -107,6 +122,9 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
     time: "",
     note: "",
     priority: "medium",
+    attendeeEmail: lead.email ?? "",
+    durationMinutes: 30,
+    addToGoogleCalendar: false,
   });
 
   if (readOnly) {
@@ -121,10 +139,30 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
   }
 
   const resetForm = () =>
-    setAct({ type: "call", title: "", date: nowDate(), time: "", note: "", priority: "medium" });
+    setAct({
+      type: "call",
+      title: "",
+      date: nowDate(),
+      time: "",
+      note: "",
+      priority: "medium",
+      attendeeEmail: lead.email ?? "",
+      durationMinutes: 30,
+      addToGoogleCalendar: false,
+    });
 
   const handleSubmit = () => {
     if (!act.title.trim()) return toast.error("Informe um título");
+    if (act.type === "meeting" && !act.time) return toast.error("Informe o horário da reunião");
+    if (
+      act.type === "meeting" &&
+      act.attendeeEmail.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(act.attendeeEmail.trim())
+    ) {
+      return toast.error("Informe um e-mail de convidado válido");
+    }
+    const scheduledAt = new Date(`${act.date}T${act.time || "09:00"}:00`);
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
     addActivityMut.mutate(
       {
         leadId: lead.id,
@@ -133,14 +171,40 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
           title: act.title.trim(),
           date: act.date,
           time: act.time || undefined,
+          scheduledEndAt:
+            act.type === "meeting"
+              ? new Date(scheduledAt.getTime() + act.durationMinutes * 60_000).toISOString()
+              : undefined,
+          timezone,
+          attendeeEmail:
+            act.type === "meeting" && act.attendeeEmail.trim()
+              ? act.attendeeEmail.trim()
+              : undefined,
           note: act.note.trim() || undefined,
           priority: act.priority,
         },
       },
       {
-        onSuccess: () => {
-          toast.success("Atividade criada");
+        onSuccess: async (activity) => {
           resetForm();
+          if (act.type === "meeting" && act.addToGoogleCalendar) {
+            try {
+              const event = await createMeetingMut.mutateAsync(activity.id);
+              toast.success(
+                event.meeting_url
+                  ? "Reunião criada no Google Calendar com link do Meet"
+                  : "Evento criado; o Google ainda está preparando o link do Meet",
+              );
+            } catch (error) {
+              toast.error(
+                `Atividade salva, mas o Google Calendar falhou: ${
+                  error instanceof Error ? error.message : "tente novamente"
+                }`,
+              );
+            }
+          } else {
+            toast.success("Atividade criada");
+          }
         },
       },
     );
@@ -161,7 +225,14 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
               <Label className="text-xs">Tipo</Label>
               <Select
                 value={act.type}
-                onValueChange={(v) => setAct({ ...act, type: v as ActivityType })}
+                onValueChange={(v) =>
+                  setAct({
+                    ...act,
+                    type: v as ActivityType,
+                    addToGoogleCalendar:
+                      v === "meeting" && calendarQuery.data?.connection?.status === "connected",
+                  })
+                }
               >
                 <SelectTrigger className="h-10 bg-surface text-sm cursor-pointer">
                   <SelectValue />
@@ -200,6 +271,87 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
               <TimePickerInput value={act.time} onChange={(v) => setAct({ ...act, time: v })} />
             </div>
           </div>
+
+          {act.type === "meeting" && (
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-primary-soft/40 p-3">
+              <div className="flex items-start gap-2">
+                <Video className="mt-0.5 h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Dados da reunião</p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    O convite só será enviado ao e-mail informado quando você escolher adicionar ao
+                    Google.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">E-mail do convidado (opcional)</Label>
+                  <Input
+                    type="email"
+                    className="h-10 bg-surface text-sm"
+                    value={act.attendeeEmail}
+                    onChange={(event) => setAct({ ...act, attendeeEmail: event.target.value })}
+                    placeholder="contato@empresa.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Duração</Label>
+                  <Select
+                    value={String(act.durationMinutes)}
+                    onValueChange={(value) => setAct({ ...act, durationMinutes: Number(value) })}
+                  >
+                    <SelectTrigger className="h-10 bg-surface text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SheetSelectContent>
+                      <SelectItem value="30">30 minutos</SelectItem>
+                      <SelectItem value="45">45 minutos</SelectItem>
+                      <SelectItem value="60">1 hora</SelectItem>
+                    </SheetSelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {calendarQuery.data?.connection?.status === "connected" ? (
+                <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-surface p-2.5">
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={act.addToGoogleCalendar}
+                    onCheckedChange={(checked) =>
+                      setAct({ ...act, addToGoogleCalendar: checked === true })
+                    }
+                  />
+                  <span>
+                    <span className="block text-xs font-medium">
+                      Adicionar ao Google Calendar e gerar Meet
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      Conta conectada: {calendarQuery.data.connection.account_email}
+                    </span>
+                  </span>
+                </label>
+              ) : calendarQuery.data?.configured ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  disabled={connectCalendarMut.isPending}
+                  onClick={() =>
+                    connectCalendarMut.mutate("/app/configuracoes?section=integracoes")
+                  }
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Conectar Google Calendar para gerar Meet
+                </Button>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  A integração com Google Calendar ainda não foi configurada neste ambiente.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Row 2: Title */}
           <div className="space-y-1.5">
@@ -323,6 +475,36 @@ export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: b
                     <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
                       {a.note}
                     </p>
+                  )}
+                  {a.calendarEvent && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {a.calendarEvent.meetingUrl && (
+                        <a
+                          href={a.calendarEvent.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary-soft/70"
+                        >
+                          <Video className="h-3 w-3" /> Abrir Google Meet
+                        </a>
+                      )}
+                      {a.calendarEvent.htmlUrl && (
+                        <a
+                          href={a.calendarEvent.htmlUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <CalendarDays className="h-3 w-3" /> Ver no Calendar
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {a.calendarEvent.status === "pending" && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Meet sendo preparado…
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

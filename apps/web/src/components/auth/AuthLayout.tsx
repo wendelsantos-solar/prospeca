@@ -11,6 +11,7 @@ interface AuthLayoutProps {
   footer?: ReactNode;
   topBanner?: ReactNode;
   className?: string;
+  showLegalNotice?: boolean;
 }
 
 export function AuthLayout({
@@ -20,6 +21,7 @@ export function AuthLayout({
   footer,
   topBanner,
   className,
+  showLegalNotice = true,
 }: AuthLayoutProps) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -58,27 +60,29 @@ export function AuthLayout({
             <div className="mt-5 text-center text-body-sm text-muted-foreground">{footer}</div>
           )}
         </div>
-        <p className="mt-6 max-w-[400px] text-caption text-muted-foreground/70 text-center">
-          Ao continuar, você concorda com os{" "}
-          <a
-            href="/termos"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Termos de Uso
-          </a>{" "}
-          e a{" "}
-          <a
-            href="/privacidade"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Política de Privacidade
-          </a>
-          .
-        </p>
+        {showLegalNotice && (
+          <p className="mt-6 max-w-[400px] text-caption text-muted-foreground/70 text-center">
+            Ao continuar, você concorda com os{" "}
+            <a
+              href="/termos"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Termos de Uso
+            </a>{" "}
+            e a{" "}
+            <a
+              href="/privacidade"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Política de Privacidade
+            </a>
+            .
+          </p>
+        )}
       </div>
       <div className="hidden md:flex md:w-[58%] relative">
         <AuthProductPreview />

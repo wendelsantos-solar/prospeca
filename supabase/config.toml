@@ -391,6 +391,12 @@ import_map_path = "./import_map.json"
 [functions.health-check]
 verify_jwt = false
 
+# The Google OAuth callback does not carry the user's Supabase JWT. POST actions
+# still enforce authentication inside the function; GET callbacks validate a
+# short-lived, one-time OAuth state stored server-side.
+[functions.google-calendar]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

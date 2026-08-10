@@ -34,8 +34,17 @@ export interface LeadActivity {
   id: string;
   type: ActivityType;
   title: string;
+  /** ISO instant used for sorting, notifications and external calendars. */
   date: string;
   time?: string;
+  scheduledEndAt?: string;
+  timezone?: string;
+  attendeeEmail?: string;
+  calendarEvent?: {
+    htmlUrl?: string;
+    meetingUrl?: string;
+    status: "pending" | "confirmed" | "cancelled" | "error";
+  };
   note?: string;
   priority?: "low" | "medium" | "high";
   done?: boolean;

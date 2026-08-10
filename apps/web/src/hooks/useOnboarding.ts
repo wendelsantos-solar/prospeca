@@ -3,10 +3,11 @@
 //
 // Real mode: persisted on the user's profile row (survives across devices).
 // Demo mode: localStorage only — there's no backend to write to.
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { isDemoMode } from "@/lib/env";
 import {
   fetchOnboardingProgress,
+  mergeOnboardingProgress,
   saveOnboardingProgress as saveOnboardingProgressRemote,
   type OnboardingProgress,
 } from "@/lib/account";
@@ -38,6 +39,11 @@ export function useOnboarding() {
   );
   // Demo mode reads localStorage synchronously — nothing to await.
   const [loaded, setLoaded] = useState(isDemoMode);
+  const progressRef = useRef(progress);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -55,9 +61,12 @@ export function useOnboarding() {
   }, []);
 
   const save = useCallback((next: OnboardingProgress) => {
-    setProgress(next);
-    if (isDemoMode) saveLocal(next);
-    else void saveOnboardingProgressRemote(next);
+    const current = progressRef.current;
+    const merged = mergeOnboardingProgress(current, next);
+    progressRef.current = merged;
+    setProgress(merged);
+    if (isDemoMode) saveLocal(merged);
+    else void saveOnboardingProgressRemote(merged);
   }, []);
 
   return {

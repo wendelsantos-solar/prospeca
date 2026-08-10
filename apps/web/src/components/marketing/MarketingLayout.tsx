@@ -67,7 +67,10 @@ export function MarketingSection({
   children,
 }: MarketingSectionProps) {
   return (
-    <section id={id} className={cn(SECTION_SPACING[spacing], muted && "bg-surface-2", className)}>
+    <section
+      id={id}
+      className={cn("scroll-mt-24", SECTION_SPACING[spacing], muted && "bg-surface-2", className)}
+    >
       {children}
     </section>
   );

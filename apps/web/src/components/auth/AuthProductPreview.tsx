@@ -6,6 +6,9 @@ export function AuthProductPreview() {
     <div className="absolute inset-0 flex items-center justify-center bg-surface-2 p-8 lg:p-12">
       <div className="w-full max-w-[540px]">
         <div className="mb-8 text-center">
+          <p className="mb-3 text-micro font-semibold uppercase tracking-[0.16em] text-primary">
+            Demonstração do produto
+          </p>
           <p className="text-display font-semibold text-foreground tracking-tight">
             Da busca ao próximo contato,
             <br />

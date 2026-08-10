@@ -38,7 +38,18 @@ export function BenefitsSection() {
   return (
     <MarketingSection spacing="lg">
       <MarketingContainer width="default">
-        <SectionHeading title="Por que usar a Prospeca" center />
+        <SectionHeading
+          center
+          eyebrow="Por que o Prospeca"
+          title={
+            <>
+              Tudo que você precisa
+              <br />
+              pra prospectar melhor
+            </>
+          }
+          description="Da busca ao fechamento, cada funcionalidade foi pensada pra quem vende pra negócios locais."
+        />
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((b) => (
             <div key={b.title} className="flex gap-3">

@@ -17,6 +17,8 @@ import type { PresenceFilter } from "@/types";
 import { isRealMode } from "@/lib/env";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
+import { useActivationStore } from "@/stores/activation";
 import {
   Command,
   CommandEmpty,
@@ -91,6 +93,7 @@ export function SearchForm() {
   const radius = draft.radiusKm;
 
   const leads = useLeadsStore((s) => s.leads);
+  const markMilestone = useActivationStore((state) => state.mark);
   const leadsInRadius = useMemo(
     () =>
       leads.filter(
@@ -146,6 +149,8 @@ export function SearchForm() {
           ? `${search.totalFound} empresas encontradas`
           : `${leads.length} empresas encontradas`,
       );
+      track("search_completed", { niche: search.niche, totalFound: search.totalFound });
+      markMilestone("firstSearch", { niche: search.niche, totalFound: search.totalFound });
     },
     onError: (msg) => {
       setSearchError(msg);
@@ -170,6 +175,9 @@ export function SearchForm() {
     };
     setSearching(true);
     setSearchError(null);
+    if (!useLeadsStore.getState().currentSearch) {
+      track("first_search_started", { niche: payload.niche, location: payload.location });
+    }
     run(payload);
   }
 

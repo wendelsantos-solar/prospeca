@@ -10,17 +10,18 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       {
-        title: "Prospeca — Encontre empresas que precisam do serviço que você vende",
+        title: "Prospeca — Encontre quem abordar primeiro e por quê",
       },
       {
         name: "description",
         content:
-          "Pesquise empresas locais por nicho e região, identifique oportunidades com baixa presença digital e organize sua prospecção do início à venda.",
+          "Pesquise empresas por nicho e região, entenda o score de oportunidade e organize o próximo contato com você no controle.",
       },
-      { property: "og:title", content: "Prospeca — Inteligência comercial local" },
+      { property: "og:title", content: "Prospeca — Saiba quem abordar primeiro" },
       {
         property: "og:description",
-        content: "Transforme negócios locais em oportunidades reais de venda.",
+        content:
+          "Encontre empresas locais, entenda por que são oportunidades e organize o próximo contato.",
       },
     ],
     links: [{ rel: "canonical", href: "/" }],

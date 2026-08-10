@@ -96,10 +96,18 @@ interface ActivityRow {
   priority: "low" | "medium" | "high";
   status: string;
   scheduled_at: string | null;
+  scheduled_end_at: string | null;
+  timezone: string | null;
+  attendee_email: string | null;
   completed_at: string | null;
   occurred_at: string | null;
   outcome: LeadActivity["outcome"] | null;
   cadence_step_id: string | null;
+  activity_external_events?: Array<{
+    html_url: string | null;
+    meeting_url: string | null;
+    status: "pending" | "confirmed" | "cancelled" | "error";
+  }>;
 }
 
 const ACTIVITY_TYPE_TO_UI: Record<string, LeadActivity["type"]> = {
@@ -133,6 +141,21 @@ function mapNote(row: NoteRow): LeadNote {
 }
 
 function mapActivity(row: ActivityRow): LeadActivity {
+  const timezone = row.timezone || "America/Sao_Paulo";
+  const external = row.activity_external_events?.[0];
+  let time: string | undefined;
+  if (row.scheduled_at) {
+    try {
+      time = new Intl.DateTimeFormat("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: timezone,
+      }).format(new Date(row.scheduled_at));
+    } catch {
+      time = undefined;
+    }
+  }
   return {
     id: row.id,
     type: ACTIVITY_TYPE_TO_UI[row.type] ?? "other",
@@ -141,6 +164,17 @@ function mapActivity(row: ActivityRow): LeadActivity {
     priority: row.priority,
     done: row.status === "completed",
     date: row.scheduled_at ?? "",
+    time,
+    scheduledEndAt: row.scheduled_end_at ?? undefined,
+    timezone,
+    attendeeEmail: row.attendee_email ?? undefined,
+    calendarEvent: external
+      ? {
+          htmlUrl: external.html_url ?? undefined,
+          meetingUrl: external.meeting_url ?? undefined,
+          status: external.status,
+        }
+      : undefined,
     completedAt: row.completed_at ?? undefined,
     occurredAt: row.occurred_at ?? undefined,
     outcome: row.outcome ?? undefined,
@@ -229,10 +263,10 @@ function mapLead(row: LeadRow): Lead {
 // lead_activities so the Hoje/Agenda views can show scheduled calls,
 // follow-ups etc. without a separate query per lead.
 const LEAD_LIST_SELECT =
-  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*)";
+  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*, activity_external_events(html_url, meeting_url, status))";
 
 const LEAD_DETAIL_SELECT =
-  "*, lead_notes(*), lead_activities(*), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
+  "*, lead_notes(*), lead_activities(*, activity_external_events(html_url, meeting_url, status)), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
 
 /**
  * The UI's sort vocabulary → a `leads` column ordering. It used to switch on
@@ -395,6 +429,12 @@ export class SupabaseLeadRepository implements LeadRepository {
       .eq("id", leadId)
       .single();
     const { data: user } = await supabase.auth.getUser();
+    const timezone =
+      input.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
+    let scheduledAt = input.date || null;
+    if (input.date && !input.date.includes("T")) {
+      scheduledAt = new Date(`${input.date}T${input.time || "09:00"}:00`).toISOString();
+    }
     const { data, error } = await supabase
       .from("lead_activities")
       .insert({
@@ -405,9 +445,12 @@ export class SupabaseLeadRepository implements LeadRepository {
         title: input.title,
         description: input.note ?? null,
         priority: input.priority ?? "medium",
-        scheduled_at: input.date || null,
+        scheduled_at: scheduledAt,
+        scheduled_end_at: input.scheduledEndAt ?? null,
+        timezone,
+        attendee_email: input.attendeeEmail ?? null,
       })
-      .select("*")
+      .select("*, activity_external_events(html_url, meeting_url, status)")
       .single();
     if (error) throw new Error(error.message);
     return mapActivity(data as ActivityRow);

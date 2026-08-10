@@ -28,7 +28,15 @@ export function ProblemSection() {
       <MarketingContainer width="default">
         <SectionHeading
           center
-          title="Prospectar clientes locais não deveria depender de horas no mapa e planilhas desorganizadas."
+          eyebrow="O problema"
+          title={
+            <>
+              Pare de garimpar leads
+              <br />
+              no mapa e na planilha
+            </>
+          }
+          description="Horas perdidas procurando empresas uma por uma, copiando dados à mão e sem saber por onde começar. Isso acaba aqui."
         />
         <div className="mt-12 grid gap-5 md:grid-cols-2">
           <div className="rounded-xl border border-border bg-surface p-6">
