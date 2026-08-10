@@ -2,7 +2,9 @@
 
 /** Allowed CORS origins — comma-separated env var or APP_URL. Falls back to * in dev. */
 function getAllowedOrigins(): string[] {
-  const raw = Deno.env.get("CORS_ORIGINS") ?? Deno.env.get("APP_URL") ?? "*";
+  // Guard against Bun test runner where Deno is not defined.
+  const envGet = typeof Deno !== "undefined" ? (k: string) => Deno.env.get(k) : () => undefined;
+  const raw = envGet("CORS_ORIGINS") ?? envGet("APP_URL") ?? "*";
   return raw
     .split(",")
     .map((s) => s.trim())
@@ -57,7 +59,8 @@ function securityHeaders(): Record<string, string> {
     ].join("; "),
   };
   // HSTS: only in production over HTTPS
-  const env = Deno.env.get("APP_ENV") ?? "development";
+  const envGet2 = typeof Deno !== "undefined" ? (k: string) => Deno.env.get(k) : () => undefined;
+  const env = envGet2("APP_ENV") ?? "development";
   if (env === "production") {
     headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload";
   }

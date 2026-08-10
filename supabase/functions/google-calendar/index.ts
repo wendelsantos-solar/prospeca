@@ -50,11 +50,7 @@ function isConfigured(): boolean {
   ].every((name) => Boolean(Deno.env.get(name)?.trim()));
 }
 
-function redirectToApp(
-  returnTo: string,
-  result: "connected" | "error",
-  message?: string,
-) {
+function redirectToApp(returnTo: string, result: "connected" | "error", message?: string) {
   const { appUrl } = googleCalendarConfig();
   const url = new URL(safeReturnTo(returnTo), `${appUrl}/`);
   url.searchParams.set("integration", `google-calendar-${result}`);
@@ -90,10 +86,7 @@ async function handleCallback(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (consumeError || !oauthState) {
-    throw new AppError(
-      "UNAUTHORIZED",
-      "Esta autorização expirou. Inicie a conexão novamente.",
-    );
+    throw new AppError("UNAUTHORIZED", "Esta autorização expirou. Inicie a conexão novamente.");
   }
   if (providerError || !code) {
     return redirectToApp(
@@ -131,9 +124,7 @@ async function handleCallback(req: Request): Promise<Response> {
       throw connectionError ?? new Error("connection missing");
     }
 
-    const { error: credentialError } = await admin.from(
-      "integration_credentials",
-    ).upsert({
+    const { error: credentialError } = await admin.from("integration_credentials").upsert({
       connection_id: connection.id,
       encrypted_payload: encryptedPayload,
       iv,
@@ -148,9 +139,8 @@ async function handleCallback(req: Request): Promise<Response> {
     });
     return redirectToApp(oauthState.return_to, "connected");
   } catch (error) {
-    const message = error instanceof AppError
-      ? error.message
-      : "Não foi possível concluir a conexão.";
+    const message =
+      error instanceof AppError ? error.message : "Não foi possível concluir a conexão.";
     return redirectToApp(oauthState.return_to, "error", message);
   }
 }
@@ -186,39 +176,25 @@ Deno.serve(async (req) => {
         .eq("provider", GOOGLE_CALENDAR_PROVIDER)
         .maybeSingle();
       if (error) throw error;
-      return json(
-        { configured: isConfigured(), connection: data ?? null },
-        200,
-        {},
-        req,
-      );
+      return json({ configured: isConfigured(), connection: data ?? null }, 200, {}, req);
     }
 
     if (parsed.data.action === "authorization_url") {
       googleCalendarConfig();
       const stateBytes = crypto.getRandomValues(new Uint8Array(32));
-      const state = Array.from(
-        stateBytes,
-        (byte) => byte.toString(16).padStart(2, "0"),
-      ).join("");
+      const state = Array.from(stateBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
       const stateHash = await sha256Hex(state);
       const returnTo = safeReturnTo(parsed.data.returnTo);
-      const { error } = await ctx.adminClient.from("integration_oauth_states")
-        .insert({
-          state_hash: stateHash,
-          organization_id: ctx.organizationId,
-          user_id: ctx.userId,
-          provider: GOOGLE_CALENDAR_PROVIDER,
-          return_to: returnTo,
-          expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
-        });
+      const { error } = await ctx.adminClient.from("integration_oauth_states").insert({
+        state_hash: stateHash,
+        organization_id: ctx.organizationId,
+        user_id: ctx.userId,
+        provider: GOOGLE_CALENDAR_PROVIDER,
+        return_to: returnTo,
+        expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      });
       if (error) throw error;
-      return json(
-        { authorizationUrl: buildGoogleAuthorizationUrl(state) },
-        200,
-        {},
-        req,
-      );
+      return json({ authorizationUrl: buildGoogleAuthorizationUrl(state) }, 200, {}, req);
     }
 
     const { data: connection, error: connectionError } = await ctx.adminClient
@@ -239,10 +215,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (credential) {
           try {
-            const tokens = await decryptTokenPayload(
-              credential.encrypted_payload,
-              credential.iv,
-            );
+            const tokens = await decryptTokenPayload(credential.encrypted_payload, credential.iv);
             await revokeGoogleToken(tokens.refreshToken);
           } catch {
             // Local deletion must remain possible after a key rotation or a
@@ -270,10 +243,7 @@ Deno.serve(async (req) => {
       .eq("connection_id", connection.id)
       .single();
     if (!credential) {
-      throw new AppError(
-        "FEATURE_NOT_AVAILABLE",
-        "Credencial Google não encontrada.",
-      );
+      throw new AppError("FEATURE_NOT_AVAILABLE", "Credencial Google não encontrada.");
     }
 
     const { data: activity } = await ctx.adminClient
@@ -294,10 +264,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    let tokens = await decryptTokenPayload(
-      credential.encrypted_payload,
-      credential.iv,
-    );
+    let tokens = await decryptTokenPayload(credential.encrypted_payload, credential.iv);
     try {
       const refreshed = await ensureFreshToken(tokens);
       if (refreshed.accessToken !== tokens.accessToken) {
@@ -338,9 +305,8 @@ Deno.serve(async (req) => {
           timezone: activity.timezone || "America/Sao_Paulo",
           attendeeEmail: activity.attendee_email,
           leadName:
-            (activity.leads as unknown as { company_name?: string } | null)
-              ?.company_name ??
-              "Oportunidade",
+            (activity.leads as unknown as { company_name?: string } | null)?.company_name ??
+            "Oportunidade",
         },
         createMeet: settings.create_meet !== false,
       });
@@ -379,15 +345,12 @@ Deno.serve(async (req) => {
         .eq("id", connection.id);
       return json({ event: external }, 200, {}, req);
     } catch (error) {
-      const reconnect = error instanceof AppError &&
-        error.code === "UNAUTHORIZED";
+      const reconnect = error instanceof AppError && error.code === "UNAUTHORIZED";
       await ctx.adminClient
         .from("integration_connections")
         .update({
           status: reconnect ? "reconnect_required" : "error",
-          last_error: error instanceof Error
-            ? error.message.slice(0, 500)
-            : "Falha desconhecida",
+          last_error: error instanceof Error ? error.message.slice(0, 500) : "Falha desconhecida",
         })
         .eq("id", connection.id);
       throw error;

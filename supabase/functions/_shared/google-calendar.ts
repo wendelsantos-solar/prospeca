@@ -50,7 +50,8 @@ export function googleCalendarConfig() {
   return {
     clientId: requiredEnv("GOOGLE_CALENDAR_CLIENT_ID"),
     clientSecret: requiredEnv("GOOGLE_CALENDAR_CLIENT_SECRET"),
-    redirectUri: Deno.env.get("GOOGLE_CALENDAR_REDIRECT_URI")?.trim() ||
+    redirectUri:
+      Deno.env.get("GOOGLE_CALENDAR_REDIRECT_URI")?.trim() ||
       `${supabaseUrl}/functions/v1/google-calendar/callback`,
     appUrl: requiredEnv("APP_URL").replace(/\/$/, ""),
   };
@@ -71,10 +72,7 @@ export function buildGoogleAuthorizationUrl(state: string): string {
 }
 
 export function safeReturnTo(value: unknown): string {
-  if (
-    typeof value !== "string" || !value.startsWith("/") ||
-    value.startsWith("//")
-  ) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
     return "/app/configuracoes?section=integracoes";
   }
   return value.slice(0, 500);
@@ -100,10 +98,7 @@ function encryptionKey(): Promise<CryptoKey> {
       "INTEGRATION_TOKEN_ENCRYPTION_KEY deve conter 32 bytes em base64.",
     );
   }
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 export async function encryptTokenPayload(
@@ -132,40 +127,24 @@ export async function decryptTokenPayload(
       await encryptionKey(),
       base64ToBytes(encryptedPayload),
     );
-    return JSON.parse(
-      new TextDecoder().decode(decrypted),
-    ) as GoogleTokenPayload;
+    return JSON.parse(new TextDecoder().decode(decrypted)) as GoogleTokenPayload;
   } catch {
-    throw new AppError(
-      "INTERNAL_ERROR",
-      "Não foi possível ler a credencial da integração.",
-    );
+    throw new AppError("INTERNAL_ERROR", "Não foi possível ler a credencial da integração.");
   }
 }
 
 export async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
-  ).join("");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function googleTokenRequest(
-  params: URLSearchParams,
-): Promise<Record<string, unknown>> {
+async function googleTokenRequest(params: URLSearchParams): Promise<Record<string, unknown>> {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
   });
-  const data = (await response.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
     const invalidGrant = data.error === "invalid_grant";
     throw new AppError(
@@ -178,9 +157,7 @@ async function googleTokenRequest(
   return data;
 }
 
-export async function exchangeAuthorizationCode(
-  code: string,
-): Promise<GoogleTokenPayload> {
+export async function exchangeAuthorizationCode(code: string): Promise<GoogleTokenPayload> {
   const config = googleCalendarConfig();
   const data = await googleTokenRequest(
     new URLSearchParams({
@@ -191,10 +168,7 @@ export async function exchangeAuthorizationCode(
       grant_type: "authorization_code",
     }),
   );
-  if (
-    typeof data.access_token !== "string" ||
-    typeof data.refresh_token !== "string"
-  ) {
+  if (typeof data.access_token !== "string" || typeof data.refresh_token !== "string") {
     throw new AppError(
       "PROVIDER_UNAVAILABLE",
       "O Google não retornou acesso offline. Remova o acesso anterior e conecte novamente.",
@@ -203,8 +177,7 @@ export async function exchangeAuthorizationCode(
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
-    expiresAt: new Date(Date.now() + Number(data.expires_in ?? 3600) * 1000)
-      .toISOString(),
+    expiresAt: new Date(Date.now() + Number(data.expires_in ?? 3600) * 1000).toISOString(),
     tokenType: typeof data.token_type === "string" ? data.token_type : "Bearer",
   };
 }
@@ -222,25 +195,17 @@ export async function refreshGoogleAccessToken(
     }),
   );
   if (typeof data.access_token !== "string") {
-    throw new AppError(
-      "PROVIDER_UNAVAILABLE",
-      "O Google não renovou a autorização.",
-    );
+    throw new AppError("PROVIDER_UNAVAILABLE", "O Google não renovou a autorização.");
   }
   return {
     ...payload,
     accessToken: data.access_token,
-    expiresAt: new Date(Date.now() + Number(data.expires_in ?? 3600) * 1000)
-      .toISOString(),
-    tokenType: typeof data.token_type === "string"
-      ? data.token_type
-      : payload.tokenType,
+    expiresAt: new Date(Date.now() + Number(data.expires_in ?? 3600) * 1000).toISOString(),
+    tokenType: typeof data.token_type === "string" ? data.token_type : payload.tokenType,
   };
 }
 
-export async function ensureFreshToken(
-  payload: GoogleTokenPayload,
-): Promise<GoogleTokenPayload> {
+export async function ensureFreshToken(payload: GoogleTokenPayload): Promise<GoogleTokenPayload> {
   if (new Date(payload.expiresAt).getTime() > Date.now() + 60_000) {
     return payload;
   }
@@ -248,24 +213,15 @@ export async function ensureFreshToken(
 }
 
 export async function fetchGoogleIdentity(accessToken: string) {
-  const response = await fetch(
-    "https://openidconnect.googleapis.com/v1/userinfo",
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  );
+  const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!response.ok) {
-    throw new AppError(
-      "PROVIDER_UNAVAILABLE",
-      "Não foi possível identificar a conta Google.",
-    );
+    throw new AppError("PROVIDER_UNAVAILABLE", "Não foi possível identificar a conta Google.");
   }
   const data = (await response.json()) as { sub?: string; email?: string };
   if (!data.sub || !data.email) {
-    throw new AppError(
-      "PROVIDER_UNAVAILABLE",
-      "A conta Google não informou um e-mail válido.",
-    );
+    throw new AppError("PROVIDER_UNAVAILABLE", "A conta Google não informou um e-mail válido.");
   }
   return { accountId: data.sub, email: data.email };
 }
@@ -274,21 +230,13 @@ export async function googleEventId(activityId: string): Promise<string> {
   return `prospeca${await sha256Hex(activityId)}`;
 }
 
-export function buildCalendarEventBody(
-  activity: CalendarActivity,
-  createMeet = true,
-) {
+export function buildCalendarEventBody(activity: CalendarActivity, createMeet = true) {
   const start = new Date(activity.scheduledAt);
   const end = activity.scheduledEndAt
     ? new Date(activity.scheduledEndAt)
     : new Date(start.getTime() + 30 * 60_000);
-  if (
-    Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start
-  ) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "Data ou duração da reunião inválida.",
-    );
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new AppError("VALIDATION_ERROR", "Data ou duração da reunião inválida.");
   }
 
   return {
@@ -302,17 +250,15 @@ export function buildCalendarEventBody(
       .join("\n\n"),
     start: { dateTime: start.toISOString(), timeZone: activity.timezone },
     end: { dateTime: end.toISOString(), timeZone: activity.timezone },
-    attendees: activity.attendeeEmail
-      ? [{ email: activity.attendeeEmail }]
-      : undefined,
+    attendees: activity.attendeeEmail ? [{ email: activity.attendeeEmail }] : undefined,
     extendedProperties: { private: { prospecaActivityId: activity.id } },
     conferenceData: createMeet
       ? {
-        createRequest: {
-          requestId: crypto.randomUUID(),
-          conferenceSolutionKey: { type: "hangoutsMeet" },
-        },
-      }
+          createRequest: {
+            requestId: crypto.randomUUID(),
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        }
       : undefined,
   };
 }
@@ -320,10 +266,8 @@ export function buildCalendarEventBody(
 export function meetingUrlFromEvent(event: GoogleCalendarEvent): string | null {
   return (
     event.hangoutLink ??
-      event.conferenceData?.entryPoints?.find((entry) =>
-        entry.entryPointType === "video"
-      )?.uri ??
-      null
+    event.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === "video")?.uri ??
+    null
   );
 }
 
@@ -337,9 +281,9 @@ export async function createGoogleCalendarEvent(input: {
   const query = new URLSearchParams({ conferenceDataVersion: "1" });
   if (input.activity.attendeeEmail) query.set("sendUpdates", "all");
   const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${
-      encodeURIComponent(input.calendarId)
-    }/events?${query}`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      input.calendarId,
+    )}/events?${query}`,
     {
       method: "POST",
       headers: {
@@ -355,41 +299,32 @@ export async function createGoogleCalendarEvent(input: {
 
   if (response.status === 409) {
     const existing = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${
-        encodeURIComponent(input.calendarId)
-      }/events/${input.eventId}`,
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+        input.calendarId,
+      )}/events/${input.eventId}`,
       { headers: { Authorization: `Bearer ${input.accessToken}` } },
     );
     if (existing.ok) return (await existing.json()) as GoogleCalendarEvent;
   }
 
-  const data = (await response.json().catch(() => ({}))) as
-    & GoogleCalendarEvent
-    & {
-      error?: { message?: string };
-    };
+  const data = (await response.json().catch(() => ({}))) as GoogleCalendarEvent & {
+    error?: { message?: string };
+  };
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new AppError(
-        "UNAUTHORIZED",
-        "O Google recusou o acesso. Reconecte sua conta.",
-      );
+      throw new AppError("UNAUTHORIZED", "O Google recusou o acesso. Reconecte sua conta.");
     }
     throw new AppError(
       "PROVIDER_UNAVAILABLE",
-      data.error?.message ||
-        "Não foi possível criar o evento no Google Calendar.",
+      data.error?.message || "Não foi possível criar o evento no Google Calendar.",
     );
   }
   return data;
 }
 
 export async function revokeGoogleToken(token: string): Promise<void> {
-  await fetch(
-    `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    },
-  ).catch(() => undefined);
+  await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  }).catch(() => undefined);
 }
