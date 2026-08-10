@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLeadsList, useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
-import { useLeadsStore } from "@/stores";
+import { useLeadsStore, useUIStore } from "@/stores";
 import { applyFilters } from "@/lib/filters";
 import { buildTodayGroups, type TodayItem } from "@/lib/today";
 import { ActivityItem } from "@/components/app/ActivityItem";
+import { CommercialCalendar } from "@/components/app/CommercialCalendar";
 import { NbaCard } from "@/components/app/NbaCard";
 import { SavedFiltersBar } from "@/components/app/SavedFiltersBar";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { toast } from "sonner";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
-import type { Lead, LeadActivity } from "@/types";
+import type { Lead } from "@/types";
 
 export const Route = createFileRoute("/app/hoje")({
   head: () => ({
@@ -29,20 +30,6 @@ export const Route = createFileRoute("/app/hoje")({
 // ── Types ─────────────────────────────────────────────────────────────
 
 type MainTab = "fila" | "agenda";
-type AgendaSubTab = "today" | "upcoming" | "overdue" | "completed";
-
-// ── Helpers ───────────────────────────────────────────────────────────
-
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function endOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
 
 // ── Fila tab ──────────────────────────────────────────────────────────
 
@@ -302,222 +289,8 @@ function FocusMode({
 
 // ── Agenda tab (real activities + synthetic cadence items) ────────────
 
-/** Unified row for the agenda list — either a real user-created activity or
- * a synthetic reminder generated from the cadence engine. */
-type AgendaRow =
-  | { kind: "real"; lead: Lead; activity: LeadActivity; date: string; done: boolean }
-  | { kind: "synthetic"; lead: Lead; label: string; date: string; done: false };
-
 function AgendaTab({ leads }: { leads: Lead[] }) {
-  const [subTab, setSubTab] = useState<AgendaSubTab>("today");
-  const now = useMemo(() => new Date(), []);
-
-  // ── Build unified rows: real activities + synthetic cadence items ──
-  const allRows = useMemo(() => {
-    const rows: AgendaRow[] = [];
-
-    // Real activities
-    for (const lead of leads) {
-      for (const activity of lead.activities ?? []) {
-        rows.push({
-          kind: "real",
-          lead,
-          activity,
-          date: activity.date ?? "",
-          done: !!activity.done,
-        });
-      }
-    }
-
-    // Synthetic items from cadence (same source as the Fila tab)
-    const groups = buildTodayGroups(leads);
-    for (const g of groups) {
-      for (const item of g.items) {
-        // Only items with an explicit due date (cadence steps, not
-        // first_reach or no_next which have no date to anchor on).
-        if (item.dueAt) {
-          rows.push({
-            kind: "synthetic",
-            lead: item.lead,
-            label: item.label,
-            date: item.dueAt,
-            done: false,
-          });
-        }
-      }
-    }
-
-    return rows;
-  }, [leads]);
-
-  const filtered = useMemo(() => {
-    return allRows.filter((row) => {
-      if (subTab === "completed") return row.done;
-      if (row.done) return false;
-      if (!row.date) return false;
-      const due = new Date(row.date);
-      if (subTab === "overdue") return due < startOfDay(now);
-      if (subTab === "today") return due >= startOfDay(now) && due <= endOfDay(now);
-      if (subTab === "upcoming") return due > endOfDay(now);
-      return false;
-    });
-  }, [allRows, subTab, now]);
-
-  const counts = useMemo(() => {
-    let overdue = 0;
-    let today = 0;
-    let upcoming = 0;
-    let completed = 0;
-    for (const row of allRows) {
-      if (row.done) {
-        completed++;
-        continue;
-      }
-      if (!row.date) continue;
-      const due = new Date(row.date);
-      if (due < startOfDay(now)) overdue++;
-      else if (due <= endOfDay(now)) today++;
-      else upcoming++;
-    }
-    return { overdue, today, upcoming, completed };
-  }, [allRows, now]);
-
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return list;
-  }, [filtered]);
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-1 border-b border-border bg-surface px-5 py-2">
-        <SubTabBtn
-          active={subTab === "today"}
-          onClick={() => setSubTab("today")}
-          label="Hoje"
-          count={counts.today}
-        />
-        <SubTabBtn
-          active={subTab === "upcoming"}
-          onClick={() => setSubTab("upcoming")}
-          label="Próximas"
-          count={counts.upcoming}
-        />
-        <SubTabBtn
-          active={subTab === "overdue"}
-          onClick={() => setSubTab("overdue")}
-          label="Atrasadas"
-          count={counts.overdue}
-          tone="danger"
-        />
-        <SubTabBtn
-          active={subTab === "completed"}
-          onClick={() => setSubTab("completed")}
-          label="Concluídas"
-          count={counts.completed}
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-2 px-5 py-4">
-        {sorted.length === 0 ? (
-          <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
-            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-              <AppIcon icon={icons.feedback.success} size="xl" tone="primary" decorative />
-            </div>
-            <h2 className="text-[15px] font-semibold">
-              {subTab === "overdue"
-                ? "Sem atrasos"
-                : subTab === "completed"
-                  ? "Ainda sem atividades concluídas"
-                  : "Nenhuma atividade agendada"}
-            </h2>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">
-              {subTab === "completed"
-                ? "Marque uma atividade como concluída para vê-la aqui."
-                : "Agende retornos e follow-ups a partir do detalhe de um lead."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {sorted.map((row) =>
-              row.kind === "real" ? (
-                <ActivityItem key={row.activity.id} lead={row.lead} activity={row.activity} />
-              ) : (
-                <div
-                  key={`${row.lead.id}:synth:${row.date}`}
-                  className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3"
-                >
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
-                    <ClockIcon />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold text-foreground">
-                      {row.lead.companyName}
-                    </div>
-                    <div className="mt-0.5 text-[11.5px] text-muted-foreground">{row.label}</div>
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-function SubTabBtn({
-  active,
-  onClick,
-  label,
-  count,
-  tone,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  tone?: "danger";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-colors ${
-        active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      {label}
-      <span
-        className={`grid min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-semibold ${
-          active
-            ? tone === "danger"
-              ? "bg-destructive/15 text-destructive"
-              : "bg-primary-soft text-primary"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {count}
-      </span>
-    </button>
-  );
+  return <CommercialCalendar leads={leads} />;
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────
@@ -542,8 +315,49 @@ function HojePage() {
   const groups = useMemo(() => buildTodayGroups(leads), [leads]);
   const totalPending = groups.reduce((s, g) => s + g.items.length, 0);
   const overdueCount = groups.find((g) => g.id === "overdue")?.items.length ?? 0;
+  const scheduledCount = useMemo(
+    () =>
+      leads.reduce(
+        (count, lead) =>
+          count + lead.activities.filter((activity) => activity.date && !activity.done).length,
+        0,
+      ) +
+      groups.reduce(
+        (count, group) => count + group.items.filter((item) => item.dueAt && !item.activity).length,
+        0,
+      ),
+    [groups, leads],
+  );
 
   const [mainTab, setMainTab] = useState<MainTab>("fila");
+  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
+  const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
+  const sidebarBeforeAgenda = useRef<boolean | null>(null);
+
+  useEffect(
+    () => () => {
+      if (sidebarBeforeAgenda.current !== null) {
+        setSidebarCollapsed(sidebarBeforeAgenda.current);
+      }
+    },
+    [setSidebarCollapsed],
+  );
+
+  function openAgenda() {
+    if (mainTab !== "agenda") {
+      sidebarBeforeAgenda.current = sidebarCollapsed;
+      setSidebarCollapsed(true);
+      setMainTab("agenda");
+    }
+  }
+
+  function openQueue() {
+    setMainTab("fila");
+    if (sidebarBeforeAgenda.current !== null) {
+      setSidebarCollapsed(sidebarBeforeAgenda.current);
+      sidebarBeforeAgenda.current = null;
+    }
+  }
 
   if (error && !data) {
     return (
@@ -562,13 +376,22 @@ function HojePage() {
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-5 py-3">
         <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
-          <AppIcon icon={icons.navigation.today} size="md" tone="primary" decorative />
+          <AppIcon
+            icon={mainTab === "agenda" ? icons.agenda.calendar : icons.navigation.today}
+            size="md"
+            tone="primary"
+            decorative
+          />
         </div>
         <div>
-          <h1 className="text-[16px] font-semibold">Hoje</h1>
+          <h1 className="text-[16px] font-semibold">
+            {mainTab === "agenda" ? "Agenda comercial" : "Hoje"}
+          </h1>
           <p className="text-[11.5px] text-muted-foreground">
             {isLoading ? (
               "Carregando…"
+            ) : mainTab === "agenda" ? (
+              `${scheduledCount} ${scheduledCount === 1 ? "compromisso agendado" : "compromissos agendados"}`
             ) : totalPending === 0 ? (
               "Tudo em dia · nenhum item aberto"
             ) : (
@@ -589,7 +412,7 @@ function HojePage() {
         {/* Fila / Agenda tabs */}
         <div className="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface p-0.5">
           <button
-            onClick={() => setMainTab("fila")}
+            onClick={openQueue}
             className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[12px] font-medium ${
               mainTab === "fila"
                 ? "bg-muted text-foreground"
@@ -599,7 +422,7 @@ function HojePage() {
             <AppIcon icon={icons.layout.list} size="xs" tone="inherit" decorative /> Fila
           </button>
           <button
-            onClick={() => setMainTab("agenda")}
+            onClick={openAgenda}
             className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[12px] font-medium ${
               mainTab === "agenda"
                 ? "bg-muted text-foreground"

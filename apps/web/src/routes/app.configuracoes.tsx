@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   CheckCircle2,
-  XCircle,
   Loader2,
   User,
   SlidersHorizontal,
@@ -43,10 +42,13 @@ import {
   RotateCcw,
   Trash2,
   ArrowRight,
+  CalendarDays,
+  Video,
+  ShieldCheck,
+  Webhook,
 } from "lucide-react";
-import { integrationStatuses, isRealMode, isDemoMode } from "@/lib/env";
-import { invokeFunction, supabaseAvailable, getSupabase } from "@/lib/supabase";
-import { UsageCostCard } from "@/components/app/UsageCostCard";
+import { isDemoMode } from "@/lib/env";
+import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { SalesContactForm } from "@/components/marketing/SalesContactForm";
 import { useUIStore, useSettingsStore, useMessageStore, useLeadsStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
@@ -60,10 +62,11 @@ import {
   fetchCurrentSubscription,
 } from "@/lib/account";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/app/configuracoes")({
-  component: SettingsPage,
-});
+import {
+  useConnectGoogleCalendar,
+  useDisconnectGoogleCalendar,
+  useGoogleCalendarStatus,
+} from "@/hooks/useGoogleCalendar";
 
 const SECTIONS = [
   { key: "perfil", label: "Perfil", icon: User },
@@ -76,6 +79,27 @@ const SECTIONS = [
   { key: "integracoes", label: "Integrações", icon: Plug },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]["key"];
+
+export const Route = createFileRoute("/app/configuracoes")({
+  component: SettingsPage,
+});
+
+function readSettingsSearch(): {
+  section?: SectionKey;
+  integration?: string;
+  integrationMessage?: string;
+} {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const rawSection = params.get("section");
+  return {
+    section: SECTIONS.some((item) => item.key === rawSection)
+      ? (rawSection as SectionKey)
+      : undefined,
+    integration: params.get("integration") ?? undefined,
+    integrationMessage: params.get("integration_message") ?? undefined,
+  };
+}
 
 function Row({
   label,
@@ -698,122 +722,214 @@ function PlanoSection() {
   );
 }
 
-interface TestResult {
-  name: string;
-  ok: boolean;
-  latencyMs: number;
-  message: string;
-}
-
 function IntegracoesSection() {
-  const [testing, setTesting] = useState(false);
-  const [results, setResults] = useState<TestResult[]>([]);
-  const statuses = integrationStatuses();
+  const search = readSettingsSearch();
+  const callbackHandled = useRef(false);
+  const statusQuery = useGoogleCalendarStatus();
+  const connectMutation = useConnectGoogleCalendar();
+  const disconnectMutation = useDisconnectGoogleCalendar();
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const connection = statusQuery.data?.connection;
 
-  async function runTests() {
-    if (!supabaseAvailable()) {
-      toast.error("Supabase não configurado — testes indisponíveis em modo demo.");
-      return;
+  useEffect(() => {
+    if (callbackHandled.current || !search.integration) return;
+    callbackHandled.current = true;
+    if (search.integration === "google-calendar-connected") {
+      toast.success("Google Calendar conectado com sucesso");
+    } else if (search.integration === "google-calendar-error") {
+      toast.error(search.integrationMessage || "Não foi possível conectar o Google Calendar");
     }
-    setTesting(true);
-    const out: TestResult[] = [];
+  }, [search.integration, search.integrationMessage]);
 
-    const t0 = performance.now();
-    try {
-      const { error } = await getSupabase().from("organization_members").select("id").limit(1);
-      out.push({
-        name: "Banco de dados (RLS)",
-        ok: !error,
-        latencyMs: Math.round(performance.now() - t0),
-        message: error ? "Falha na consulta" : "Conectado",
-      });
-    } catch {
-      out.push({
-        name: "Banco de dados (RLS)",
-        ok: false,
-        latencyMs: Math.round(performance.now() - t0),
-        message: "Sem conexão",
-      });
-    }
+  const connect = () =>
+    connectMutation.mutate("/app/configuracoes?section=integracoes", {
+      onError: (error) => toast.error(error.message),
+    });
 
-    const t1 = performance.now();
-    try {
-      await invokeFunction("geocode-location", { query: "São Paulo, SP" });
-      out.push({
-        name: "Geocodificação (Edge Function)",
-        ok: true,
-        latencyMs: Math.round(performance.now() - t1),
-        message: "OK",
-      });
-    } catch (err) {
-      out.push({
-        name: "Geocodificação (Edge Function)",
-        ok: false,
-        latencyMs: Math.round(performance.now() - t1),
-        message: err instanceof Error ? err.message : "Falha",
-      });
-    }
-
-    setResults(out);
-    setTesting(false);
-  }
+  const disconnect = () =>
+    disconnectMutation.mutate(undefined, {
+      onSuccess: () => {
+        setDisconnectOpen(false);
+        toast.success("Google Calendar desconectado");
+      },
+      onError: (error) => toast.error(error.message),
+    });
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Status das integrações</CardTitle>
-          <CardDescription>Configuração detectada no ambiente atual.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {statuses.map((s) => (
-            <div key={s.name} className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                {s.configured ? (
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-destructive" />
-                )}
-                <span className="text-sm font-medium">{s.name}</span>
+    <div className="space-y-5">
+      <div className="rounded-xl border border-primary/20 bg-primary-soft/40 p-4">
+        <div className="flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <Plug className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">Conecte ferramentas ao seu fluxo comercial</h3>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Menos copiar e colar: transforme uma oportunidade em compromisso e mantenha o próximo
+              passo registrado na Prospeca.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b bg-surface-2/60">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border bg-surface">
+                <CalendarDays className="h-5 w-5 text-primary" />
               </div>
-              <Badge variant={s.configured ? "secondary" : "destructive"}>{s.detail}</Badge>
+              <div>
+                <CardTitle className="text-sm">Google Calendar + Meet</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  Agende reuniões, envie o convite e gere o link do Meet sem sair da oportunidade.
+                </CardDescription>
+              </div>
             </div>
-          ))}
+            {connection?.status === "connected" ? (
+              <Badge variant="secondary" className="gap-1 text-success">
+                <CheckCircle2 className="h-3 w-3" /> Conectado
+              </Badge>
+            ) : connection ? (
+              <Badge variant="destructive">Reconexão necessária</Badge>
+            ) : (
+              <Badge variant="outline">Não conectado</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid gap-2 text-xs sm:grid-cols-3">
+            <div className="flex items-center gap-2 rounded-lg border p-2.5">
+              <CalendarDays className="h-4 w-4 text-primary" /> Evento no calendário
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border p-2.5">
+              <Video className="h-4 w-4 text-primary" /> Link exclusivo do Meet
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border p-2.5">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Acesso mínimo e revogável
+            </div>
+          </div>
+
+          {isDemoMode ? (
+            <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+              Entre em uma conta real para conectar seu Google Calendar.
+            </p>
+          ) : statusQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Verificando conexão…
+            </div>
+          ) : statusQuery.isError ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-destructive">
+                Não foi possível carregar o estado da integração. Verifique a conexão e tente
+                novamente.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => statusQuery.refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : connection ? (
+            <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-medium">
+                  {connection.status === "connected"
+                    ? "Conta conectada"
+                    : connection.status === "reconnect_required"
+                      ? "A conta precisa ser reconectada"
+                      : "A última sincronização encontrou um erro"}
+                </p>
+                <p className="text-xs text-muted-foreground">{connection.account_email}</p>
+                {connection.last_error && connection.status !== "connected" && (
+                  <p className="mt-1 text-[11px] text-destructive">{connection.last_error}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {connection.status !== "connected" && (
+                  <Button size="sm" onClick={connect} disabled={connectMutation.isPending}>
+                    Reconectar
+                  </Button>
+                )}
+                <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" disabled={disconnectMutation.isPending}>
+                      Desconectar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Desconectar Google Calendar?</DialogTitle>
+                      <DialogDescription>
+                        A Prospeca perderá acesso à conta {connection.account_email}. Os eventos já
+                        criados continuarão no Google Calendar, mas novos Meet não serão gerados.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setDisconnectOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={disconnect} disabled={disconnectMutation.isPending}>
+                        {disconnectMutation.isPending ? "Desconectando…" : "Sim, desconectar"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+                A permissão é solicitada somente agora, não durante o cadastro. A Prospeca não
+                importa sua agenda completa.
+              </p>
+              <Button
+                size="sm"
+                onClick={connect}
+                disabled={connectMutation.isPending || !statusQuery.data?.configured}
+              >
+                {connectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Conectar Google Calendar
+              </Button>
+            </div>
+          )}
+
+          {!isDemoMode && statusQuery.data && !statusQuery.data.configured && (
+            <p className="text-[11px] text-warning">
+              A interface está pronta, mas as credenciais do Google ainda precisam ser configuradas
+              neste ambiente.
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      <UsageCostCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Testar conexões</CardTitle>
-          <CardDescription>
-            Executa verificações reais (banco e geocodificação de teste).
-            {!isRealMode && " Disponível apenas em modo real."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button onClick={runTests} disabled={testing || !isRealMode}>
-            {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Testar conexão
-          </Button>
-          {results.map((r) => (
-            <div key={r.name} className="flex items-center justify-between gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                {r.ok ? (
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-destructive" />
-                )}
-                {r.name}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Próximas conexões
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-dashed p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" /> WhatsApp oficial
               </div>
-              <span className="text-muted-foreground">
-                {r.message} · {r.latencyMs}ms
-              </span>
+              <Badge variant="outline">Planejado</Badge>
             </div>
-          ))}
-        </CardContent>
-      </Card>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Registrar conversas e resultados no histórico comercial.
+            </p>
+          </div>
+          <div className="rounded-lg border border-dashed p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Webhook className="h-4 w-4 text-muted-foreground" /> Webhooks e automações
+              </div>
+              <Badge variant="outline">Planejado</Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Conectar Make, n8n e outros sistemas sem integrações isoladas.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -826,7 +942,10 @@ const SECTION_META: Record<SectionKey, { title: string; desc: string }> = {
   score: { title: "Score", desc: "Como cada empresa é priorizada." },
   dados: { title: "Dados", desc: "Backup local e exclusão de conta." },
   plano: { title: "Plano", desc: "Sua assinatura atual." },
-  integracoes: { title: "Integrações", desc: "Status das integrações externas." },
+  integracoes: {
+    title: "Integrações",
+    desc: "Conecte ferramentas ao fluxo comercial da Prospeca.",
+  },
 };
 
 const SECTION_CONTENT: Record<SectionKey, React.ComponentType> = {
@@ -844,6 +963,10 @@ function SettingsPage() {
   // null = mobile shows the section list; desktop always shows a section
   // (falls back to "perfil"), it just ignores null.
   const [section, setSection] = useState<SectionKey | null>(null);
+  useEffect(() => {
+    const linkedSection = readSettingsSearch().section;
+    if (linkedSection) setSection(linkedSection);
+  }, []);
   const activeKey = section ?? "perfil";
   const meta = SECTION_META[activeKey];
   const Content = SECTION_CONTENT[activeKey];

@@ -5,6 +5,7 @@ import { HeroSection } from "./HeroSection";
 import { TrustStrip } from "./TrustStrip";
 import { HowItWorksSection } from "./HowItWorksSection";
 import { OpportunitySection } from "./OpportunitySection";
+import { IntegrationsSection } from "./IntegrationsSection";
 import { UseCasesSection } from "./UseCasesSection";
 import { PilotSection } from "./PilotSection";
 import { PricingTeaser } from "./PricingTeaser";
@@ -34,6 +35,9 @@ export function LandingPage() {
       </AnimatedSection>
       <AnimatedSection>
         <OpportunitySection />
+      </AnimatedSection>
+      <AnimatedSection>
+        <IntegrationsSection />
       </AnimatedSection>
       <AnimatedSection>
         <UseCasesSection />

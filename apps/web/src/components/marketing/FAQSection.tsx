@@ -30,6 +30,10 @@ const FAQS = [
     a: "Cada empresa recebe pontos por sinais comerciais (sem site, telefone encontrado, boa avaliação, proximidade, etc.) — o cálculo é transparente, não é uma caixa-preta.",
   },
   {
+    q: "O Prospeca integra com Google Calendar e Meet?",
+    a: "Sim. Você pode conectar sua conta Google e, ao agendar uma reunião no Prospeca, criar o evento no Calendar com um link exclusivo do Meet. Somente as atividades comerciais que você escolher adicionar são enviadas; sua agenda pessoal não é importada.",
+  },
+  {
     q: "Como funciona a privacidade?",
     a: "Seguimos a LGPD — dados de contato têm origem pública e você pode solicitar remoção a qualquer momento pelo canal de contato do site.",
   },

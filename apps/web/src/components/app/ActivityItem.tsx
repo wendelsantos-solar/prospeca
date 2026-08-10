@@ -8,6 +8,8 @@ import {
   FileText,
   MapPin,
   Sparkles,
+  CalendarDays,
+  Video,
 } from "lucide-react";
 import type { ActivityType, Lead, LeadActivity } from "@/types";
 import { useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
@@ -61,6 +63,10 @@ export function ActivityItem({ lead, activity }: { lead: Lead; activity: LeadAct
   }
 
   async function openChannel() {
+    if (activity.type === "meeting" && activity.calendarEvent?.meetingUrl) {
+      window.open(activity.calendarEvent.meetingUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (activity.type === "message") {
       // Refused (no WhatsApp / opt-out) → fall back to the drawer, as before.
       if (await openWhatsApp(lead)) return;
@@ -117,15 +123,38 @@ export function ActivityItem({ lead, activity }: { lead: Lead; activity: LeadAct
         <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
           <Clock className="h-3 w-3" />
           {formatDate(activity.date)}
+          {activity.time ? ` às ${activity.time}` : ""}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
+        {activity.calendarEvent?.htmlUrl && (
+          <a
+            href={activity.calendarEvent.htmlUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Ver no Google Calendar"
+            aria-label="Ver no Google Calendar"
+            className="grid h-7 w-7 place-items-center rounded-md border border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-primary"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+          </a>
+        )}
         {!activity.done && (
           <button
             onClick={openChannel}
             className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11.5px] font-semibold text-primary-foreground hover:bg-primary/90"
           >
-            {activity.type === "message" ? "Abordar" : activity.type === "call" ? "Ligar" : "Abrir"}
+            {activity.type === "meeting" && activity.calendarEvent?.meetingUrl ? (
+              <>
+                <Video className="h-3.5 w-3.5" /> Entrar no Meet
+              </>
+            ) : activity.type === "message" ? (
+              "Abordar"
+            ) : activity.type === "call" ? (
+              "Ligar"
+            ) : (
+              "Abrir"
+            )}
           </button>
         )}
         <button
