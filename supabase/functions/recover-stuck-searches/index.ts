@@ -5,34 +5,13 @@
 // Recovery NUNCA repassa forceRefresh (não pode re-pagar um bypass velho).
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
+import { isInternalCall } from "../_shared/internal-auth.ts";
 
 // 'queued' presa por >2min = trigger perdido. 'searching' >5min = run morto
 // (mais folga p/ não colidir com uma busca lenta ainda em andamento).
 const QUEUED_STUCK_MS = 2 * 60_000;
 const SEARCHING_STUCK_MS = 5 * 60_000;
 const MAX_PER_RUN = 25;
-
-// Constant-time compare (CWE-208) — mesmo padrão de execute-search.
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  const enc = new TextEncoder();
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest("SHA-256", enc.encode(a)),
-    crypto.subtle.digest("SHA-256", enc.encode(b)),
-  ]);
-  const va = new Uint8Array(ha);
-  const vb = new Uint8Array(hb);
-  let diff = 0;
-  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
-  return diff === 0;
-}
-
-// Sem `async` de propósito: não há await aqui, só o repasse da Promise de
-// timingSafeEqual (que é assíncrona por usar SHA-256). Marcar como async
-// dispararia require-await sem mudar semântica alguma.
-function isInternalCall(req: Request): Promise<boolean> {
-  const auth = req.headers.get("Authorization") ?? "";
-  return timingSafeEqual(auth, `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
-}
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);

@@ -15,6 +15,7 @@
     "@leads/domain/status": "../packages/domain/src/status.ts",
     "@leads/domain/ssrf": "../packages/domain/src/ssrf.ts",
     "@leads/domain/entitlements": "../packages/domain/src/entitlements.ts",
+    "@leads/domain/billing": "../packages/domain/src/billing.ts",
     "@leads/geo": "../packages/geo/src/index.ts"
   }
 }

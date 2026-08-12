@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "NODE_NO_WARNINGS=1 vite dev",
+    "dev": "NODE_NO_WARNINGS=1 vite dev --port 8080 --strictPort",
     "build": "NODE_NO_WARNINGS=1 vite build",
     "build:dev": "NODE_NO_WARNINGS=1 vite build --mode development",
     "preview": "NODE_NO_WARNINGS=1 vite preview",

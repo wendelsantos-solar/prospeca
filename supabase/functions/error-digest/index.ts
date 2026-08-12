@@ -9,28 +9,11 @@
 // notification (better a duplicate ping than a missed one).
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
+import { isInternalCall } from "../_shared/internal-auth.ts";
 import { sendEmail } from "../_shared/email.ts";
 
 const WINDOW_MS = 35 * 60_000;
 const MAX_ROWS = 500;
-
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  const enc = new TextEncoder();
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest("SHA-256", enc.encode(a)),
-    crypto.subtle.digest("SHA-256", enc.encode(b)),
-  ]);
-  const va = new Uint8Array(ha);
-  const vb = new Uint8Array(hb);
-  let diff = 0;
-  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
-  return diff === 0;
-}
-
-function isInternalCall(req: Request): Promise<boolean> {
-  const auth = req.headers.get("Authorization") ?? "";
-  return timingSafeEqual(auth, `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
-}
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);

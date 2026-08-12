@@ -3,6 +3,7 @@
 // validates distance with PostGIS, updates progress. Service-role only.
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
+import { isInternalCall } from "../_shared/internal-auth.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
@@ -12,29 +13,6 @@ import { readPoint } from "@leads/geo";
 import { selectPlaces, buildResultRows } from "../_shared/search-pipeline.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
-
-// Constant-time compare via fixed-length SHA-256 digests — avoids leaking the
-// service-role key length/prefix through response timing (CWE-208).
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  const enc = new TextEncoder();
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest("SHA-256", enc.encode(a)),
-    crypto.subtle.digest("SHA-256", enc.encode(b)),
-  ]);
-  const va = new Uint8Array(ha);
-  const vb = new Uint8Array(hb);
-  let diff = 0;
-  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
-  return diff === 0;
-}
-
-// Sem `async` de propósito: não há await aqui, só o repasse da Promise de
-// timingSafeEqual (que é assíncrona por usar SHA-256). Marcar como async
-// dispararia require-await sem mudar semântica alguma.
-function isInternalCall(req: Request): Promise<boolean> {
-  const auth = req.headers.get("Authorization") ?? "";
-  return timingSafeEqual(auth, `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
-}
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -352,7 +330,8 @@ Deno.serve(async (req) => {
       captureError(err, {
         location: "execute-search",
         requestId,
-        context: { searchId, code },
+        // `extra` is the field ErrorContext exposes; `context` was silently dropped.
+        extra: { searchId, code },
       });
     }
 

@@ -4,6 +4,7 @@
 import { ImportSearchResultsSchema } from "@leads/contracts/schemas";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient, requireAuth } from "../_shared/auth.ts";
+import { isInternalCall } from "../_shared/internal-auth.ts";
 import { readPoint } from "@leads/geo";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
@@ -35,9 +36,7 @@ Deno.serve(async (req) => {
 
     // Internal (service-role) calls — e.g. auto-import fired by execute-search —
     // carry org/user in the body and skip requireAuth.
-    const internal =
-      (req.headers.get("Authorization") ?? "") ===
-      `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+    const internal = await isInternalCall(req);
     let ctx: {
       adminClient: ReturnType<typeof adminClient>;
       userClient: ReturnType<typeof adminClient>;

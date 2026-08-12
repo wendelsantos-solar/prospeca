@@ -64,7 +64,12 @@ function buildSentryEvent(err: unknown, context: ErrorContext, requestId: string
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
 
-  const frames: SentryEvent["exception"]["values"][0]["stacktrace"]["frames"] = [];
+  // `exception` and `stacktrace` are optional on SentryEvent, so unwrap both
+  // before indexing — otherwise the element type is `… | undefined`.
+  type Frames = NonNullable<
+    NonNullable<NonNullable<SentryEvent["exception"]>["values"][number]["stacktrace"]>["frames"]
+  >;
+  const frames: Frames = [];
   if (stack) {
     const lines = stack.split("\n").slice(1, 11); // top 10 frames
     for (const line of lines) {

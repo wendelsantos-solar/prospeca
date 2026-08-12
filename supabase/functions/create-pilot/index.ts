@@ -34,10 +34,12 @@ Deno.serve(async (req: Request) => {
     const body = createPilotSchema.parse(rawBody);
 
     // Admin only
-    const { userId, adminClient } = await requireAuth(req);
+    const { userId, adminClient, userClient } = await requireAuth(req);
 
-    // Check platform admin
-    const { data: isAdmin } = await adminClient.rpc("is_platform_admin");
+    // Check platform admin. Must go through userClient: is_platform_admin()
+    // defaults its argument to auth.uid(), which is null on a service-role
+    // client — the gate would then reject every legitimate admin.
+    const { data: isAdmin } = await userClient.rpc("is_platform_admin");
     if (!isAdmin) {
       throw new AppError("FORBIDDEN", "Apenas administradores da plataforma podem criar pilotos.");
     }

@@ -72,8 +72,15 @@ export interface BillingProvider {
   /** Process a webhook event from the provider. */
   processWebhookEvent(event: BillingWebhookEvent): Promise<WebhookProcessResult>;
 
-  /** Verify webhook signature to prevent forgery. */
-  verifyWebhookSignature(payload: string, signature: string): boolean;
+  /**
+   * Verify webhook signature to prevent forgery.
+   *
+   * Async because HMAC verification goes through Web Crypto (`crypto.subtle`),
+   * which has no synchronous form. Implementations MUST fail closed: return
+   * false when the signing secret is absent, the header is unparseable, the
+   * timestamp is outside the replay window, or the MAC does not match.
+   */
+  verifyWebhookSignature(payload: string, signature: string): Promise<boolean>;
 
   /** Get the customer ID for an organization (null if not created yet). */
   getCustomerId(organizationId: string): Promise<string | null>;

@@ -17,7 +17,8 @@
     "test:e2e": "bun run --cwd apps/web test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:pilot": "bun run lint && bun run typecheck && bun run format:check && REQUIRE_RLS_DB=true bun test && bun run build && deno lint supabase/functions/ && deno check supabase/functions/*/index.ts && bun run test:e2e",
+    "verify:pilot": "bun run lint && bun run typecheck && bun run format:check && REQUIRE_RLS_DB=true bun test && bun run build && deno lint supabase/functions/ && deno check supabase/functions/*/index.ts && bun run test:deno && bun run test:e2e",
+    "test:deno": "deno test --allow-env supabase/functions/_shared/google-calendar.test.ts",
     "org:set-quota": "deno run -A --env-file=.env.local scripts/set-org-quota.ts"
   },
   "devDependencies": {

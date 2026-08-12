@@ -1,4 +1,25 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Opens an /app route past the onboarding wizard.
+ *
+ * Every test gets a fresh context, so the wizard is always on its first run and
+ * covers the app shell. Skipping it persists to localStorage (demo mode), so one
+ * dismissal per test is enough for later navigations in the same page.
+ */
+async function enterApp(page: Page, path: string) {
+  await page.goto(path);
+  const skip = page.getByRole("button", { name: "Explorar sozinho" });
+  await skip.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+
+  // Retried on purpose: the markup is server-rendered, so the button is
+  // clickable before React has attached its handler. A single click can land in
+  // that gap and do nothing.
+  await expect(async () => {
+    if (await skip.isVisible().catch(() => false)) await skip.click();
+    await expect(skip).toBeHidden({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
 
 test("preços publica somente a oferta disponível no piloto", async ({ page }) => {
   await page.goto("/precos");
@@ -13,7 +34,7 @@ test("preços publica somente a oferta disponível no piloto", async ({ page }) 
 });
 
 test("demonstração abre mapa, pipeline e configurações sem estado de erro", async ({ page }) => {
-  await page.goto("/app/mapa");
+  await enterApp(page, "/app/mapa");
   await expect(page.getByText("Buscar empresas")).toBeVisible();
 
   await page.goto("/app/kanban");
@@ -30,7 +51,7 @@ test("pipeline móvel apresenta uma coluna por viewport e permite navegação ho
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/app/kanban");
+  await enterApp(page, "/app/kanban");
 
   const firstColumn = page.getByTestId("kanban-column-new");
   await expect(firstColumn).toBeVisible();
@@ -40,10 +61,7 @@ test("pipeline móvel apresenta uma coluna por viewport e permite navegação ho
 });
 
 test("usuário registra o resultado real de uma oportunidade", async ({ page }) => {
-  await page.goto("/app/kanban");
-  const skipOnboarding = page.getByRole("button", { name: "Pular" });
-  await skipOnboarding.waitFor({ state: "visible", timeout: 2_000 }).catch(() => {});
-  if (await skipOnboarding.isVisible()) await skipOnboarding.click();
+  await enterApp(page, "/app/kanban");
 
   await page.getByText("Vitalis Medicina", { exact: true }).click();
   await page.getByRole("tab", { name: "Oportunidade" }).click();

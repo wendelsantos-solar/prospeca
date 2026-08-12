@@ -3372,7 +3372,7 @@
         "npm:eslint@^9.39.5",
         "npm:prettier@3.8.3",
         "npm:rollup-plugin-visualizer@^7.0.1",
-        "npm:turbo@^2.10.7",
+        "npm:turbo@^2.10.9",
         "npm:typescript-eslint@^8.65.0",
         "npm:web-vitals@^6.0.1"
       ],
@@ -3436,6 +3436,7 @@
             "npm:lucide-react@0.575",
             "npm:nitro@3.0.260603-beta",
             "npm:prettier@3.8.3",
+            "npm:react-day-picker@9",
             "npm:react-dom@^19.2.0",
             "npm:react-hook-form@^7.71.2",
             "npm:react-virtuoso@^4.18.11",

@@ -58,6 +58,11 @@ jobs:
       - name: Lint edge functions (deno)
         run: deno lint supabase/functions/
 
+      # Deno-native suite: it no-ops under `bun test` (no Deno global), so
+      # without this step it never runs anywhere.
+      - name: Deno-native unit tests
+        run: bun run test:deno
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -70,6 +75,11 @@ jobs:
         env:
           REQUIRE_RLS_DB: "true"
         run: bun test supabase/tests/rls-isolation.test.ts
+
+      # Runs only here: in the earlier `bun test` step Supabase is not up yet,
+      # so this suite self-skips and never actually exercises anything.
+      - name: Edge organization-context tests
+        run: bun test supabase/tests/edge-organization-context.test.ts
 
       - name: Stop local Supabase
         if: always()

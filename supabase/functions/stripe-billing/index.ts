@@ -22,9 +22,10 @@ import {
   newRequestId,
   logEvent,
   AppError,
-  type ApiError,
 } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
+import { verifyStripeSignature } from "../_shared/stripe-signature.ts";
+import { pickPriceId } from "../_shared/billing-price.ts";
 import { captureError } from "../_shared/error-tracking.ts";
 import type {
   BillingProvider,
@@ -55,7 +56,7 @@ async function stripeRequest(
     ? new URLSearchParams(Object.entries(body).map(([k, v]) => [k, String(v ?? "")])).toString()
     : undefined;
 
-  return fetch(`${STRIPE_API_BASE}${path}`, {
+  return await fetch(`${STRIPE_API_BASE}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
@@ -142,21 +143,18 @@ class StripeBillingProvider implements BillingProvider {
     // Look up the plan's provider price ID.
     const { data: plan } = await this.admin
       .from("billing_plans")
-      .select(
-        billingInterval === "monthly" ? "provider_monthly_price_id" : "provider_annual_price_id",
-      )
+      .select("provider_monthly_price_id, provider_annual_price_id")
       .eq("code", params.planCode)
       .single();
 
-    const priceId =
-      billingInterval === "monthly"
-        ? plan?.provider_monthly_price_id
-        : plan?.provider_annual_price_id;
+    const priceId = pickPriceId(plan, params.billingInterval);
 
     if (!priceId) {
       throw new AppError(
         "BILLING_CONFIG_ERROR",
-        `Plano "${params.planCode}" não possui preço configurado para ${billingInterval === "monthly" ? "mensal" : "anual"}.`,
+        `Plano "${params.planCode}" não possui preço configurado para ${
+          params.billingInterval === "monthly" ? "mensal" : "anual"
+        }.`,
         { planCode: params.planCode, interval: params.billingInterval },
       );
     }
@@ -203,16 +201,19 @@ class StripeBillingProvider implements BillingProvider {
 
   async processWebhookEvent(event: BillingWebhookEvent): Promise<WebhookProcessResult> {
     try {
+      // `await` on every branch is load-bearing: without it the handler's
+      // promise is returned before it settles and a rejection escapes this
+      // try/catch entirely, so webhook failures never reach captureError.
       switch (event.type) {
         case "checkout.session.completed": {
-          return this.handleCheckoutCompleted(event.payload as Record<string, unknown>);
+          return await this.handleCheckoutCompleted(event.payload as Record<string, unknown>);
         }
         case "customer.subscription.created":
         case "customer.subscription.updated": {
-          return this.handleSubscriptionUpdated(event.payload as Record<string, unknown>);
+          return await this.handleSubscriptionUpdated(event.payload as Record<string, unknown>);
         }
         case "customer.subscription.deleted": {
-          return this.handleSubscriptionDeleted(event.payload as Record<string, unknown>);
+          return await this.handleSubscriptionDeleted(event.payload as Record<string, unknown>);
         }
         case "invoice.paid": {
           return this.handleInvoicePaid(event.payload as Record<string, unknown>);
@@ -229,9 +230,8 @@ class StripeBillingProvider implements BillingProvider {
     }
   }
 
-  private async handleCheckoutCompleted(
-    payload: Record<string, unknown>,
-  ): Promise<WebhookProcessResult> {
+  // Sync on purpose: nothing to await. Callers treat the value like any other.
+  private handleCheckoutCompleted(payload: Record<string, unknown>): WebhookProcessResult {
     const organizationId = (payload as { metadata?: { organization_id?: string } })?.metadata
       ?.organization_id;
     const subscriptionId = (payload as { subscription?: string })?.subscription;
@@ -347,23 +347,19 @@ class StripeBillingProvider implements BillingProvider {
   private async handleSubscriptionDeleted(
     payload: Record<string, unknown>,
   ): Promise<WebhookProcessResult> {
-    return this.handleSubscriptionUpdated({
+    return await this.handleSubscriptionUpdated({
       ...payload,
       status: "cancelled",
     } as Record<string, unknown>);
   }
 
-  private async handleInvoicePaid(
-    _payload: Record<string, unknown>,
-  ): Promise<WebhookProcessResult> {
+  private handleInvoicePaid(_payload: Record<string, unknown>): WebhookProcessResult {
     // Future: record invoice in billing_events, send receipt email.
     logEvent({ level: "info", service: "stripe-billing", operation: "invoice_paid" });
     return { status: "ok" };
   }
 
-  private async handleInvoicePaymentFailed(
-    payload: Record<string, unknown>,
-  ): Promise<WebhookProcessResult> {
+  private handleInvoicePaymentFailed(payload: Record<string, unknown>): WebhookProcessResult {
     const customerId = (payload as { customer?: string })?.customer;
     logEvent({
       level: "warning",
@@ -374,77 +370,35 @@ class StripeBillingProvider implements BillingProvider {
     return { status: "ok" };
   }
 
-  verifyWebhookSignature(payload: string, signature: string): boolean {
+  async verifyWebhookSignature(payload: string, signature: string): Promise<boolean> {
     if (!STRIPE_WEBHOOK_SECRET) {
-      // Without webhook secret configured, accept the event but log a warning.
-      // In production, this MUST be configured.
+      // Fail closed: an unsigned endpoint lets anyone forge subscription events.
+      logEvent({
+        level: "error",
+        service: "stripe-billing",
+        operation: "webhook_signature",
+        status: "rejected",
+        message: "STRIPE_WEBHOOK_SECRET não configurado — webhook rejeitado.",
+      });
+      return false;
+    }
+
+    const valid = await verifyStripeSignature({
+      payload,
+      header: signature,
+      secret: STRIPE_WEBHOOK_SECRET,
+      nowMs: Date.now(),
+    });
+
+    if (!valid) {
       logEvent({
         level: "warning",
         service: "stripe-billing",
         operation: "webhook_signature",
-        status: "unverified",
+        status: "invalid",
       });
-      return true;
     }
-
-    // Stripe signature verification requires crypto.subtle which is available
-    // in Deno. We implement HMAC-SHA256 verification.
-    try {
-      // Parse the signature header: t=timestamp,v1=signature[,v1=...]
-      const parts = signature.split(",").reduce(
-        (acc, part) => {
-          const [key, value] = part.trim().split("=");
-          if (key && value) acc[key] = value;
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-
-      const timestamp = parts["t"];
-      const expectedSignature = parts["v1"];
-
-      if (!timestamp || !expectedSignature) return false;
-
-      const signedPayload = `${timestamp}.${payload}`;
-
-      // We use the Web Crypto API for HMAC verification
-      // This is async but we need sync for the interface — we'll use a simpler
-      // approach: encode the secret and compare using constant-time.
-      // For production: use Stripe's official library or implement full HMAC-SHA256.
-      // The current implementation provides basic forgery protection.
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(STRIPE_WEBHOOK_SECRET);
-      const messageData = encoder.encode(signedPayload);
-
-      // Import key and verify HMAC
-      return this.verifyHmac(keyData, messageData, expectedSignature);
-    } catch {
-      return false;
-    }
-  }
-
-  private verifyHmac(
-    _keyData: Uint8Array,
-    _messageData: Uint8Array,
-    _expectedSignature: string,
-  ): boolean {
-    // HMAC verification requires async crypto.subtle.importKey + subtle.sign.
-    // For the edge function, we use a simpler check as defense-in-depth:
-    // the webhook secret is set in the Stripe dashboard, and the endpoint
-    // is only accessible with the correct URL which includes the project ref.
-    // Full HMAC verification should be implemented before production launch.
-    //
-    // TODO: Implement full HMAC-SHA256 verification using:
-    //   crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["verify"])
-    //   crypto.subtle.verify("HMAC", key, hexToBytes(expectedSignature), messageData)
-    logEvent({
-      level: "warning",
-      service: "stripe-billing",
-      operation: "webhook_hmac",
-      status: "deferred",
-      message: "Full HMAC verification pending — use Stripe CLI or dashboard IP filtering for now",
-    });
-    return true;
+    return valid;
   }
 }
 
@@ -454,20 +408,25 @@ class NoopBillingProvider implements BillingProvider {
   isEnabled(): boolean {
     return false;
   }
-  async getCustomerId(): Promise<null> {
-    return null;
+  getCustomerId(): Promise<null> {
+    return Promise.resolve(null);
   }
-  async createCheckoutSession(): Promise<CheckoutResult> {
-    throw new AppError("BILLING_NOT_CONFIGURED", "Billing não configurado neste ambiente.");
+  createCheckoutSession(): Promise<CheckoutResult> {
+    return Promise.reject(
+      new AppError("BILLING_NOT_CONFIGURED", "Billing não configurado neste ambiente."),
+    );
   }
-  async createPortalSession(): Promise<PortalResult> {
-    throw new AppError("BILLING_NOT_CONFIGURED", "Billing não configurado neste ambiente.");
+  createPortalSession(): Promise<PortalResult> {
+    return Promise.reject(
+      new AppError("BILLING_NOT_CONFIGURED", "Billing não configurado neste ambiente."),
+    );
   }
-  async processWebhookEvent(): Promise<WebhookProcessResult> {
-    return { status: "ignored", reason: "Billing not configured" };
+  processWebhookEvent(): Promise<WebhookProcessResult> {
+    return Promise.resolve({ status: "ignored", reason: "Billing not configured" });
   }
-  verifyWebhookSignature(): boolean {
-    return false;
+  // Sem `async`: não há await aqui, só o retorno de uma Promise já resolvida.
+  verifyWebhookSignature(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }
 
@@ -494,8 +453,11 @@ interface BillingRequest {
 async function handleBillingAction(req: Request, body: BillingRequest): Promise<Response> {
   const requestId = newRequestId();
 
+  let organizationId: string | undefined;
+
   try {
     const auth = await requireAuth(req);
+    organizationId = auth.organizationId;
     const provider = getBillingProvider(auth.adminClient);
 
     switch (body.action) {
@@ -551,7 +513,7 @@ async function handleBillingAction(req: Request, body: BillingRequest): Promise<
         );
     }
   } catch (err) {
-    return captureAndRespond(err, requestId, "stripe-billing", req, auth?.organizationId);
+    return captureAndRespond(err, requestId, "stripe-billing", req, organizationId);
   }
 }
 
@@ -572,8 +534,9 @@ async function handleWebhook(req: Request): Promise<Response> {
 
     const provider = getBillingProvider(admin);
 
-    // Verify signature (defense-in-depth).
-    if (!provider.verifyWebhookSignature(payload, signature)) {
+    // Verify signature — this is the only thing standing between a forged POST
+    // and a real subscription change. Fails closed.
+    if (!(await provider.verifyWebhookSignature(payload, signature))) {
       return apiError(
         requestId,
         "FORBIDDEN",
@@ -641,13 +604,13 @@ async function handleWebhook(req: Request): Promise<Response> {
 
 // ── Helper ──────────────────────────────────────────────────────────────
 
-async function captureAndRespond(
+function captureAndRespond(
   err: unknown,
   requestId: string,
   location: string,
   req?: Request,
   organizationId?: string,
-): Promise<Response> {
+): Response {
   captureError(err, { location, requestId, organizationId });
 
   if (err instanceof AppError) {
@@ -657,8 +620,6 @@ async function captureAndRespond(
   const message = err instanceof Error ? err.message : "Erro interno do servidor";
   return apiError(requestId, "INTERNAL_ERROR", message, 500, undefined, req);
 }
-
-let auth: { organizationId?: string } | undefined;
 
 // ── Main handler ────────────────────────────────────────────────────────
 
