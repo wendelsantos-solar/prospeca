@@ -104,6 +104,7 @@ function KanbanPage() {
 
   return (
     <div className="flex h-full flex-col">
+      <h1 className="sr-only">Pipeline</h1>
       <Suspense fallback={<KanbanSkeleton />}>
         <KanbanTopBar
           search={search}

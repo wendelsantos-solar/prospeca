@@ -644,3 +644,28 @@
 .leaflet-container a.leaflet-popup-close-button:hover {
   color: var(--color-foreground);
 }
+
+/* ── Relatório de diagnóstico (white-label) — impressão isolada ──
+   O diálogo renderiza via portal em <body> com a classe `.diagnostic-report`.
+   Enquanto ele está aberto, o <body> recebe `.printing-report`; no `@media
+   print` escondemos todo o resto e deixamos só o relatório, então "Baixar PDF"
+   (window.print) gera um PDF limpo. `print-color-adjust: exact` preserva as
+   cores dos badges/barras no PDF. */
+.diagnostic-report {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@media print {
+  body.printing-report > *:not(.diagnostic-report) {
+    display: none !important;
+  }
+  .diagnostic-report {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+}
+

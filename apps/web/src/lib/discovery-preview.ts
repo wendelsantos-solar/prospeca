@@ -31,6 +31,8 @@ export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
     instagram: r.instagram ?? undefined,
     website: r.website ?? undefined,
     hasWebsite: r.hasWebsite,
+    enrichmentState: r.enrichmentState,
+    enrichmentFields: r.enrichmentFields,
     rating: r.rating ?? undefined,
     reviewCount: r.reviewCount ?? undefined,
     score: r.score,

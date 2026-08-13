@@ -1,5 +1,5 @@
 import type { Lead, LeadActivity } from "@/types";
-import { currentCadenceStep, nextCadenceStep, cadenceStepDueDate } from "./cadence";
+import { CADENCE_STEPS, currentCadenceStep, nextCadenceStep, cadenceStepDueDate } from "./cadence";
 
 export type TodayGroupId = "overdue" | "today" | "upcoming" | "first_reach" | "no_next";
 
@@ -29,6 +29,27 @@ function endOfDay(d = new Date()) {
   const x = new Date(d);
   x.setHours(23, 59, 59, 999);
   return x;
+}
+
+/**
+ * The concrete "what do I do now" for a lead that has no scheduled activity
+ * and no automatic cadence tick. Replaces the old catch-all "Sem próxima ação
+ * definida" — which was misleading for leads that DO have an obvious next step.
+ */
+function stuckLabel(lead: Lead): string {
+  if (
+    lead.stage === "contacted" &&
+    (lead.cadenceCompletedAt || (lead.cadenceStep ?? 0) >= CADENCE_STEPS.length)
+  ) {
+    return "Cadência concluída — definir próximo passo";
+  }
+  if (lead.stage === "contacted" && !lead.cadenceStartedAt) {
+    return "Confirmar primeiro contato";
+  }
+  if (lead.stage === "qualified") {
+    return "Qualificado — agendar próximo passo";
+  }
+  return "Sem próxima ação definida";
 }
 
 export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
@@ -98,22 +119,18 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
             overdue.push({ ...item, groupId: "overdue" });
           } else if (dueTime <= todayEnd) {
             today.push({ ...item, groupId: "today" });
-          } else if (dueTime <= in7) {
-            upcoming.push({ ...item, groupId: "upcoming" });
           } else {
-            noNext.push({
-              id: `${lead.id}:no_next`,
-              groupId: "no_next",
-              lead,
-              label: "Sem próxima ação definida",
-            });
+            // A future cadence step (even beyond 7 days) still HAS a next
+            // action — keep the step label and surface it as upcoming, rather
+            // than losing it under a misleading "no next action" bucket.
+            upcoming.push({ ...item, groupId: "upcoming" });
           }
         } else {
           noNext.push({
             id: `${lead.id}:no_next`,
             groupId: "no_next",
             lead,
-            label: "Sem próxima ação definida",
+            label: stuckLabel(lead),
           });
         }
       } else {
@@ -121,7 +138,7 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
           id: `${lead.id}:no_next`,
           groupId: "no_next",
           lead,
-          label: "Sem próxima ação definida",
+          label: stuckLabel(lead),
         });
       }
     }
@@ -143,14 +160,14 @@ export function buildTodayGroups(pipeline: Lead[]): TodayGroup[] {
     },
     {
       id: "upcoming",
-      title: "Próximos 7 dias",
-      description: "Compromissos no radar.",
+      title: "Próximos dias",
+      description: "Compromissos e cadências futuras no radar.",
       items: upcoming,
     },
     {
       id: "no_next",
-      title: "Sem próxima ação",
-      description: "Leads ativos parados sem próximo passo.",
+      title: "Precisa de decisão",
+      description: "Leads ativos esperando seu próximo passo.",
       items: noNext,
     },
   ];

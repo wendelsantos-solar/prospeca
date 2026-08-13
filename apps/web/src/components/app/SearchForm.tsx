@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Loader2, MapPin, X, Locate } from "lucide-react";
+import { Search, Loader2, MapPin, X, Locate, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { NICHES } from "@/lib/constants";
@@ -7,6 +7,8 @@ import { historyService, type SearchInput } from "@/services";
 import { useLeadsStore, useLocationStore, useSearchDraftStore, useSettingsStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
 import { distanceKm } from "@/lib/geo";
+import { buildMissionPhrase } from "@/lib/mission";
+import { MissionInput } from "./MissionInput";
 import { useIsDirty } from "@/hooks/useIsDirty";
 import { useSearchMutation } from "@/hooks/useSearchMutation";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -92,6 +94,13 @@ export function SearchForm() {
   const presence = draft.presence;
   const radius = draft.radiusKm;
 
+  // Deterministic "missão de prospecção" — friendly interpretation of the
+  // chosen filters (no LLM; derived purely from what the user picked).
+  const mission = useMemo(
+    () => buildMissionPhrase({ niche, location, presence, radiusKm: radius }),
+    [niche, location, presence, radius],
+  );
+
   const leads = useLeadsStore((s) => s.leads);
   const markMilestone = useActivationStore((state) => state.mark);
   const leadsInRadius = useMemo(
@@ -164,6 +173,13 @@ export function SearchForm() {
     // the "retry-search"/"radar-search" listeners — registered once on mount — never
     // resubmit a stale draft after the user changes niche/location/radius.
     const current = useSearchDraftStore.getState().draft;
+    // Guard: never run a search without a region — the initial draft coords are
+    // (0,0) (the ocean), and searching there is silent nonsense. Require a real
+    // location text before firing.
+    if (!(input?.location ?? current.location).trim()) {
+      toast.error("Escolha uma região para buscar.");
+      return;
+    }
     const payload: SearchInput = {
       niche: input?.niche ?? current.niche,
       location: input?.location ?? current.location,
@@ -224,6 +240,15 @@ export function SearchForm() {
 
   return (
     <div className="flex flex-col gap-2.5">
+      <MissionInput />
+      {mission && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary-subtle px-3 py-2">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="text-[12px] leading-snug text-foreground">
+            <span className="font-semibold text-primary">Missão:</span> {mission}
+          </p>
+        </div>
+      )}
       <div>
         <Popover open={nicheOpen} onOpenChange={setNicheOpen}>
           <PopoverTrigger asChild>

@@ -91,6 +91,31 @@ export const MARKER_HEX = {
   selected: "#2563eb",
 } as const;
 
+/** Opportunity-density heatmap gradient — a real thermal ramp (cool → hot), not
+ * the marker temperature colors: low density reads as cool blue (≈ "Frio") and
+ * high density as hot orange (≈ "Quente"), which is both the universal heatmap
+ * convention and consistent with the product's temperature language. Shared by
+ * the Leaflet (object stops) and Google (array) renderers so the heat reads the
+ * same on both. */
+export const HEAT_GRADIENT: Record<number, string> = {
+  0.0: "#2563eb", // frio → azul
+  0.45: "#22c55e", // médio → verde
+  0.75: "#eab308", // morno → amarelo
+  0.9: "#f97316", // quente → laranja
+  1.0: "#dc2626", // muito quente → vermelho (maior oportunidade)
+};
+export const HEAT_GRADIENT_ARRAY: string[] = [
+  "#2563eb",
+  "#22c55e",
+  "#eab308",
+  "#f97316",
+  "#dc2626",
+];
+
+/** CSS linear-gradient for the heatmap legend bar, built from the same thermal
+ * stops the renderers use, so the legend always matches the actual heat. */
+export const HEAT_GRADIENT_CSS = `linear-gradient(to right, ${HEAT_GRADIENT_ARRAY.join(", ")})`;
+
 export function markerColor(r: DiscoveryResult, selected: boolean): string {
   if (selected) return MARKER_HEX.selected;
   if (r.importedLeadId != null) return MARKER_HEX.funnel;

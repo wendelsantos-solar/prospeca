@@ -1,7 +1,9 @@
 import type { Lead, Search, PresenceFilter } from "@/types";
 import { MOCK_LEADS } from "@/mocks/leads";
-import { CITY_SUGGESTIONS } from "@/lib/constants";
+import { suggestCities } from "@/lib/local-geocoding";
 import { distanceKm } from "@/lib/geo";
+import { getSearchRepository } from "@/repositories";
+import type { DiscoveryResult } from "@/repositories";
 
 const delay = (ms = 300 + Math.random() * 400) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -87,15 +89,43 @@ export const searchService = {
       contactsFound: enriched,
     };
     void withoutSite;
+
+    // Populate the demo discovery cache so the map/list (useDiscoveryResults)
+    // see the same data as the leads store — otherwise the map renders
+    // "Nenhum resultado" even though the search returned leads.
+    const discovery: DiscoveryResult[] = final.map((l) => ({
+      placeId: l.id,
+      name: l.companyName,
+      category: l.category,
+      latitude: l.latitude,
+      longitude: l.longitude,
+      address: l.address,
+      neighborhood: l.neighborhood ?? null,
+      city: l.city,
+      state: l.state,
+      phone: l.phone ?? null,
+      website: l.website ?? null,
+      hasWebsite: l.hasWebsite,
+      email: l.email ?? null,
+      instagram: l.instagram ?? null,
+      whatsapp: l.whatsapp ?? null,
+      rating: l.rating ?? null,
+      reviewCount: l.reviewCount ?? null,
+      distanceKm: l.distanceKm,
+      score: l.score,
+      temperature: l.temperature,
+      importedLeadId: null,
+      enrichmentState: "enriched",
+      enrichmentFields: null,
+    }));
+    getSearchRepository().registerDiscovery(search.id, discovery);
+
     return { leads: final, search };
   },
 };
 
 export const historyService = {
   suggestLocation(query: string) {
-    if (!query) return CITY_SUGGESTIONS.slice(0, 5);
-    return CITY_SUGGESTIONS.filter((c) =>
-      c.label.toLowerCase().includes(query.toLowerCase()),
-    ).slice(0, 6);
+    return suggestCities(query);
   },
 };

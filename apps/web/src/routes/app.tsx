@@ -28,7 +28,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { MapIcon, Sunrise, Kanban, BarChart3, Search } from "lucide-react";
+import { MapIcon, Sunrise, Kanban, BarChart3, Search, ShieldCheck } from "lucide-react";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
@@ -36,6 +36,7 @@ import { ActivationChecklist } from "@/components/app/ActivationChecklist";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
+import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { cn } from "@/lib/utils";
 import { useAuth, preserveReturnTo } from "@/hooks/useAuth";
 import { usePendingInvitation } from "@/hooks/usePendingInvitation";
@@ -114,15 +115,17 @@ function DemoModeBanner() {
 function MobileNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const [searchOpen, setSearchOpen] = useState(false);
+  const isPlatformAdmin = useIsPlatformAdmin();
   const tabs = [
     { to: "/app/mapa", icon: MapIcon, label: "Mapa" },
     { to: "/app/hoje", icon: Sunrise, label: "Hoje" },
     { to: "/app/kanban", icon: Kanban, label: "Pipeline" },
     { to: "/app/painel", icon: BarChart3, label: "Painel" },
+    ...(isPlatformAdmin ? [{ to: "/app/admin", icon: ShieldCheck, label: "Admin" }] : []),
   ];
   return (
     <nav
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegação principal"
     >
       {tabs.map((t) => {
@@ -273,7 +276,7 @@ function AppLayout() {
             <>
               <NavRail />
               <AppSidebar />
-              <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
+              <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 lg:pb-0">
                 <TopNav />
                 <ActivationChecklist />
                 <div className="flex-1 min-h-0 overflow-hidden">

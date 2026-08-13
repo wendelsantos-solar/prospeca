@@ -25,7 +25,8 @@ import { useSearchMutation } from "@/hooks/useSearchMutation";
 import type { OnboardingProgress } from "@/hooks/useOnboarding";
 import { track } from "@/lib/analytics";
 import { categoryLabel } from "@/lib/category";
-import { CITY_SUGGESTIONS, NICHES } from "@/lib/constants";
+import { NICHES } from "@/lib/constants";
+import { suggestCities } from "@/lib/local-geocoding";
 import { geocodeLocationText, reverseGeocodeCoords } from "@/lib/reverse-geocode";
 import { cn } from "@/lib/utils";
 import { useActivationStore } from "@/stores/activation";
@@ -514,21 +515,23 @@ export function OnboardingWizard({
                     </p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {CITY_SUGGESTIONS.slice(0, 6).map((city) => (
-                      <button
-                        key={city.label}
-                        type="button"
-                        onClick={() => applyLocation(city.label, city.lat, city.lng)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                          location === city.label
-                            ? "border-primary bg-primary-soft text-primary"
-                            : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-                        )}
-                      >
-                        {city.label.split(",")[0]}
-                      </button>
-                    ))}
+                    {suggestCities("")
+                      .slice(0, 6)
+                      .map((city) => (
+                        <button
+                          key={city.label}
+                          type="button"
+                          onClick={() => applyLocation(city.label, city.lat, city.lng)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                            location === city.label
+                              ? "border-primary bg-primary-soft text-primary"
+                              : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+                          )}
+                        >
+                          {city.label.split(",")[0]}
+                        </button>
+                      ))}
                   </div>
                 </div>
 

@@ -25,6 +25,8 @@ const preview: DiscoveryResult = {
   score: 83,
   temperature: "hot",
   importedLeadId: null,
+  enrichmentState: "enriched",
+  enrichmentFields: null,
 };
 
 beforeEach(() => {

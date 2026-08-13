@@ -5,6 +5,7 @@ import type {
   LeadActivity,
   LeadStage,
   Search,
+  SavedSearch,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
   RecordContactInput,
@@ -99,6 +100,10 @@ export interface SearchRepository {
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }>;
   getDiscovery(searchId: string): Promise<DiscoveryResult[]>;
+  /** Register discovery results for a search created outside the repository
+   * (demo mode's mock searchService). Real mode populates via create(), so the
+   * Supabase implementation is a no-op. */
+  registerDiscovery(searchId: string, results: DiscoveryResult[]): void;
   /** Enrich discovery contact fields via website scrape. No placeId → top-N by
    * score; with placeId → just that business (lazy, on-open). Best-effort. */
   enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }>;
@@ -108,6 +113,12 @@ export interface SearchRepository {
     stage: "new" | "contacted",
   ): Promise<{ enrichableLeadIds: string[]; leadIds: string[] }>;
   enrichLead(leadId: string): Promise<void>;
+  /** Mark a search as a saved "missão" (optionally named). Idempotent. */
+  saveSearch(searchId: string, name: string): Promise<void>;
+  /** Un-save a search. Idempotent. */
+  unsaveSearch(searchId: string): Promise<void>;
+  /** Saved searches with per-search opportunity stats. */
+  listSavedSearches(): Promise<SavedSearch[]>;
 }
 
 export interface DashboardRepository {

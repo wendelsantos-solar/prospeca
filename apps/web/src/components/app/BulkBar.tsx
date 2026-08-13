@@ -11,6 +11,9 @@ interface BulkTarget {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  hasWebsite: boolean;
+  rating: number | null;
+  reviewCount: number | null;
   kind: "discovery" | "lead";
   inFunnel: boolean;
 }
@@ -59,6 +62,9 @@ export function BulkMessageDialog({
             phone: r.phone,
             whatsapp: r.whatsapp,
             email: r.email,
+            hasWebsite: r.hasWebsite,
+            rating: r.rating,
+            reviewCount: r.reviewCount,
             kind: "discovery",
             inFunnel: r.importedLeadId != null,
           };
@@ -74,6 +80,9 @@ export function BulkMessageDialog({
             phone: l.phone ?? null,
             whatsapp: l.whatsapp ?? null,
             email: l.email ?? null,
+            hasWebsite: l.hasWebsite,
+            rating: l.rating ?? null,
+            reviewCount: l.reviewCount ?? null,
             kind: "lead",
             inFunnel: true,
           };
@@ -104,6 +113,9 @@ export function BulkMessageDialog({
         city: t.city,
         neighborhood: t.neighborhood,
         phone: t.phone,
+        hasWebsite: t.hasWebsite,
+        rating: t.rating,
+        reviewCount: t.reviewCount,
       },
       { senderName, userName, signature },
     );

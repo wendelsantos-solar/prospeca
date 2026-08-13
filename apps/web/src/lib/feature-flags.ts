@@ -25,7 +25,14 @@ export type FeatureFlag =
   | "kanbanBoard"
   | "mapView"
   | "whatsappContact"
-  | "feedbackAttachments";
+  | "feedbackAttachments"
+  // Discovery Intelligence V2 (spec #96)
+  | "discoveryV2"
+  | "heatmapEnabled"
+  | "territoryIntelligenceEnabled"
+  | "asyncEnrichmentEnabled"
+  | "cnaeIntelligenceEnabled"
+  | "nextBestActionEnabled";
 
 const STATIC_DEFAULTS: Record<FeatureFlag, boolean> = {
   googleAuth: !!import.meta.env.VITE_GOOGLE_CLIENT_ID,
@@ -38,6 +45,12 @@ const STATIC_DEFAULTS: Record<FeatureFlag, boolean> = {
   mapView: true,
   whatsappContact: true,
   feedbackAttachments: true,
+  discoveryV2: true,
+  heatmapEnabled: true,
+  territoryIntelligenceEnabled: true,
+  asyncEnrichmentEnabled: true,
+  cnaeIntelligenceEnabled: false, // business-registry source pending
+  nextBestActionEnabled: true,
 };
 
 /**

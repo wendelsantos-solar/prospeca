@@ -249,9 +249,15 @@ export function FeedbackForm({ trigger, currentPage, onSuccess }: FeedbackFormPr
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            aria-label="Feedback"
+            title="Feedback"
+          >
             <AppIcon icon={icons.lead.messageSquare} size="sm" tone="inherit" decorative />
-            <span className="ml-1.5">Feedback</span>
+            <span className="ml-1.5 hidden lg:inline">Feedback</span>
           </Button>
         )}
       </DialogTrigger>

@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import "leaflet.heat";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
@@ -26,7 +27,9 @@ import {
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
-import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
+import { popupHtml, markerVisual, MARKER_HEX, HEAT_GRADIENT, HEAT_GRADIENT_CSS } from "./map-popup";
+import { buildHeatPoints } from "@/lib/opportunity-heatmap";
+import type { MapViewMode } from "./MapView";
 
 // Mesma fonte de cor que o Google usa (map-popup.ts) — antes o Leaflet tinha
 // seus próprios valores oklch, divergentes dos hex do Google pra mesma decisão.
@@ -43,13 +46,20 @@ function markerIcon(r: DiscoveryResult, selected: boolean) {
 
 /** OSM/Leaflet renderer (free, no key). Lazy-loaded by MapView only when there
  * is no Google Maps browser key, so Leaflet never ships when Google is used. */
-export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
+export function LeafletMapView({
+  results,
+  mode = "markers",
+}: {
+  results: DiscoveryResult[];
+  mode?: MapViewMode;
+}) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
+  const heatRef = useRef<L.HeatLayer | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -68,6 +78,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const setMapDark = useUIStore((s) => s.setMapDark);
   const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
   const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
+  const heatMetric = useUIStore((s) => s.heatMetric);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -145,6 +156,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         // circle never renders until the user toggles it off and back on.
         circleRef.current = null;
         centerRef.current = null;
+        heatRef.current = null;
       };
     } catch {
       setMapError(true);
@@ -230,6 +242,12 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     if (!map || !cluster) return;
     cluster.clearLayers();
     markersRef.current.clear();
+    // Heatmap mode replaces markers — the heat layer renders instead.
+    if (mode === "heatmap") {
+      setVisibleCount(results.length);
+      prevFocusedRef.current = null;
+      return;
+    }
     const searchId = currentSearch?.id;
     results.forEach((r) => {
       const m = L.marker([r.latitude, r.longitude], {
@@ -303,7 +321,35 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     // Reset focused styling on results change (focus effect will re-apply).
     prevFocusedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results]);
+  }, [results, mode]);
+
+  // Opportunity heatmap: a weighted density layer (score = heat) that replaces
+  // markers in "heatmap" mode. Rebuilt only when results or mode change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (mode !== "heatmap") {
+      if (heatRef.current) {
+        map.removeLayer(heatRef.current);
+        heatRef.current = null;
+      }
+      return;
+    }
+    const points = buildHeatPoints(results, heatMetric).map(
+      (p) => [p.lat, p.lng, p.weight] as [number, number, number],
+    );
+    if (heatRef.current) {
+      heatRef.current.setLatLngs(points);
+    } else {
+      heatRef.current = L.heatLayer(points, {
+        radius: 30,
+        blur: 18,
+        maxZoom: 17,
+        minOpacity: 0.15,
+        gradient: HEAT_GRADIENT,
+      }).addTo(map);
+    }
+  }, [results, mode, heatMetric]);
 
   // Delta update: just toggle the focused/unfocused marker icons without rebuilding all.
   useEffect(() => {
@@ -477,19 +523,28 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
             <ChevronDown className="h-3.5 w-3.5" />
           )}
         </button>
-        {!mapLegendCollapsed && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
-            {legend.map((l) => (
-              <div
-                key={l.label}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-                {l.label}
-              </div>
-            ))}
-          </div>
-        )}
+        {!mapLegendCollapsed &&
+          (mode === "heatmap" ? (
+            <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+              <span className="text-[11px] font-medium text-muted-foreground">Baixa</span>
+              <span className="h-2 flex-1 rounded-full" style={{ background: HEAT_GRADIENT_CSS }} />
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Alta oportunidade
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
+              {legend.map((l) => (
+                <div
+                  key={l.label}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
+                  {l.label}
+                </div>
+              ))}
+            </div>
+          ))}
       </div>
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>

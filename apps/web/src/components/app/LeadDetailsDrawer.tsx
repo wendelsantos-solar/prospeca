@@ -23,15 +23,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScorePill } from "@/components/shared/Badges";
+import { CompanyIntelligenceCard } from "./CompanyIntelligenceCard";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { formatBRL, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
 import { categoryLabel } from "@/lib/category";
 import { discoveryToPreviewLead } from "@/lib/discovery-preview";
+import {
+  enrichmentDisplayFor,
+  type EnrichmentFieldKey,
+  isProvisionalScore,
+} from "@/lib/enrichment";
 import { whatsappDisplay } from "@/lib/whatsapp";
 import { hasRealWebsite } from "@leads/domain";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NbaCard } from "@/components/app/NbaCard";
 import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
+import { DiagnosticReportDialog } from "@/components/app/DiagnosticReportDialog";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
 import {
@@ -62,6 +70,7 @@ import {
   PhoneMissed,
   CalendarCheck,
   FileCheck2,
+  FileText,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -111,6 +120,7 @@ export function LeadDetailsDrawer() {
   const [noteText, setNoteText] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
   const [prepareOpen, setPrepareOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   // Removing from the pipeline is destructive, so the button asks once first.
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -261,6 +271,13 @@ export function LeadDetailsDrawer() {
                   <MessageCircle className="h-3.5 w-3.5" />
                   Preparar mensagem
                 </ActionBtn>
+                <ActionBtn
+                  onClick={() => setReportOpen(true)}
+                  title="Gerar relatório de diagnóstico (PDF)"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Relatório
+                </ActionBtn>
                 {!readOnly && (
                   <ActionBtn
                     tone={confirmRemove ? "danger" : undefined}
@@ -307,6 +324,12 @@ export function LeadDetailsDrawer() {
               }
             />
 
+            <DiagnosticReportDialog
+              lead={lead}
+              open={reportOpen}
+              onClose={() => setReportOpen(false)}
+            />
+
             <Tabs defaultValue="info" className="p-5">
               <TabsList className="grid h-10 w-full grid-cols-5">
                 <TabsTrigger value="info">Visão geral</TabsTrigger>
@@ -317,6 +340,7 @@ export function LeadDetailsDrawer() {
               </TabsList>
 
               <TabsContent value="opportunity" className="mt-4">
+                {isFeatureEnabled("discoveryV2") && <CompanyIntelligenceCard lead={lead} />}
                 {!readOnly && <NbaCard lead={lead} />}
                 {!readOnly && <ContactOutcomeBar lead={lead} />}
                 <OpportunitySummaryCard lead={lead} />
@@ -348,12 +372,14 @@ export function LeadDetailsDrawer() {
                       );
                     })()}
                     onClick={openWhats}
+                    {...enrichmentEmpty(lead, "whatsapp", false)}
                   />
                   <DataRow
                     icon={Mail}
                     label="E-mail"
                     value={lead.email}
                     href={lead.email ? `mailto:${lead.email}` : undefined}
+                    {...enrichmentEmpty(lead, "email", !!lead.email)}
                   />
                   <DataRow
                     icon={Globe}
@@ -361,6 +387,7 @@ export function LeadDetailsDrawer() {
                     value={hasRealWebsite(lead.website) ? lead.website : undefined}
                     href={hasRealWebsite(lead.website) ? lead.website : undefined}
                     external
+                    emptyLabel={hasRealWebsite(lead.website) ? "Não encontrado" : "Não possui site"}
                   />
                   <DataRow
                     icon={Instagram}
@@ -372,6 +399,7 @@ export function LeadDetailsDrawer() {
                         : undefined
                     }
                     external
+                    {...enrichmentEmpty(lead, "instagram", !!lead.instagram)}
                   />
                 </Section>
 
@@ -658,6 +686,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
+ * Resolve the empty-state props for an enrichment contact field, so the drawer
+ * says "Ainda não verificado" instead of "Não encontrado" when the field simply
+ * hasn't been checked yet.
+ */
+function enrichmentEmpty(
+  lead: Lead,
+  field: EnrichmentFieldKey,
+  hasValue: boolean,
+): { emptyLabel: string; emptyTone: "muted" | "info" | "error" } {
+  const d = enrichmentDisplayFor(field, hasValue, lead.enrichmentState, lead.enrichmentFields);
+  if (d.kind === "value") return { emptyLabel: "Não encontrado", emptyTone: "muted" };
+  return { emptyLabel: d.label, emptyTone: d.tone };
+}
+
+/**
  * One label/value line. A missing value renders the "Não encontrado"
  * placeholder instead of an empty cell; `href`/`onClick` make the value
  * actionable (the drawer header no longer carries e-mail/site/Instagram
@@ -670,6 +713,8 @@ function DataRow({
   href,
   external,
   onClick,
+  emptyLabel = "Não encontrado",
+  emptyTone = "muted",
 }: {
   icon: React.ElementType;
   label: string;
@@ -677,10 +722,20 @@ function DataRow({
   href?: string;
   external?: boolean;
   onClick?: () => void;
+  /** Placeholder text when the value is absent. Enrichment-aware rows pass a
+   * state-aware label here ("Ainda não verificado", "Erro na consulta"...). */
+  emptyLabel?: string;
+  emptyTone?: "muted" | "info" | "error";
 }) {
   const empty = value == null || value === "";
+  const emptyClass =
+    emptyTone === "info"
+      ? "text-primary/80"
+      : emptyTone === "error"
+        ? "text-destructive/80"
+        : "text-subtle-foreground";
   const body = empty ? (
-    <span className="text-subtle-foreground">Não encontrado</span>
+    <span className={emptyClass}>{emptyLabel}</span>
   ) : href ? (
     <a
       href={href}
@@ -779,7 +834,11 @@ function OpportunitySummaryCard({ lead }: { lead: Lead }) {
         </span>
       </div>
       <p className="text-body-sm text-foreground">
-        Score <b>{lead.score}</b>. Empresa {lead.hasWebsite ? "com" : "sem"} presença online,{" "}
+        Score <b>{lead.score}</b>
+        {isProvisionalScore(lead.enrichmentState) && (
+          <span className="text-micro text-muted-foreground"> (provisório)</span>
+        )}
+        . Empresa {lead.hasWebsite ? "com" : "sem"} presença online,{" "}
         {reviewCount > 100 ? "alta" : "baixa"} visibilidade em avaliações (
         {rating?.toFixed(1) ?? "—"}★ · {reviewCount} reviews) e localização em{" "}
         {lead.neighborhood ?? lead.city}.

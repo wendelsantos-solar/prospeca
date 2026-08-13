@@ -88,6 +88,10 @@ export interface Lead {
   instagram?: string;
   website?: string;
   hasWebsite: boolean;
+  /** Discovery preview only: enrichment lifecycle + per-field state, used to
+   * distinguish "não possui/não encontrado" from "ainda não verificado". */
+  enrichmentState?: "pending" | "processing" | "enriched" | "partial" | "failed";
+  enrichmentFields?: Record<string, { status: string; has: boolean }> | null;
   rating?: number;
   reviewCount?: number;
   score: number;
@@ -128,6 +132,28 @@ export interface Search {
   enrichedCount: number;
   addedToPipeline: number;
   contactsFound: number;
+}
+
+/** A search the user explicitly saved as a reusable "missão", with per-search
+ * opportunity stats derived from its persisted results. */
+export interface SavedSearch {
+  searchId: string;
+  query: string;
+  category: string | null;
+  locationLabel: string;
+  radiusMeters: number;
+  presenceFilter: "without_website" | "with_website" | "all";
+  status: string;
+  foundCount: number;
+  importedCount: number;
+  createdAt: string;
+  savedName: string | null;
+  latitude: number;
+  longitude: number;
+  totalResults: number;
+  hotCount: number;
+  avgScore: number;
+  withoutWebsite: number;
 }
 
 export interface SearchProgress {

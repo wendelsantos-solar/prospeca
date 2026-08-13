@@ -128,7 +128,7 @@ test("contacted lead 0 days since confirmed contact, no scheduled activity → u
   expect(upcoming?.items[0].label).toContain("Cadência");
 });
 
-test("contacted lead without a confirmed cadence anchor → falls back to no_next", () => {
+test("contacted lead without a confirmed cadence anchor → falls back to no_next with a clear next step", () => {
   const lead = base({
     id: "lead6c",
     stage: "contacted",
@@ -139,6 +139,54 @@ test("contacted lead without a confirmed cadence anchor → falls back to no_nex
   const groups = buildTodayGroups([lead]);
   const noNext = groups.find((g) => g.id === "no_next");
   expect(noNext?.items.length).toBe(1);
+  expect(noNext?.items[0].label).toBe("Confirmar primeiro contato");
+});
+
+test("contacted lead with completed cadence → no_next with 'concluída' label", () => {
+  const lead = base({
+    id: "lead6d",
+    stage: "contacted",
+    cadenceStartedAt: new Date().toISOString(),
+    cadenceCompletedAt: new Date().toISOString(),
+    cadenceStep: 4,
+    activities: [],
+  });
+  const groups = buildTodayGroups([lead]);
+  const noNext = groups.find((g) => g.id === "no_next");
+  expect(noNext?.items.length).toBe(1);
+  expect(noNext?.items[0].label).toBe("Cadência concluída — definir próximo passo");
+});
+
+test("qualified lead with no activity → no_next with 'agendar' label", () => {
+  const lead = base({
+    id: "lead6e",
+    stage: "qualified",
+    activities: [],
+  });
+  const groups = buildTodayGroups([lead]);
+  const noNext = groups.find((g) => g.id === "no_next");
+  expect(noNext?.items.length).toBe(1);
+  expect(noNext?.items[0].label).toBe("Qualificado — agendar próximo passo");
+});
+
+test("contacted lead whose next cadence step is >7 days out → upcoming, not no_next", () => {
+  // cadenceStep 3 (follow-up 2 done) → next step "last-attempt" due at D+14,
+  // beyond the 7-day window. It still has a defined action, so it must land in
+  // upcoming with the cadence label, not be mislabeled as having no next step.
+  const lead = base({
+    id: "lead6f",
+    stage: "contacted",
+    lastInteractionAt: new Date().toISOString(),
+    cadenceStartedAt: new Date().toISOString(),
+    cadenceStep: 3,
+    activities: [],
+  });
+  const groups = buildTodayGroups([lead]);
+  const upcoming = groups.find((g) => g.id === "upcoming");
+  const noNext = groups.find((g) => g.id === "no_next");
+  expect(upcoming?.items.length).toBe(1);
+  expect(upcoming?.items[0].label).toContain("Cadência");
+  expect(noNext?.items.length ?? 0).toBe(0);
 });
 
 test("multiple leads in different stages", () => {

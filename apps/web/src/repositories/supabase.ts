@@ -4,6 +4,7 @@ import type {
   LeadNote,
   LeadActivity,
   Search,
+  SavedSearch,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
   RecordContactInput,
@@ -14,6 +15,7 @@ import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { getStoredActiveOrganizationId } from "@/lib/active-organization";
 import { parseAddress, type ScoreBreakdown } from "@leads/domain";
+import { readPoint } from "@leads/geo";
 import type {
   CreateSearchInput,
   DashboardOverview,
@@ -618,24 +620,72 @@ export class SupabaseSearchRepository implements SearchRepository {
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      niche: row.query,
-      location: row.location_label,
-      latitude: row.center?.coordinates?.[1] ?? 0,
-      longitude: row.center?.coordinates?.[0] ?? 0,
-      radiusKm: row.radius_meters / 1000,
-      presence:
-        row.presence_filter === "without_website"
-          ? ("no-website" as const)
-          : row.presence_filter === "with_website"
-            ? ("with-website" as const)
-            : ("all" as const),
-      createdAt: row.created_at,
-      totalFound: row.found_count,
-      enrichedCount: row.enriched_count,
-      addedToPipeline: row.imported_count,
-      contactsFound: row.enriched_count,
+    return (data ?? []).map((row) => {
+      // center is geography → PostgREST serializes it as hex EWKB, not GeoJSON.
+      const [lng, lat] = readPoint(row.center) ?? [0, 0];
+      return {
+        id: row.id,
+        niche: row.query,
+        location: row.location_label,
+        latitude: lat,
+        longitude: lng,
+        radiusKm: row.radius_meters / 1000,
+        presence:
+          row.presence_filter === "without_website"
+            ? ("no-website" as const)
+            : row.presence_filter === "with_website"
+              ? ("with-website" as const)
+              : ("all" as const),
+        createdAt: row.created_at,
+        totalFound: row.found_count,
+        enrichedCount: row.enriched_count,
+        addedToPipeline: row.imported_count,
+        contactsFound: row.enriched_count,
+      };
+    });
+  }
+
+  async saveSearch(searchId: string, name: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from("searches")
+      .update({ is_saved: true, saved_name: name.trim() || null })
+      .eq("id", searchId);
+    if (error) throw new Error(error.message);
+  }
+
+  async unsaveSearch(searchId: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from("searches")
+      .update({ is_saved: false, saved_name: null })
+      .eq("id", searchId);
+    if (error) throw new Error(error.message);
+  }
+
+  async listSavedSearches(): Promise<SavedSearch[]> {
+    const organizationId = getStoredActiveOrganizationId();
+    if (!organizationId) return [];
+    const { data, error } = await getSupabase().rpc("get_saved_searches", {
+      p_organization_id: organizationId,
+    });
+    if (error) throw new Error(error.message);
+    return (data as Record<string, unknown>[]).map((r) => ({
+      searchId: r.search_id as string,
+      query: r.query as string,
+      category: (r.category as string) ?? null,
+      locationLabel: r.location_label as string,
+      radiusMeters: r.radius_meters as number,
+      presenceFilter: r.presence_filter as SavedSearch["presenceFilter"],
+      status: r.status as string,
+      foundCount: r.found_count as number,
+      importedCount: r.imported_count as number,
+      createdAt: r.created_at as string,
+      savedName: (r.saved_name as string) ?? null,
+      latitude: r.latitude as number,
+      longitude: r.longitude as number,
+      totalResults: r.total_results as number,
+      hotCount: r.hot_count as number,
+      avgScore: r.avg_score as number,
+      withoutWebsite: r.without_website as number,
     }));
   }
 
@@ -691,8 +741,16 @@ export class SupabaseSearchRepository implements SearchRepository {
         score: (r.score as number) ?? 0,
         temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
         importedLeadId: (r.imported_lead_id as string) ?? null,
+        enrichmentState: ((r.enrichment_state as string) ??
+          "pending") as DiscoveryResult["enrichmentState"],
+        enrichmentFields:
+          (r.enrichment_fields as Record<string, { status: string; has: boolean }> | null) ?? null,
       };
     });
+  }
+
+  registerDiscovery(): void {
+    // No-op: real mode populates discovery via create() + the DB, not in-memory.
   }
 
   async enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }> {

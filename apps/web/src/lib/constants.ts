@@ -1,8 +1,10 @@
+import { geocodeLocal } from "./local-geocoding";
+
 export const BULK_SELECTION_LIMIT = 10;
 
 export const STORAGE_KEY = "radar-local/v1";
 
-export const DEFAULT_MESSAGE_TEMPLATE = `Olá! Encontrei a {{empresa}} enquanto pesquisava empresas de {{categoria}} em {{cidade}}. Gostaria de conversar rapidamente sobre uma oportunidade que pode ajudar o seu negócio.`;
+export const DEFAULT_MESSAGE_TEMPLATE = `Olá! Encontrei a {{empresa}} e vi que {{razao_contato}}. Posso te mostrar rapidamente como melhorar isso e atrair mais clientes?`;
 
 export const RADIUS_OPTIONS = [1, 5, 10, 20, 30, 50, 100] as const;
 
@@ -24,17 +26,6 @@ export const NICHES = [
   "Autoescola",
   "Oficina mecânica",
   "Agência de turismo",
-];
-
-export const CITY_SUGGESTIONS = [
-  { label: "Porto Alegre, Rio Grande do Sul", lat: -30.0346, lng: -51.2177 },
-  { label: "Canoas, Rio Grande do Sul", lat: -29.9177, lng: -51.1839 },
-  { label: "São Paulo, São Paulo", lat: -23.5505, lng: -46.6333 },
-  { label: "Rio de Janeiro, Rio de Janeiro", lat: -22.9068, lng: -43.1729 },
-  { label: "Curitiba, Paraná", lat: -25.4284, lng: -49.2733 },
-  { label: "Belo Horizonte, Minas Gerais", lat: -19.9167, lng: -43.9345 },
-  { label: "Florianópolis, Santa Catarina", lat: -27.5954, lng: -48.548 },
-  { label: "Brasília, Distrito Federal", lat: -15.7801, lng: -47.9292 },
 ];
 
 export const STAGE_LABELS = {
@@ -83,40 +74,40 @@ export const PERIOD_OPTIONS = [
   { value: "custom", label: "Personalizado" },
 ] as const;
 
-export const HOME_SUGGESTIONS = [
-  {
-    label: "Clínicas sem site em Porto Alegre",
-    niche: "Clínica médica",
-    location: "Porto Alegre, Rio Grande do Sul",
-    lat: -30.0346,
-    lng: -51.2177,
-    presence: "no-website" as const,
-  },
-  {
-    label: "Barbearias no Rio de Janeiro",
-    niche: "Barbearia",
-    location: "Rio de Janeiro, Rio de Janeiro",
-    lat: -22.9068,
-    lng: -43.1729,
-    presence: "all" as const,
-  },
-  {
-    label: "Academias em São Paulo",
-    niche: "Academia",
-    location: "São Paulo, São Paulo",
-    lat: -23.5505,
-    lng: -46.6333,
-    presence: "all" as const,
-  },
-  {
-    label: "Escritórios de advocacia em Curitiba",
-    niche: "Escritório de advocacia",
-    location: "Curitiba, Paraná",
-    lat: -25.4284,
-    lng: -49.2733,
-    presence: "no-website" as const,
-  },
-];
+type HomeSuggestion = {
+  label: string;
+  niche: string;
+  location: string;
+  lat: number;
+  lng: number;
+  presence: "no-website" | "with-website" | "all";
+};
+
+// Sugestões da home derivam as coordenadas do catálogo offline de cidades
+// (local-geocoding), a mesma fonte do buscador lateral e do onboarding — assim
+// uma mudança de cidade nunca fica fora de sync entre as superfícies.
+function suggestion(
+  label: string,
+  niche: string,
+  city: string,
+  presence: HomeSuggestion["presence"],
+): HomeSuggestion | null {
+  const c = geocodeLocal(city);
+  if (!c) return null;
+  return { label, niche, location: c.label, lat: c.latitude, lng: c.longitude, presence };
+}
+
+export const HOME_SUGGESTIONS: HomeSuggestion[] = [
+  suggestion("Clínicas sem site em Porto Alegre", "Clínica médica", "Porto Alegre", "no-website"),
+  suggestion("Barbearias no Rio de Janeiro", "Barbearia", "Rio de Janeiro", "all"),
+  suggestion("Academias em São Paulo", "Academia", "São Paulo", "all"),
+  suggestion(
+    "Escritórios de advocacia em Curitiba",
+    "Escritório de advocacia",
+    "Curitiba",
+    "no-website",
+  ),
+].filter((s): s is HomeSuggestion => s !== null);
 
 export const SORT_OPTIONS = [
   { value: "relevance", label: "Relevância" },

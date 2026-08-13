@@ -9,21 +9,7 @@ import { resolvePeriod, previousWindow, leadsInWindow, deltaPct, inWindow } from
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  CartesianGrid,
-} from "recharts";
+import { MiniBarChart, MiniLineChart, MiniDonutChart } from "@/components/app/MiniCharts";
 import type { Lead, LeadStage, DashboardPeriod } from "@/types";
 
 import { Progress } from "@/components/ui/progress";
@@ -40,12 +26,6 @@ import {
 const PRIMARY = "var(--color-primary)";
 const INFO = "var(--color-info)";
 const NEUTRAL = "var(--color-muted-foreground)";
-const TOOLTIP_STYLE = {
-  fontSize: 12,
-  borderRadius: 8,
-  border: "1px solid var(--color-border)",
-} as const;
-const AXIS_PROPS = { fontSize: 11, stroke: "var(--color-muted-foreground)" } as const;
 
 interface StageAgg {
   total: number;
@@ -191,10 +171,10 @@ function LocalMetricCard({
           </TooltipProvider>
         )}
       </div>
-      <div className="mt-1 flex items-end justify-between gap-2">
+      <div className="mt-1 flex min-w-0 flex-wrap items-end justify-between gap-x-2 gap-y-1">
         <div
           className={cn(
-            "font-semibold leading-none tabular-nums",
+            "min-w-0 break-words font-semibold leading-none tabular-nums",
             size === "lg" ? "text-[26px]" : "text-[20px]",
             accent === "hot" && "text-hot",
             accent === "success" && "text-success",
@@ -403,7 +383,7 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
       <div className="mx-auto max-w-[1400px] space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[18px] font-semibold">Painel de conversão</h1>
+            <h2 className="text-[18px] font-semibold">Painel de conversão</h2>
             <p className="text-[12.5px] text-muted-foreground">
               Acompanhe métricas de leads, funil e receita no período.
             </p>
@@ -582,10 +562,8 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 <div className="text-[11.5px] text-muted-foreground">Etapas até o fechamento</div>
               </div>
               <div className="space-y-2">
-                {STAGE_ORDER.map((s, i) => {
+                {STAGE_ORDER.map((s) => {
                   const count = a.byStage[s].length;
-                  const prev = i > 0 ? a.byStage[STAGE_ORDER[i - 1]].length : a.total;
-                  const pass = prev ? (count / prev) * 100 : 0;
                   const value = a.byStage[s].reduce(
                     (sum, l) =>
                       sum + (s === "won" ? (l.closedValue ?? 0) : (l.estimatedValue ?? 0)),
@@ -598,9 +576,6 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                         <span className="text-muted-foreground tabular-nums">
                           {count} ({a.total ? ((count / a.total) * 100).toFixed(0) : 0}%) •{" "}
                           {formatBRL(value)}
-                          {i > 0 && (
-                            <span className="ml-2 text-[10px]">({pass.toFixed(0)}% passagem)</span>
-                          )}
                         </span>
                       </div>
                       <Progress value={a.total ? (count / a.total) * 100 : 0} className="h-2" />
@@ -616,22 +591,10 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Novos leads capturados ao longo do tempo"
                 empty={daySeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <LineChart data={daySeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line
-                      type="monotone"
-                      dataKey="leads"
-                      name="Leads"
-                      stroke={PRIMARY}
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <MiniLineChart
+                  data={daySeries.map((d) => ({ label: d.date, value: d.leads }))}
+                  color={PRIMARY}
+                />
               </ChartCard>
 
               <ChartCard
@@ -639,20 +602,13 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Volume em cada etapa do funil"
                 empty={a.total === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart
-                    data={STAGE_ORDER.map((s) => ({
-                      name: STAGE_LABELS[s],
-                      value: a.byStage[s].length,
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="name" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" name="Leads" fill={PRIMARY} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={STAGE_ORDER.map((s) => ({
+                    label: STAGE_LABELS[s],
+                    value: a.byStage[s].length,
+                  }))}
+                  color={PRIMARY}
+                />
               </ChartCard>
 
               <ChartCard
@@ -660,25 +616,11 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Evolução da taxa de fechamento"
                 empty={daySeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <LineChart data={daySeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} unit="%" />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="conv"
-                      name="Conversão"
-                      stroke={INFO}
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <MiniLineChart
+                  data={daySeries.map((d) => ({ label: d.date, value: d.conv }))}
+                  color={INFO}
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
 
               <ChartCard
@@ -686,26 +628,10 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Onde estão suas melhores oportunidades"
                 empty={a.total === 0}
               >
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={tempSeries}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={80}
-                      paddingAngle={2}
-                    >
-                      {tempSeries.map((_, i) => (
-                        <Cell key={i} fill={[PRIMARY, INFO, NEUTRAL][i]} />
-                      ))}
-                    </Pie>
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <MiniDonutChart
+                  data={tempSeries.map((t) => ({ label: t.name, value: t.value }))}
+                  colors={[PRIMARY, INFO, NEUTRAL]}
+                />
               </ChartCard>
 
               <ChartCard
@@ -713,15 +639,10 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Canais de contato disponíveis"
                 empty={a.total === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={channelSeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="name" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" name="Leads" fill={INFO} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={channelSeries.map((c) => ({ label: c.name, value: c.value }))}
+                  color={INFO}
+                />
               </ChartCard>
 
               <ChartCard
@@ -729,22 +650,13 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Faturamento gerado ao longo do tempo"
                 empty={daySeries.every((d) => d.revenue === 0)}
               >
-                <ResponsiveContainer>
-                  <BarChart data={daySeries.filter((d) => d.revenue > 0)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis
-                      {...AXIS_PROPS}
-                      tickFormatter={(v: number) => formatBRL(v).replace(",00", "")}
-                      width={80}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [formatBRL(v), "Receita"]}
-                    />
-                    <Bar dataKey="revenue" name="Receita" fill={PRIMARY} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={daySeries
+                    .filter((d) => d.revenue > 0)
+                    .map((d) => ({ label: d.date, value: d.revenue }))}
+                  color={PRIMARY}
+                  formatValue={formatBRL}
+                />
               </ChartCard>
 
               <ChartCard
@@ -752,18 +664,12 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Ranking por desempenho"
                 empty={nicheConvSeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={nicheConvSeries} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
-                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Bar dataKey="conv" name="Conversão" fill={INFO} radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={nicheConvSeries.map((n) => ({ label: n.name, value: n.conv }))}
+                  color={INFO}
+                  horizontal
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
 
               <ChartCard
@@ -771,18 +677,12 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Onde você tem mais tração"
                 empty={cityConvSeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={cityConvSeries} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
-                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Bar dataKey="conv" name="Conversão" fill={PRIMARY} radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={cityConvSeries.map((c) => ({ label: c.name, value: c.conv }))}
+                  color={PRIMARY}
+                  horizontal
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
             </div>
 

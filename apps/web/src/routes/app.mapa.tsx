@@ -17,6 +17,9 @@ import { MapIcon, Search, Sparkles, Loader2 } from "lucide-react";
 import { LocationPrompt } from "@/components/app/LocationPrompt";
 import { useSearchSession } from "@/stores/searchSession";
 import { ResultsList } from "@/components/app/ResultsList";
+import { DiscoveryKpis } from "@/components/app/DiscoveryKpis";
+import { computeDiscoveryKpis } from "@/lib/discovery-kpis";
+import { TerritoriesView } from "@/components/app/TerritoriesView";
 
 const MapView = lazy(() =>
   import("@/components/app/MapView").then((m) => ({ default: m.MapView })),
@@ -39,6 +42,13 @@ function CenteredLoader({ label }: { label: string }) {
 }
 
 function HomeState() {
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
+  const startSearch = () => {
+    // A busca vive no AppSidebar — se estiver colapsado, "Começar uma busca"
+    // abriria um combobox invisível. Garante o sidebar aberto antes de focar.
+    setSidebarCollapsed(false);
+    useSearchSession.getState().focusNiche();
+  };
   const suggest = (s: (typeof HOME_SUGGESTIONS)[number]) => {
     useSearchSession.getState().suggestSearch({
       niche: s.niche,
@@ -92,7 +102,7 @@ function HomeState() {
             ))}
           </div>
         </div>
-        <Button className="gap-2" onClick={() => useSearchSession.getState().focusNiche()}>
+        <Button className="gap-2" onClick={startSearch}>
           <Search className="h-4 w-4" />
           Começar uma busca
         </Button>
@@ -136,6 +146,7 @@ function MapaPage() {
   // the org's accumulated leads. Ordered by score in the RPC.
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const allResults = useMemo(() => discovery ?? [], [discovery]);
+  const kpis = useMemo(() => computeDiscoveryKpis(allResults), [allResults]);
 
   const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
   const draftCoords = useSearchDraftStore((s) => s.draft.coords);
@@ -215,12 +226,47 @@ function MapaPage() {
   }
 
   if (discoveryView === "list" && currentSearch) {
-    return <ResultsList results={resultsInRadius} searchId={currentSearch.id} />;
+    return (
+      <div className="flex h-full flex-col">
+        <h1 className="sr-only">Mapa de oportunidades</h1>
+        <div className="border-b border-border bg-background px-4 py-3">
+          <DiscoveryKpis kpis={kpis} />
+        </div>
+        <div className="min-h-0 flex-1">
+          <ResultsList results={resultsInRadius} searchId={currentSearch.id} />
+        </div>
+      </div>
+    );
+  }
+
+  if (discoveryView === "territories" && currentSearch) {
+    return (
+      <div className="flex h-full flex-col">
+        <h1 className="sr-only">Mapa de oportunidades</h1>
+        <div className="border-b border-border bg-background px-4 py-3">
+          <DiscoveryKpis kpis={kpis} />
+        </div>
+        <div className="min-h-0 flex-1">
+          <TerritoriesView results={resultsInRadius} />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
-      <MapView results={resultsInRadius} />
-    </Suspense>
+    <div className="flex h-full flex-col">
+      <h1 className="sr-only">Mapa de oportunidades</h1>
+      <div className="border-b border-border bg-background px-4 py-3">
+        <DiscoveryKpis kpis={kpis} />
+      </div>
+      <div className="min-h-0 flex-1">
+        <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
+          <MapView
+            results={resultsInRadius}
+            mode={discoveryView === "heatmap" ? "heatmap" : "markers"}
+          />
+        </Suspense>
+      </div>
+    </div>
   );
 }

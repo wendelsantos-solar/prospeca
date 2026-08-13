@@ -86,6 +86,13 @@ export interface DiscoveryResult {
   score: number;
   temperature: "hot" | "warm" | "cold";
   importedLeadId: string | null;
+  /** Overall enrichment lifecycle for this business (pending | processing |
+   * enriched | partial | failed). Drives the "ainda não verificamos" vs
+   * "não possui" distinction in the UI. */
+  enrichmentState: "pending" | "processing" | "enriched" | "partial" | "failed";
+  /** Per-field enrichment state { email|instagram|whatsapp: {status, has} }.
+   * A missing key means the field was never checked (pending). */
+  enrichmentFields: Record<string, { status: string; has: boolean }> | null;
 }
 
 // ── Lead stages & temperatures ────────────────────────────────────────

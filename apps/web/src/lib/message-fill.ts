@@ -9,6 +9,23 @@ export interface MessageContact {
   phone?: string | null;
   instagram?: string | null;
   website?: string | null;
+  hasWebsite?: boolean;
+  rating?: number | null;
+  reviewCount?: number | null;
+}
+
+/**
+ * Grounded reason for the contact, derived from the lead's REAL signal — the
+ * opposite of a generic "tenho uma oportunidade pra você". This is what makes
+ * the opener read as a genuine, specific insight instead of a sales pitch.
+ */
+export function contactReason(contact: MessageContact): string {
+  if (contact.hasWebsite === false) return "não tem site próprio";
+  if (contact.rating != null && contact.rating < 4.0) {
+    return `tem avaliações abaixo da média (nota ${contact.rating.toFixed(1)})`;
+  }
+  if (contact.reviewCount === 0) return "não tem avaliações online";
+  return "ainda dá para melhorar a presença digital";
 }
 
 export interface MessageSender {
@@ -50,6 +67,7 @@ export function buildContactMessage(
     meu_nome: sender.senderName || sender.userName || "",
     minha_empresa: sender.companyName ?? "",
     responsavel: "",
+    razao_contato: contactReason(contact),
   });
   const base = opener ? `${opener}\n\n${filled}` : filled;
   return sender.signature ? `${base}\n\n${sender.signature}` : base;

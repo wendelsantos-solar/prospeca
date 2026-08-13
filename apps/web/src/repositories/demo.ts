@@ -5,6 +5,7 @@ import type {
   LeadNote,
   LeadActivity,
   Search,
+  SavedSearch,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
   RecordContactInput,
@@ -270,6 +271,10 @@ export class DemoSearchRepository implements SearchRepository {
         score: l.score,
         temperature: l.temperature,
         importedLeadId: null, // starts unimported; updated by addToFunnel
+        // Demo data is pre-populated; treat it as already enriched so the
+        // drawer never shows "verificando" on fictional leads.
+        enrichmentState: "enriched",
+        enrichmentFields: null,
       }));
     this.discoveryCache.set(id, results);
 
@@ -314,6 +319,10 @@ export class DemoSearchRepository implements SearchRepository {
 
   async getDiscovery(searchId: string): Promise<DiscoveryResult[]> {
     return this.discoveryCache.get(searchId) ?? [];
+  }
+
+  registerDiscovery(searchId: string, results: DiscoveryResult[]): void {
+    this.discoveryCache.set(searchId, results);
   }
 
   async enrichDiscovery(_searchId: string, placeId?: string): Promise<{ enriched: number }> {
@@ -373,6 +382,18 @@ export class DemoSearchRepository implements SearchRepository {
 
   async enrichLead(_leadId: string): Promise<void> {
     // no-op no modo demo.
+  }
+
+  async saveSearch(_searchId: string, _name: string): Promise<void> {
+    // no-op no modo demo.
+  }
+
+  async unsaveSearch(_searchId: string): Promise<void> {
+    // no-op no modo demo.
+  }
+
+  async listSavedSearches(): Promise<SavedSearch[]> {
+    return [];
   }
 }
 

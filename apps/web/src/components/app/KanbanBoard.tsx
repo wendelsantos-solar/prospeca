@@ -782,9 +782,11 @@ export function KanbanTopBar({
           variant={bulkMode ? "secondary" : "outline"}
           onClick={onToggleBulkMode}
           className="h-8 gap-1.5 text-xs"
+          aria-label={bulkMode ? "Cancelar seleção" : "Selecionar"}
+          title={bulkMode ? "Cancelar seleção" : "Selecionar"}
         >
           <ListChecks className="h-3.5 w-3.5" />
-          {bulkMode ? "Cancelar seleção" : "Selecionar"}
+          <span className="hidden lg:inline">{bulkMode ? "Cancelar seleção" : "Selecionar"}</span>
         </Button>
         <Button
           size="sm"
@@ -792,18 +794,22 @@ export function KanbanTopBar({
           onClick={onPlanRoute}
           disabled={selected === 0}
           className="h-8 gap-1.5 text-xs"
+          aria-label="Planejar rota"
+          title="Planejar rota"
         >
           <Navigation className="h-3.5 w-3.5" />
-          Planejar rota
+          <span className="hidden lg:inline">Planejar rota</span>
         </Button>
         <Button
           size="sm"
           onClick={onPrepareMessages}
           disabled={selected === 0}
           className="h-8 gap-1.5 text-xs"
+          aria-label="Preparar mensagens"
+          title="Preparar mensagens"
         >
           <MessageCircle className="h-3.5 w-3.5" />
-          Preparar mensagens
+          <span className="hidden lg:inline">Preparar mensagens</span>
         </Button>
       </div>
     </div>

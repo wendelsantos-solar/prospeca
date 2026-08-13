@@ -53,8 +53,11 @@ interface UIState {
   mapShowCircle: boolean;
   mapDark: boolean;
   mapLegendCollapsed: boolean;
-  /** Discovery workspace view: the map, or a full-width results list. */
-  discoveryView: "map" | "list";
+  /** Discovery workspace view: the map, a full-width results list, the
+   * opportunity heatmap, or the territories aggregation. */
+  discoveryView: "map" | "list" | "heatmap" | "territories";
+  /** Heatmap metric (spec #38). */
+  heatMetric: "opportunity" | "density" | "weak_digital";
   toggleTheme: () => void;
   setDensity: (d: "compact" | "comfortable") => void;
   setSidebarCollapsed: (v: boolean) => void;
@@ -62,7 +65,8 @@ interface UIState {
   setMapShowCircle: (v: boolean) => void;
   setMapDark: (v: boolean) => void;
   setMapLegendCollapsed: (v: boolean) => void;
-  setDiscoveryView: (v: "map" | "list") => void;
+  setDiscoveryView: (v: "map" | "list" | "heatmap" | "territories") => void;
+  setHeatMetric: (v: "opportunity" | "density" | "weak_digital") => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -75,6 +79,7 @@ export const useUIStore = create<UIState>()(
       mapDark: false,
       mapLegendCollapsed: false,
       discoveryView: "map",
+      heatMetric: "opportunity",
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -88,6 +93,7 @@ export const useUIStore = create<UIState>()(
       setMapDark: (mapDark) => set({ mapDark }),
       setMapLegendCollapsed: (mapLegendCollapsed) => set({ mapLegendCollapsed }),
       setDiscoveryView: (discoveryView) => set({ discoveryView }),
+      setHeatMetric: (heatMetric) => set({ heatMetric }),
     }),
     { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },
   ),
@@ -149,6 +155,9 @@ interface LeadsState {
   setSearching: (v: boolean) => void;
   setSearchError: (msg: string | null) => void;
   setLeads: (leads: Lead[], search: Search) => void;
+  /** Open a previously-run (or saved) search's results WITHOUT re-running it —
+   * sets the search context so `useDiscoveryResults` reads its persisted rows. */
+  openSearch: (search: Search) => void;
   setPreviewLocation: (p: LeadsState["previewLocation"]) => void;
   reset: () => void;
   updateLead: (id: string, patch: Partial<Lead>) => void;
@@ -229,6 +238,19 @@ export const useLeadsStore = create<LeadsState>()(
           focusedId: null,
           kanbanOrder: {},
         }));
+        useSearchDraftStore.getState().resetDraftTo(search);
+      },
+      openSearch: (search) => {
+        set({
+          currentSearch: search,
+          loaded: true,
+          searching: false,
+          searchError: null,
+          previewLocation: null,
+          selectedIds: [],
+          focusedId: null,
+          kanbanOrder: {},
+        });
         useSearchDraftStore.getState().resetDraftTo(search);
       },
       setPreviewLocation: (previewLocation) => set({ previewLocation }),

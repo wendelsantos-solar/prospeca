@@ -16,6 +16,13 @@ import { assertRateLimit } from "../_shared/quota.ts";
 import { enrichFromWebsite } from "../_shared/enrich.ts";
 import { calculateScore, temperatureFromScore } from "@leads/domain/score";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
+import {
+  deriveEnrichmentState,
+  buildFieldMap,
+  type EnrichmentFieldMap,
+  type EnrichmentFieldName,
+} from "@leads/domain/enrichment-state";
+import { companyProcessingKey } from "@leads/domain/job";
 
 const InputSchema = z.union([
   z.object({ searchId: z.string().uuid() }),
@@ -99,10 +106,46 @@ Deno.serve(async (req) => {
 
     const results = await mapWithConcurrency(candidates, CONCURRENCY, async (r) => {
       const p = r.places as Record<string, unknown>;
-      const { fields, status } = await enrichFromWebsite({
+
+      // Record a job row so the async enrichment is observable/retryable
+      // (spec #17). Idempotency key = one row per company-processing pass.
+      const jobId = crypto.randomUUID();
+      await ctx.adminClient.from("jobs").insert({
+        id: jobId,
+        organization_id: ctx.organizationId,
+        type: "BUSINESS_DATA_ENRICHMENT",
+        search_id: searchId,
+        place_id: r.place_id,
+        status: "processing",
+        attempt: 1,
+        payload: { website: p.website_uri as string | null },
+        idempotency_key: companyProcessingKey(ctx.organizationId, searchId, r.place_id),
+        started_at: new Date().toISOString(),
+      });
+
+      // Mark in-flight before the slow scrape so a mid-flight crash leaves a
+      // recoverable "processing" state, not a misleading "pending".
+      await ctx.adminClient
+        .from("places")
+        .update({ enrichment_state: "processing" })
+        .eq("id", r.place_id);
+
+      // One retry on transient provider errors (timeout / 5xx). Definitive
+      // "not_found"/"blocked" are not retried.
+      let outcome = await enrichFromWebsite({
         website: p.website_uri as string,
         timeoutMs: SITE_TIMEOUT_MS,
       });
+      if (outcome.status === "error") {
+        await new Promise((res) => setTimeout(res, 400));
+        const second = await enrichFromWebsite({
+          website: p.website_uri as string,
+          timeoutMs: SITE_TIMEOUT_MS,
+        });
+        if (second.status !== "error") outcome = second;
+      }
+
+      const { fields, outcomes } = outcome;
 
       const found: Record<string, string> = {};
       for (const f of fields) {
@@ -111,10 +154,27 @@ Deno.serve(async (req) => {
         if (f.field === "whatsapp" && !found.whatsapp) found.whatsapp = f.value;
       }
 
-      // Additive: only fill columns currently empty; always stamp enriched_at.
+      // Per-field state (email/instagram/whatsapp — phone stays Google-
+      // authoritative). A transient error / SSRF block marks the fields
+      // `failed`; a successful fetch marks them `complete` with their `has`.
+      const TARGET_FIELDS: EnrichmentFieldName[] = ["email", "instagram", "whatsapp"];
+      const fieldMap: EnrichmentFieldMap =
+        outcome.status === "error" || outcome.status === "blocked"
+          ? buildFieldMap([], TARGET_FIELDS)
+          : buildFieldMap(
+              outcomes
+                .filter((o) => o.status === "complete" && o.field !== "phone")
+                .map((o) => ({ field: o.field as EnrichmentFieldName, has: o.has })),
+              [],
+            );
+      const enrichmentState = deriveEnrichmentState(fieldMap);
+
+      // Additive: only fill columns currently empty; always stamp the state.
       const patch: Record<string, unknown> = {
         enriched_at: new Date().toISOString(),
-        enrichment_status: status,
+        enrichment_status: outcome.status, // legacy free-text column, kept in sync
+        enrichment_state: enrichmentState,
+        enrichment_fields: fieldMap,
       };
       if (found.email && !p.email) patch.email = found.email;
       if (found.instagram && !p.instagram) patch.instagram = found.instagram;
@@ -137,7 +197,19 @@ Deno.serve(async (req) => {
         .eq("search_id", searchId)
         .eq("place_id", r.place_id);
 
-      return { placeId: r.place_id, found: Object.keys(found).length, status };
+      // Close the job: a definitive answer (ok/not_found/blocked) → completed;
+      // a transient fetch failure → failed (dead-letter after max attempts).
+      await ctx.adminClient
+        .from("jobs")
+        .update({
+          status: outcome.status === "error" ? "failed" : "completed",
+          result: { fieldsFound: Object.keys(found).length, enrichmentStatus: outcome.status },
+          error: outcome.status === "error" ? "website fetch failed" : null,
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      return { placeId: r.place_id, found: Object.keys(found).length, status: outcome.status };
     });
 
     logEvent({

@@ -27,7 +27,21 @@ import {
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
-import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
+import {
+  popupHtml,
+  markerVisual,
+  MARKER_HEX,
+  HEAT_GRADIENT_ARRAY,
+  HEAT_GRADIENT_CSS,
+} from "./map-popup";
+import {
+  buildHeatPoints,
+  interpolateHeatColor,
+  hexToRgba,
+  findNearbyCompanies,
+  heatSummaryHtml,
+} from "@/lib/opportunity-heatmap";
+import type { MapViewMode } from "./MapView";
 
 // Hides Google's default POI/transit clutter (restaurants, shops, bus stops…) so
 // the only markers on the map are ours. Roads, water and parks stay visible —
@@ -67,7 +81,183 @@ function svgIcon(color: string, ring: string, text: string, size: number): strin
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
+type HeatPoint = { lat: number; lng: number; weight: number };
+
+/** Blob radius (px) each opportunity point contributes. Kept tight so hot spots
+ * read as *localized positions*, not a broad painted "field" — smaller radius +
+ * steep alpha falloff means only genuinely hot, dense areas light up. */
+const HEAT_RADIUS_PX = 30;
+
+/** Custom opportunity-density heatmap overlay. Google removed the built-in
+ * HeatmapLayer in Maps JS v3.65, so we draw the heat ourselves on an
+ * OverlayView (still supported). Weighted by opportunity score; additive
+ * blending makes overlapping points read hotter, i.e. true density. */
+interface OpportunityHeatOverlay extends google.maps.OverlayView {
+  setPoints(points: HeatPoint[]): void;
+  setCircle(center: { lat: number; lng: number }, radiusMeters: number): void;
+}
+
+/** Factory for the heat overlay. Deliberately a factory rather than a top-level
+ * `class … extends google.maps.OverlayView`: the global `google` only exists
+ * after the Maps JS loader has injected its script, so the `extends` clause
+ * must be evaluated post-load. It's called from the effect that runs only once
+ * the map is ready; a top-level `extends` throws "google is not defined". */
+function createOpportunityHeatOverlay(
+  points: HeatPoint[],
+  colors: string[],
+): OpportunityHeatOverlay {
+  class HeatOverlay extends google.maps.OverlayView {
+    private div: HTMLDivElement | null = null;
+    private canvas: HTMLCanvasElement | null = null;
+    private points: HeatPoint[];
+    private circle: { center: google.maps.LatLng; radiusMeters: number } | null = null;
+
+    constructor(
+      points: HeatPoint[],
+      private colors: string[],
+    ) {
+      super();
+      this.points = points;
+    }
+
+    setPoints(points: HeatPoint[]) {
+      this.points = points;
+      this.draw();
+    }
+
+    setCircle(center: { lat: number; lng: number }, radiusMeters: number) {
+      this.circle = {
+        center: new google.maps.LatLng(center.lat, center.lng),
+        radiusMeters,
+      };
+      this.draw();
+    }
+
+    onAdd() {
+      const div = document.createElement("div");
+      div.style.position = "absolute";
+      div.style.left = "0";
+      div.style.top = "0";
+      const canvas = document.createElement("canvas");
+      canvas.style.position = "absolute";
+      canvas.style.left = "0";
+      canvas.style.top = "0";
+      canvas.style.pointerEvents = "none";
+      div.appendChild(canvas);
+      this.div = div;
+      this.canvas = canvas;
+      this.getPanes()!.overlayLayer.appendChild(div);
+    }
+
+    onRemove() {
+      if (this.div?.parentNode) this.div.parentNode.removeChild(this.div);
+      this.div = null;
+      this.canvas = null;
+    }
+
+    draw() {
+      const canvas = this.canvas;
+      const projection = this.getProjection();
+      const map = this.getMap();
+      if (!canvas || !projection || !(map instanceof google.maps.Map)) return;
+
+      // Anchor the canvas to the *visible viewport* in the pane's own DivPixel
+      // coordinate system. Google's panes are larger than the viewport and shift
+      // during pan/zoom, so a canvas left fixed at (0,0) draws the heat offset
+      // (the "square that sits above the radius and drifts on zoom"). Recomputing
+      // the viewport bounds every draw keeps the heat glued to the map.
+      const bounds = map.getBounds();
+      if (!bounds) return;
+      const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+      const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
+      if (!ne || !sw) return;
+      const left = Math.min(ne.x, sw.x);
+      const top = Math.min(ne.y, sw.y);
+      const width = Math.abs(sw.x - ne.x);
+      const height = Math.abs(sw.y - ne.y);
+      if (!width || !height) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.style.left = `${left}px`;
+      canvas.style.top = `${top}px`;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      // Clip to the search radius so heat never bleeds outside the blue circle.
+      let clipped = false;
+      if (this.circle && this.circle.radiusMeters > 0) {
+        const c = projection.fromLatLngToDivPixel(this.circle.center);
+        if (c) {
+          const north = projection.fromLatLngToDivPixel(
+            new google.maps.LatLng(
+              this.circle.center.lat() + this.circle.radiusMeters / 111111,
+              this.circle.center.lng(),
+            ),
+          );
+          const radiusPx = north ? Math.abs(north.y - c.y) : 0;
+          if (radiusPx > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(c.x - left, c.y - top, radiusPx, 0, Math.PI * 2);
+            ctx.clip();
+            clipped = true;
+          }
+        }
+      }
+
+      // Additive blending: overlapping blobs accumulate, so a region with many
+      // high-score businesses genuinely reads hotter than a lone one.
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of this.points) {
+        const px = projection.fromLatLngToDivPixel(new google.maps.LatLng(p.lat, p.lng));
+        if (px == null) continue;
+        const x = px.x - left;
+        const y = px.y - top;
+        if (
+          x < -HEAT_RADIUS_PX ||
+          y < -HEAT_RADIUS_PX ||
+          x > width + HEAT_RADIUS_PX ||
+          y > height + HEAT_RADIUS_PX
+        )
+          continue;
+        const color = interpolateHeatColor(p.weight, this.colors);
+        // Steep, squared alpha: low-score points stay faint, only genuinely
+        // high-opportunity points glow — so the map shows hot *spots*, not a
+        // uniform field of color.
+        const alpha = 0.06 + 0.94 * p.weight * p.weight;
+        // Steep radial falloff keeps each blob tight (localized) instead of
+        // bleeding into a wide, muddy field.
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, HEAT_RADIUS_PX);
+        grad.addColorStop(0, hexToRgba(color, alpha));
+        grad.addColorStop(0.35, hexToRgba(color, alpha * 0.55));
+        grad.addColorStop(0.65, hexToRgba(color, alpha * 0.18));
+        grad.addColorStop(1, hexToRgba(color, 0));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, HEAT_RADIUS_PX, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (clipped) ctx.restore();
+    }
+  }
+
+  return new HeatOverlay(points, colors);
+}
+
+export function GoogleMapView({
+  results,
+  mode = "markers",
+}: {
+  results: DiscoveryResult[];
+  mode?: MapViewMode;
+}) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
@@ -75,6 +265,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const circleRef = useRef<google.maps.Circle | null>(null);
   const centerRef = useRef<google.maps.Marker | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
+  const heatRef = useRef<OpportunityHeatOverlay | null>(null);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -92,6 +283,7 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   const setMapDark = useUIStore((s) => s.setMapDark);
   const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
   const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
+  const heatMetric = useUIStore((s) => s.heatMetric);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -135,6 +327,11 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
   // Latest results, read by the focus effect without re-subscribing to them.
   const resultsRef = useRef(results);
   resultsRef.current = results;
+
+  // Latest mode, read by the map click handler (heat zone inspect) without
+  // re-subscribing the once-initialized listener to every mode change.
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   // Build the info-window content + wire its action buttons, then open it on the
   // given marker. Shared by the marker click and the list→map focus effect so a
@@ -185,6 +382,30 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
         infoRef.current = new InfoWindow();
         clusterRef.current = new MarkerClusterer({ map, markers: [], renderer: clusterRenderer });
 
+        // Heat zone inspect: clicking a hot blob lists the companies there and
+        // why they are hot (score + signals), instead of just floating color.
+        map.addListener("click", (e: google.maps.MapMouseEvent) => {
+          if (modeRef.current !== "heatmap") return;
+          const latLng = e.latLng;
+          if (!latLng) return;
+          const nearby = findNearbyCompanies(resultsRef.current, latLng.lat(), latLng.lng());
+          if (nearby.length === 0) return;
+          const node = document.createElement("div");
+          node.innerHTML = heatSummaryHtml(nearby);
+          node.addEventListener("click", (ev) => {
+            const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-place-id]");
+            if (!btn) return;
+            ev.preventDefault();
+            actionRef.current("details", btn.dataset.placeId!);
+          });
+          const info = infoRef.current;
+          if (info) {
+            info.setContent(node);
+            info.setPosition(latLng);
+            info.open({ map });
+          }
+        });
+
         const setDraft = useSearchDraftStore.getState().setDraft;
         map.addListener("idle", () => {
           const bounds = map.getBounds();
@@ -220,6 +441,8 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
       centerRef.current = null;
       infoRef.current?.close();
       infoRef.current = null;
+      heatRef.current?.setMap(null);
+      heatRef.current = null;
       mapRef.current = null;
       setMapReady(false);
     };
@@ -320,6 +543,12 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     if (!map || !cluster || !mapReady) return;
     cluster.clearMarkers();
     markersRef.current.clear();
+    // Heatmap mode replaces markers — the custom overlay renders instead.
+    if (mode === "heatmap") {
+      setVisibleCount(results.length);
+      prevFocusedRef.current = null;
+      return;
+    }
     const markers: google.maps.Marker[] = [];
     results.forEach((r) => {
       const visual = markerVisual(r, false); // never selected on build — focus effect handles it
@@ -345,7 +574,29 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
     // Reset focused styling on results change (focus effect will re-apply).
     prevFocusedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, mapReady, openInfo]);
+  }, [results, mode, mapReady, openInfo]);
+
+  // Opportunity heatmap: weighted density (score = heat) drawn on a custom
+  // canvas overlay (the built-in HeatmapLayer was removed in Maps JS v3.65).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (mode !== "heatmap") {
+      heatRef.current?.setMap(null);
+      heatRef.current = null;
+      return;
+    }
+    const points = buildHeatPoints(results, heatMetric);
+    if (heatRef.current) {
+      heatRef.current.setPoints(points);
+      heatRef.current.setCircle({ lat: anchor.lat, lng: anchor.lng }, effectiveRadiusKm * 1000);
+    } else {
+      const overlay = createOpportunityHeatOverlay(points, HEAT_GRADIENT_ARRAY);
+      heatRef.current = overlay;
+      overlay.setCircle({ lat: anchor.lat, lng: anchor.lng }, effectiveRadiusKm * 1000);
+      overlay.setMap(map);
+    }
+  }, [results, mode, mapReady, heatMetric, anchor.lat, anchor.lng, effectiveRadiusKm]);
 
   // Delta update: just toggle the focused/unfocused marker icons without rebuilding all.
   useEffect(() => {
@@ -537,19 +788,28 @@ export function GoogleMapView({ results }: { results: DiscoveryResult[] }) {
             <ChevronDown className="h-3.5 w-3.5" />
           )}
         </button>
-        {!mapLegendCollapsed && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
-            {legend.map((l) => (
-              <div
-                key={l.label}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-                {l.label}
-              </div>
-            ))}
-          </div>
-        )}
+        {!mapLegendCollapsed &&
+          (mode === "heatmap" ? (
+            <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+              <span className="text-[11px] font-medium text-muted-foreground">Baixa</span>
+              <span className="h-2 flex-1 rounded-full" style={{ background: HEAT_GRADIENT_CSS }} />
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Alta oportunidade
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
+              {legend.map((l) => (
+                <div
+                  key={l.label}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
+                  {l.label}
+                </div>
+              ))}
+            </div>
+          ))}
       </div>
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>

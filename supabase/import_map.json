@@ -13,9 +13,21 @@
     "@leads/domain/address": "../packages/domain/src/address.ts",
     "@leads/domain/coverage": "../packages/domain/src/coverage.ts",
     "@leads/domain/status": "../packages/domain/src/status.ts",
+    "@leads/domain/enrichment-state": "../packages/domain/src/enrichment-state.ts",
     "@leads/domain/ssrf": "../packages/domain/src/ssrf.ts",
     "@leads/domain/entitlements": "../packages/domain/src/entitlements.ts",
     "@leads/domain/billing": "../packages/domain/src/billing.ts",
+    "@leads/domain/company": "../packages/domain/src/company.ts",
+    "@leads/domain/signals": "../packages/domain/src/signals.ts",
+    "@leads/domain/opportunity-score": "../packages/domain/src/opportunity-score.ts",
+    "@leads/domain/search-intent": "../packages/domain/src/search-intent.ts",
+    "@leads/domain/taxonomy": "../packages/domain/src/taxonomy.ts",
+    "@leads/domain/taxonomy-data": "../packages/domain/src/taxonomy-data.ts",
+    "@leads/domain/job": "../packages/domain/src/job.ts",
+    "@leads/domain/job-queue": "../packages/domain/src/job-queue.ts",
+    "@leads/domain/territory": "../packages/domain/src/territory.ts",
+    "@leads/domain/next-best-action": "../packages/domain/src/next-best-action.ts",
+    "@leads/domain/business-registry": "../packages/domain/src/business-registry.ts",
     "@leads/geo": "../packages/geo/src/index.ts"
   }
 }

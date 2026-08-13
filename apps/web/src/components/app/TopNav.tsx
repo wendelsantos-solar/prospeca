@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { Flame, Bookmark, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore, useSearchDraftStore, useLeadsStore } from "@/stores";
 import { NotificationsPopover } from "./NotificationsPopover";
@@ -8,6 +9,8 @@ import { FeedbackForm } from "./FeedbackForm";
 import { UserMenu } from "./UserMenu";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
+import { getSearchRepository } from "@/repositories";
+import { toast } from "sonner";
 
 /** Page titles for the header context when there is no active search to show. */
 const PAGE_TITLES: Record<string, string> = {
@@ -29,11 +32,14 @@ export function TopNav() {
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const discoveryView = useUIStore((s) => s.discoveryView);
   const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
+  const heatMetric = useUIStore((s) => s.heatMetric);
+  const setHeatMetric = useUIStore((s) => s.setHeatMetric);
 
   const niche = useSearchDraftStore((s) => s.draft.niche);
   const location = useSearchDraftStore((s) => s.draft.location);
   const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
-  const hasSearch = useLeadsStore((s) => s.currentSearch) != null;
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const hasSearch = currentSearch != null;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -57,7 +63,7 @@ export function TopNav() {
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+        className="hidden h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:grid"
         aria-label={sidebarCollapsed ? "Mostrar painel de busca" : "Ocultar painel de busca"}
         title={sidebarCollapsed ? "Mostrar painel" : "Ocultar painel"}
       >
@@ -80,6 +86,27 @@ export function TopNav() {
             <span className="truncate font-semibold text-foreground">
               {niche ? `${niche} · ${radiusKm} km` : `${radiusKm} km`}
             </span>
+            <button
+              onClick={async () => {
+                if (!currentSearch) return;
+                const name = window.prompt(
+                  "Nome para salvar esta missão de prospecção:",
+                  currentSearch.niche,
+                );
+                if (name == null) return;
+                try {
+                  await getSearchRepository().saveSearch(currentSearch.id, name);
+                  toast.success("Busca salva como missão");
+                } catch {
+                  toast.error("Não foi possível salvar a busca");
+                }
+              }}
+              aria-label="Salvar busca como missão"
+              title="Salvar busca como missão"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+              <Bookmark className="h-4 w-4" />
+            </button>
           </>
         ) : (
           <span className="truncate font-semibold text-foreground">{pageTitle}</span>
@@ -121,6 +148,8 @@ export function TopNav() {
             [
               { v: "map", label: "Mapa", icon: icons.navigation.map },
               { v: "list", label: "Lista", icon: icons.layout.list },
+              { v: "heatmap", label: "Heatmap", flame: true },
+              { v: "territories", label: "Regiões", layers: true },
             ] as const
           ).map((o) => {
             const active = discoveryView === o.v;
@@ -129,6 +158,8 @@ export function TopNav() {
                 key={o.v}
                 onClick={() => setDiscoveryView(o.v)}
                 aria-pressed={active}
+                aria-label={o.label}
+                title={o.label}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
                   active
@@ -136,18 +167,39 @@ export function TopNav() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
-                {o.label}
+                {o.v === "heatmap" ? (
+                  <Flame className="h-3.5 w-3.5" />
+                ) : o.v === "territories" ? (
+                  <Layers className="h-3.5 w-3.5" />
+                ) : (
+                  <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
+                )}
+                <span className="hidden lg:inline">{o.label}</span>
               </button>
             );
           })}
         </div>
       )}
 
+      {onMapa && discoveryView === "heatmap" && (
+        <select
+          value={heatMetric}
+          onChange={(e) =>
+            setHeatMetric(e.target.value as "opportunity" | "density" | "weak_digital")
+          }
+          className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+          aria-label="Métrica do heatmap"
+        >
+          <option value="opportunity">Oportunidade</option>
+          <option value="density">Densidade</option>
+          <option value="weak_digital">Presença digital fraca</option>
+        </select>
+      )}
+
       <div className="flex items-center gap-1">
         <FeedbackForm currentPage={path} />
         <NotificationsPopover />
-        <UserMenu className="md:hidden" />
+        <UserMenu className="lg:hidden" />
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />

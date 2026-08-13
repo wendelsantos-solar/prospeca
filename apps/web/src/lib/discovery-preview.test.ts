@@ -24,6 +24,8 @@ const base: DiscoveryResult = {
   score: 55,
   temperature: "warm",
   importedLeadId: null,
+  enrichmentState: "enriched",
+  enrichmentFields: null,
 };
 
 test("maps discovery fields onto a lead-shaped preview object", () => {

@@ -9,6 +9,7 @@ import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { track } from "@/lib/analytics";
+import { isProvisionalScore } from "@/lib/enrichment";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useActivationStore } from "@/stores/activation";
@@ -224,6 +225,11 @@ export const DiscoveryCard = memo(function DiscoveryCard({
 
           <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1.5" : "mt-2")}>
             <TemperatureBadge temperature={result.temperature} />
+            {isProvisionalScore(result.enrichmentState) && (
+              <span className="inline-flex items-center rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                provisório
+              </span>
+            )}
             <ChannelChip has={!!result.phone} title="Telefone">
               <Phone className="h-3 w-3" />
             </ChannelChip>

@@ -11,13 +11,21 @@ const LeafletMapView = lazy(() =>
   import("./LeafletMapView").then((m) => ({ default: m.LeafletMapView })),
 );
 
+export type MapViewMode = "markers" | "heatmap";
+
 /** Provider switch: Google Maps when a browser key is configured, otherwise the
  * OSM/Leaflet renderer (free, no key). Only the active one is bundled/loaded. */
-export function MapView({ results }: { results: DiscoveryResult[] }) {
+export function MapView({
+  results,
+  mode = "markers",
+}: {
+  results: DiscoveryResult[];
+  mode?: MapViewMode;
+}) {
   const Impl = env.googleMapsBrowserKey ? GoogleMapView : LeafletMapView;
   return (
     <Suspense fallback={null}>
-      <Impl results={results} />
+      <Impl results={results} mode={mode} />
     </Suspense>
   );
 }

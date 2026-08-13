@@ -62,7 +62,7 @@ export function NavRail() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="hidden md:flex w-16 shrink-0 flex-col items-center border-r border-border bg-surface py-3.5"
+      className="hidden lg:flex w-16 shrink-0 flex-col items-center border-r border-border bg-surface py-3.5"
     >
       <Link
         to="/app/mapa"

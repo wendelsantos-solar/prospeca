@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Bell, Check, Trash2, AlertCircle, Clock, Trophy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
+import { useNotificationsStore } from "@/stores/notifications";
 import {
   generateNotifications,
   type AppNotification,
@@ -21,39 +22,34 @@ export function NotificationsPopover() {
   const { data } = useLeadsList({ quick: [] });
   const items = useMemo(() => data?.items ?? [], [data]);
   const setDetails = useLeadsStore((s) => s.setDetails);
+  const readIds = useNotificationsStore((s) => s.readIds);
+  const dismissedIds = useNotificationsStore((s) => s.dismissedIds);
+  const markRead = useNotificationsStore((s) => s.markRead);
+  const markAllReadAction = useNotificationsStore((s) => s.markAllRead);
+  const dismissAllAction = useNotificationsStore((s) => s.dismissAll);
 
   const notifications = useMemo(() => generateNotifications(items), [items]);
 
-  // Read/dismissed state is session-local — there is no persisted notifications
-  // store in this repo (unlike the prototype's zustand actions); notifications
-  // are regenerated from the funnel on every render.
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-
   const visible = useMemo(
-    () => notifications.filter((n) => !dismissedIds.has(n.id)),
+    () => notifications.filter((n) => !dismissedIds.includes(n.id)),
     [notifications, dismissedIds],
   );
   const unread = useMemo(
-    () => visible.filter((n) => !readIds.has(n.id)).length,
+    () => visible.filter((n) => !readIds.includes(n.id)).length,
     [visible, readIds],
   );
 
   function handleSelect(n: AppNotification) {
-    setReadIds((prev) => new Set(prev).add(n.id));
+    markRead(n.id);
     if (n.leadId) setDetails(n.leadId);
   }
 
   function markAllRead() {
-    setReadIds(new Set(visible.map((n) => n.id)));
+    markAllReadAction(visible.map((n) => n.id));
   }
 
   function clearAll() {
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
-      for (const n of visible) next.add(n.id);
-      return next;
-    });
+    dismissAllAction(visible.map((n) => n.id));
   }
 
   return (
@@ -107,7 +103,7 @@ export function NotificationsPopover() {
             <ul className="divide-y divide-border">
               {visible.map((n) => {
                 const Icon = ICON[n.kind] ?? Bell;
-                const isRead = readIds.has(n.id);
+                const isRead = readIds.includes(n.id);
                 return (
                   <li key={n.id}>
                     <button

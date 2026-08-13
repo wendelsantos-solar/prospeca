@@ -133,7 +133,7 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
         "flex flex-col bg-sidebar",
         mobile
           ? "h-full w-full"
-          : "hidden md:flex w-full max-w-[360px] xl:max-w-[400px] shrink-0 border-r",
+          : "hidden lg:flex w-full max-w-[360px] xl:max-w-[400px] shrink-0 border-r",
       )}
     >
       {/* Header */}
