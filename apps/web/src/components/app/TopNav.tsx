@@ -34,6 +34,8 @@ export function TopNav() {
   const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
   const heatMetric = useUIStore((s) => s.heatMetric);
   const setHeatMetric = useUIStore((s) => s.setHeatMetric);
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
 
   const niche = useSearchDraftStore((s) => s.draft.niche);
   const location = useSearchDraftStore((s) => s.draft.location);
@@ -197,6 +199,19 @@ export function TopNav() {
       )}
 
       <div className="flex items-center gap-1">
+        <button
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+          title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+        >
+          <AppIcon
+            icon={theme === "dark" ? icons.theme.light : icons.theme.dark}
+            size="lg"
+            tone="inherit"
+            decorative
+          />
+        </button>
         <FeedbackForm currentPage={path} />
         <NotificationsPopover />
         <UserMenu className="lg:hidden" />

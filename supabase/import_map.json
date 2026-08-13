@@ -28,6 +28,7 @@
     "@leads/domain/territory": "../packages/domain/src/territory.ts",
     "@leads/domain/next-best-action": "../packages/domain/src/next-best-action.ts",
     "@leads/domain/business-registry": "../packages/domain/src/business-registry.ts",
+    "@leads/domain/notifications": "../packages/domain/src/notifications.ts",
     "@leads/geo": "../packages/geo/src/index.ts"
   }
 }

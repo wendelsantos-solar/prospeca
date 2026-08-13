@@ -1,14 +1,8 @@
-import { useMemo } from "react";
 import { Bell, Check, Trash2, AlertCircle, Clock, Trophy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
-import { useNotificationsStore } from "@/stores/notifications";
-import {
-  generateNotifications,
-  type AppNotification,
-  type NotificationKind,
-} from "@/lib/notifications";
+import { useNotifications, type NotificationItem } from "@/hooks/useNotifications";
+import type { NotificationKind } from "@/lib/notifications";
 
 const ICON: Record<NotificationKind, React.ComponentType<{ className?: string }>> = {
   overdue_activity: AlertCircle,
@@ -19,37 +13,12 @@ const ICON: Record<NotificationKind, React.ComponentType<{ className?: string }>
 };
 
 export function NotificationsPopover() {
-  const { data } = useLeadsList({ quick: [] });
-  const items = useMemo(() => data?.items ?? [], [data]);
   const setDetails = useLeadsStore((s) => s.setDetails);
-  const readIds = useNotificationsStore((s) => s.readIds);
-  const dismissedIds = useNotificationsStore((s) => s.dismissedIds);
-  const markRead = useNotificationsStore((s) => s.markRead);
-  const markAllReadAction = useNotificationsStore((s) => s.markAllRead);
-  const dismissAllAction = useNotificationsStore((s) => s.dismissAll);
+  const { items, unread, markRead, markAllRead, dismissAll } = useNotifications();
 
-  const notifications = useMemo(() => generateNotifications(items), [items]);
-
-  const visible = useMemo(
-    () => notifications.filter((n) => !dismissedIds.includes(n.id)),
-    [notifications, dismissedIds],
-  );
-  const unread = useMemo(
-    () => visible.filter((n) => !readIds.includes(n.id)).length,
-    [visible, readIds],
-  );
-
-  function handleSelect(n: AppNotification) {
+  function handleSelect(n: NotificationItem) {
     markRead(n.id);
     if (n.leadId) setDetails(n.leadId);
-  }
-
-  function markAllRead() {
-    markAllReadAction(visible.map((n) => n.id));
-  }
-
-  function clearAll() {
-    dismissAllAction(visible.map((n) => n.id));
   }
 
   return (
@@ -86,7 +55,7 @@ export function NotificationsPopover() {
               <Check className="h-3 w-3" /> Marcar todas
             </button>
             <button
-              onClick={clearAll}
+              onClick={dismissAll}
               aria-label="Limpar notificações"
               className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
@@ -95,15 +64,15 @@ export function NotificationsPopover() {
           </div>
         </div>
         <div className="max-h-[420px] overflow-y-auto">
-          {visible.length === 0 ? (
+          {items.length === 0 ? (
             <div className="px-4 py-10 text-center text-[12.5px] text-muted-foreground">
               Nenhuma notificação por aqui.
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {visible.map((n) => {
+              {items.map((n) => {
                 const Icon = ICON[n.kind] ?? Bell;
-                const isRead = readIds.includes(n.id);
+                const isRead = n.readAt != null;
                 return (
                   <li key={n.id}>
                     <button
