@@ -114,20 +114,22 @@ Deno.serve(async (req) => {
     }
 
     // Limpeza de obsoletas: notificações que deixaram de valer somem.
-    const currentKeys = rows.map((r) => r.notification_key);
-    if (currentKeys.length === 0) {
-      await admin
-        .from("notifications")
-        .delete()
-        .eq("organization_id", org)
-        .eq("user_id", user);
-    } else {
+    const { data: existingRows } = await admin
+      .from("notifications")
+      .select("notification_key")
+      .eq("organization_id", org)
+      .eq("user_id", user);
+    const currentKeys = new Set(rows.map((r) => r.notification_key));
+    const staleKeys = (existingRows ?? [])
+      .map((e) => e.notification_key as string)
+      .filter((k) => !currentKeys.has(k));
+    if (staleKeys.length > 0) {
       await admin
         .from("notifications")
         .delete()
         .eq("organization_id", org)
         .eq("user_id", user)
-        .not("notification_key", "in", `(${currentKeys.join(",")})`);
+        .in("notification_key", staleKeys);
     }
 
     // ── Leitura final ─────────────────────────────────────────────────────

@@ -62,7 +62,7 @@ export function useSuppressMutation() {
 export function useLeadsList(
   filters: LeadFilters,
   sort?: SortValue,
-  opts?: { page?: number; pageSize?: number },
+  opts?: { page?: number; pageSize?: number; enabled?: boolean },
 ) {
   return useQuery<PaginatedResult<Lead>>({
     queryKey: leadKeys.list(filters, sort),
@@ -70,6 +70,7 @@ export function useLeadsList(
       getLeadRepository().list({ filters, sort, page: opts?.page, pageSize: opts?.pageSize ?? 50 }),
     staleTime: 60_000,
     structuralSharing: true,
+    enabled: opts?.enabled ?? true,
   });
 }
 

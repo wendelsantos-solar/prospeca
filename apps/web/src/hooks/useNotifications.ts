@@ -48,7 +48,9 @@ export function useNotifications(): UseNotificationsResult {
   });
 
   // ── Demo mode ───────────────────────────────────────────────────────────
-  const { data } = useLeadsList({ quick: [] });
+  // `enabled: !isRealMode` — in real mode the bell must NOT pull the full leads
+  // list (that was the old "fetch pesado"); it reads only the notifications table.
+  const { data } = useLeadsList({ quick: [] }, undefined, { enabled: !isRealMode });
   const leads = useMemo(() => data?.items ?? [], [data]);
   const demoNotifications = useMemo(() => generateNotifications(leads), [leads]);
   const readIds = useNotificationsStore((s) => s.readIds);
