@@ -20,6 +20,13 @@ export function generateNotifications(pipeline: Lead[]): AppNotification[] {
       companyName: l.companyName,
       stage: l.stage,
       lastInteractionAt: l.lastInteractionAt,
+      discoveredAt: l.discoveredAt,
+      hasWebsite: l.hasWebsite,
+      enrichmentState: l.enrichmentState,
+      rating: l.rating,
+      reviewCount: l.reviewCount,
+      instagram: l.instagram,
+      whatsapp: l.whatsapp,
       activities: l.activities.map((a) => ({
         id: a.id,
         title: a.title,

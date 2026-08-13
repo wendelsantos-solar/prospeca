@@ -3,6 +3,8 @@
 // edge function, so both compute the exact same notification keys (the key is
 // the stable identity used to persist read/dismissed state server-side).
 
+import { deriveIntentSignals } from "./intent-signals.ts";
+
 export type NotificationKind =
   | "overdue_activity"
   | "stalled_lead"
@@ -21,12 +23,20 @@ export interface AppNotification {
 }
 
 /** Minimal shape a lead must expose for notification derivation. Both the web
- * `Lead` and the edge function's lead rows map onto this. */
+ * `Lead` and the edge function's lead rows map onto this. The intent-signal
+ * fields are optional — omit them to skip intent notifications. */
 export interface NotificationLeadInput {
   id: string;
   companyName: string;
   stage: string;
   lastInteractionAt?: string | null;
+  discoveredAt?: string | null;
+  hasWebsite?: boolean;
+  enrichmentState?: string | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  instagram?: string | null;
+  whatsapp?: string | null;
   activities: Array<{
     id: string;
     title?: string;
@@ -44,6 +54,8 @@ const DAY_MS = 86_400_000;
  * - overdue_activity: an open activity whose date has passed.
  * - stalled_lead: a contacted/qualified lead with ≥7 days since last
  *   interaction and no open activity already scheduled.
+ * - info (intent): a discrete "why now" signal (site inacessível, reputação
+ *   crítica, invisível online) — `deriveIntentSignals`.
  */
 export function generateNotifications(
   pipeline: NotificationLeadInput[],
@@ -87,6 +99,27 @@ export function generateNotifications(
         description: `${daysSince} dias sem interação em ${stageLabels[lead.stage] ?? lead.stage}.`,
         leadId: lead.id,
         createdAt: new Date(lastTs).toISOString(),
+      });
+    }
+
+    // Intent signals — the "why approach NOW" flags. Anchored to a stable
+    // timestamp (discovery date) so the key/order don't drift between runs.
+    const anchor = lead.discoveredAt ?? lead.lastInteractionAt ?? new Date(now).toISOString();
+    for (const s of deriveIntentSignals({
+      hasWebsite: lead.hasWebsite ?? false,
+      enrichmentState: lead.enrichmentState,
+      rating: lead.rating,
+      reviewCount: lead.reviewCount,
+      instagram: lead.instagram,
+      whatsapp: lead.whatsapp,
+    })) {
+      notifs.push({
+        id: `gen-intent-${lead.id}-${s.signal}`,
+        kind: "info",
+        title: `${s.label} — ${lead.companyName}`,
+        description: s.reason,
+        leadId: lead.id,
+        createdAt: anchor,
       });
     }
   }

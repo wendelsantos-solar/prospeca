@@ -12,7 +12,7 @@ const base = (o: Partial<Lead>): Lead => ({
   latitude: -23.5505,
   longitude: -46.6333,
   distanceKm: 5,
-  hasWebsite: false,
+  hasWebsite: true,
   score: 50,
   temperature: "warm",
   stage: "new",
@@ -94,4 +94,26 @@ test("won lead → produces zero notifications (excluded)", () => {
   const notifs = generateNotifications([lead]);
 
   expect(notifs).toHaveLength(0);
+});
+
+test("lead with no online presence → produces an intent (info) notification", () => {
+  const lead = base({ id: "lead-4", companyName: "Invisible", hasWebsite: false });
+  const notifs = generateNotifications([lead]);
+  const intent = notifs.filter((n) => n.kind === "info");
+  expect(intent).toHaveLength(1);
+  expect(intent[0].title).toContain("Invisível online");
+  expect(intent[0].leadId).toBe("lead-4");
+});
+
+test("lead with rating < 3.0 → produces a critical reputation intent notification", () => {
+  const lead = base({
+    id: "lead-5",
+    companyName: "Bad Rep",
+    hasWebsite: true,
+    rating: 2.5,
+    reviewCount: 40,
+  });
+  const notifs = generateNotifications([lead]);
+  const intent = notifs.filter((n) => n.kind === "info");
+  expect(intent.some((n) => n.title.includes("Reputação crítica"))).toBe(true);
 });

@@ -29,6 +29,7 @@
     "@leads/domain/next-best-action": "../packages/domain/src/next-best-action.ts",
     "@leads/domain/business-registry": "../packages/domain/src/business-registry.ts",
     "@leads/domain/notifications": "../packages/domain/src/notifications.ts",
+    "@leads/domain/intent-signals": "../packages/domain/src/intent-signals.ts",
     "@leads/geo": "../packages/geo/src/index.ts"
   }
 }

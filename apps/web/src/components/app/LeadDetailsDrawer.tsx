@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScorePill } from "@/components/shared/Badges";
 import { CompanyIntelligenceCard } from "./CompanyIntelligenceCard";
+import { IntentSignals } from "./IntentSignals";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { formatBRL, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
@@ -340,6 +341,7 @@ export function LeadDetailsDrawer() {
               </TabsList>
 
               <TabsContent value="opportunity" className="mt-4">
+                <IntentSignals lead={lead} />
                 {isFeatureEnabled("discoveryV2") && <CompanyIntelligenceCard lead={lead} />}
                 {!readOnly && <NbaCard lead={lead} />}
                 {!readOnly && <ContactOutcomeBar lead={lead} />}
