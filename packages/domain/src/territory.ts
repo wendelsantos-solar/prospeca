@@ -29,13 +29,43 @@ export const MIN_TERRITORY_SAMPLE = 3;
 /** Minimum territories before comparative insights are safe to emit. */
 export const MIN_TERRITORIES_FOR_INSIGHT = 2;
 
+/**
+ * The grouping key for a company under a groupBy — neighborhood first, city as
+ * fallback (same rule aggregateTerritories uses). Shared by the territory
+ * aggregation (server) and the score favorability lookup so both derive the
+ * SAME key for the same company. NO per-company fallback: a company without
+ * the group field is skipped — the city fallback happens at the GROUPING level
+ * (see resolveTerritoryGroupBy).
+ */
+export function territoryKeyForCompany(
+  neighborhood: string | null | undefined,
+  city: string | null | undefined,
+  groupBy: TerritoryGroupBy,
+): string | null {
+  const value = (groupBy === "neighborhood" ? neighborhood : city)?.trim();
+  return value ? value : null;
+}
+
+/**
+ * The effective grouping: neighborhood when ANY company has one, city
+ * otherwise. The same rule the UI TerritoriesView uses — both sides must agree
+ * or the persisted keys would not match the client-side fallback.
+ */
+export function resolveTerritoryGroupBy(
+  companies: Array<{ neighborhood?: string | null; city?: string | null }>,
+): TerritoryGroupBy {
+  return companies.some((c) => (c.neighborhood ?? "").trim() !== "")
+    ? "neighborhood"
+    : "city";
+}
+
 export function aggregateTerritories(
   companies: TerritoryCompany[],
   groupBy: TerritoryGroupBy = "neighborhood",
 ): TerritoryStats[] {
   const groups = new Map<string, TerritoryCompany[]>();
   for (const c of companies) {
-    const key = (groupBy === "city" ? c.city : c.neighborhood)?.trim();
+    const key = territoryKeyForCompany(c.neighborhood, c.city, groupBy);
     if (!key) continue;
     const list = groups.get(key) ?? [];
     list.push(c);
@@ -70,6 +100,52 @@ export interface TerritoryInsight {
 
 function confidenceFromSample(n: number): number {
   return Math.round(Math.min(1, 0.5 + (n - MIN_TERRITORY_SAMPLE) * 0.1) * 100) / 100;
+}
+
+export { confidenceFromSample };
+
+/** Hot-density threshold — same ruler the hot_density insight uses. */
+export const HOT_DENSITY_FAVOR_RATIO = 0.4;
+/** Digital-gap (without-website ratio) delta that saturates favorability. */
+export const DIGITAL_GAP_FAVOR_DELTA = 0.2;
+
+/**
+ * Territory favorability for one region — the input of the opportunity score's
+ * `territory` component (spec #40–41). 0..1, or null when the sample is too
+ * small to say ANYTHING (component stays neutral — never invent).
+ *
+ * Blend: hot concentration (hotRatio vs HOT_DENSITY_FAVOR_RATIO) + digital gap
+ * relative to the mean of eligible regions (saturates at DIGITAL_GAP_FAVOR_DELTA),
+ * scaled by the sample confidence. An emitted insight for the region adds a
+ * small confirmation boost.
+ */
+export function territoryFavorabilityFor(
+  stats: TerritoryStats[],
+  insights: TerritoryInsight[],
+  key: string,
+): number | null {
+  const t = stats.find((s) => s.key === key);
+  if (!t || t.companyCount < MIN_TERRITORY_SAMPLE) return null;
+
+  const eligible = stats.filter((s) => s.companyCount >= MIN_TERRITORY_SAMPLE);
+  if (eligible.length < MIN_TERRITORIES_FOR_INSIGHT) return null; // no comparative base
+
+  const total = eligible.reduce((s, x) => s + x.companyCount, 0);
+  const totalWithout = eligible.reduce((s, x) => s + x.withoutWebsite, 0);
+  const meanRatio = total ? totalWithout / total : 0;
+
+  const hotRatio = t.hotCount / t.companyCount;
+  const hotFavor = Math.min(1, hotRatio / HOT_DENSITY_FAVOR_RATIO);
+
+  const gap = t.withoutWebsiteRatio - meanRatio;
+  const gapFavor = Math.max(0, Math.min(1, 0.5 + gap / DIGITAL_GAP_FAVOR_DELTA));
+
+  const hasInsight = insights.some((i) => i.territoryKey === key);
+  const blend = (hotFavor + gapFavor) / 2 + (hasInsight ? 0.1 : 0);
+
+  const confidence = confidenceFromSample(t.companyCount);
+  const raw = Math.min(1, blend) * confidence;
+  return Math.round(raw * 100) / 100;
 }
 
 /**

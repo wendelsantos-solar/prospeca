@@ -14,7 +14,7 @@ import type {
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { getStoredActiveOrganizationId } from "@/lib/active-organization";
-import { parseAddress, type ScoreBreakdown } from "@leads/domain";
+import { parseAddress, type ScoreBreakdown, type TerritoryStats } from "@leads/domain";
 import { readPoint } from "@leads/geo";
 import type {
   CreateSearchInput,
@@ -803,6 +803,28 @@ export class SupabaseSearchRepository implements SearchRepository {
       breakdown: data.breakdown,
       signals: (data.signals as PersistedOpportunityScore["signals"]) ?? null,
     };
+  }
+
+  /** Server-side territory aggregation for a search (territory_stats, RLS). */
+  async listTerritoryStats(searchId: string): Promise<TerritoryStats[]> {
+    const { data, error } = await getSupabase()
+      .from("territory_stats")
+      .select("key, company_count, hot_count, avg_score, without_website_ratio, group_by")
+      .eq("search_id", searchId)
+      .order("company_count", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((t) => {
+      const companyCount = t.company_count as number;
+      const ratio = Number(t.without_website_ratio);
+      return {
+        key: t.key as string,
+        companyCount,
+        hotCount: t.hot_count as number,
+        avgScore: t.avg_score as number,
+        withoutWebsite: Math.round(companyCount * ratio),
+        withoutWebsiteRatio: ratio,
+      };
+    });
   }
 
   registerDiscovery(): void {

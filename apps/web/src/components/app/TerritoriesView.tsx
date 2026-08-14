@@ -1,15 +1,49 @@
 import { useMemo } from "react";
 import { Lightbulb } from "lucide-react";
-import { aggregateTerritories, buildTerritoryInsights, MIN_TERRITORY_SAMPLE } from "@leads/domain";
+import { useQuery } from "@tanstack/react-query";
+import {
+  aggregateTerritories,
+  buildTerritoryInsights,
+  MIN_TERRITORY_SAMPLE,
+  type TerritoryStats,
+} from "@leads/domain";
 import type { DiscoveryResult } from "@/repositories/types";
+import { getSearchRepository } from "@/repositories";
 
 /**
- * Territórios — aggregates the current discovery results by region (neighborhood,
- * falling back to city) and surfaces comparative insights (spec #37, #40, #41).
- * Pure client-side over the already-loaded results, using the shared domain.
+ * Territórios — agrega os resultados da busca por região e mostra insights
+ * comparativos (spec #37, #40, #41).
+ *
+ * Server-side wins: quando a territory-analysis já persistiu territory_stats
+ * para a busca (RLS), os agregados vêm do servidor — agregados sobre TODOS os
+ * resultados da busca, não só a amostra carregada no mapa. Sem dados
+ * persistidos (demo, ou análise ainda em fila), roda a MESMA regra pura
+ * client-side sobre os resultados carregados.
  */
-export function TerritoriesView({ results }: { results: DiscoveryResult[] }) {
+export function TerritoriesView({
+  results,
+  searchId,
+}: {
+  results: DiscoveryResult[];
+  searchId?: string | null;
+}) {
+  const { data: persistedStats } = useQuery<TerritoryStats[]>({
+    queryKey: ["territory-stats", searchId ?? "none"],
+    queryFn: () =>
+      searchId ? getSearchRepository().listTerritoryStats(searchId) : Promise.resolve([]),
+    enabled: !!searchId,
+    staleTime: 60_000,
+    structuralSharing: true,
+  });
+
   const { territories, insights } = useMemo(() => {
+    if (persistedStats && persistedStats.length > 0) {
+      // Server-side aggregation — insights recomputed with the same pure rule.
+      return {
+        territories: persistedStats,
+        insights: buildTerritoryInsights(persistedStats),
+      };
+    }
     const companies = results.map((r) => ({
       id: r.placeId,
       neighborhood: r.neighborhood ?? null,
@@ -22,7 +56,7 @@ export function TerritoriesView({ results }: { results: DiscoveryResult[] }) {
     const territories =
       byNeighborhood.length > 0 ? byNeighborhood : aggregateTerritories(companies, "city");
     return { territories, insights: buildTerritoryInsights(territories) };
-  }, [results]);
+  }, [results, persistedStats]);
 
   if (territories.length === 0) {
     return (

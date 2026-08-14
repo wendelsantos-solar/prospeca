@@ -13,7 +13,7 @@ import type {
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
 import type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult } from "@leads/contracts";
-import type { SignalEvidence } from "@leads/domain";
+import type { SignalEvidence, TerritoryStats } from "@leads/domain";
 
 export type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult };
 
@@ -138,6 +138,10 @@ export interface SearchRepository {
   /** Persisted V2 opportunity score for one place (RLS). Null when not yet
    * computed — callers fall back to the client-side calculation. */
   getOpportunityScore(placeId: string): Promise<PersistedOpportunityScore | null>;
+  /** Server-side territory aggregation for a search (territory_stats, RLS).
+   * Empty until territory-analysis has run — callers fall back to client-side
+   * aggregation over the loaded results. */
+  listTerritoryStats(searchId: string): Promise<TerritoryStats[]>;
 }
 
 export interface DashboardRepository {

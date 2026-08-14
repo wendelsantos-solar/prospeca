@@ -27,6 +27,7 @@ import type {
   SearchStatusSnapshot,
   UpdateLeadInput,
 } from "./types";
+import type { TerritoryStats } from "@leads/domain";
 
 let demoLeads: Lead[] = [...MOCK_LEADS];
 const demoSearches: Search[] = [];
@@ -400,6 +401,11 @@ export class DemoSearchRepository implements SearchRepository {
   /** Demo has no persisted opportunity scores — client-side calc is the fallback. */
   async getOpportunityScore(_placeId: string): Promise<PersistedOpportunityScore | null> {
     return null;
+  }
+
+  /** Demo has no server-side territories — the client-side aggregation runs. */
+  async listTerritoryStats(_searchId: string): Promise<TerritoryStats[]> {
+    return [];
   }
 }
 

@@ -4,6 +4,10 @@ import {
   buildTerritoryInsights,
   heatMetricWeight,
   heatWeight,
+  MIN_TERRITORY_SAMPLE,
+  resolveTerritoryGroupBy,
+  territoryFavorabilityFor,
+  territoryKeyForCompany,
   type TerritoryCompany,
 } from "./territory";
 
@@ -93,6 +97,100 @@ describe("buildTerritoryInsights", () => {
     expect(gap).toBeDefined();
     expect(gap!.message).not.toContain("mais empresas sem site que a média");
     expect(gap!.message).toContain("% das empresas não possuem site");
+  });
+});
+
+describe("territoryKeyForCompany", () => {
+  test("key follows the groupBy field — no per-company fallback", () => {
+    expect(territoryKeyForCompany("Centro", "Porto Alegre", "neighborhood")).toBe("Centro");
+    expect(territoryKeyForCompany(null, "Porto Alegre", "neighborhood")).toBeNull();
+    expect(territoryKeyForCompany("Centro", "Porto Alegre", "city")).toBe("Porto Alegre");
+  });
+  test("empty/missing → null (company skipped from grouping)", () => {
+    expect(territoryKeyForCompany("", null, "neighborhood")).toBeNull();
+    expect(territoryKeyForCompany(undefined, "", "city")).toBeNull();
+  });
+});
+
+describe("resolveTerritoryGroupBy", () => {
+  test("neighborhood when any company has one; city otherwise", () => {
+    expect(
+      resolveTerritoryGroupBy([
+        { neighborhood: null, city: "A" },
+        { neighborhood: "Centro", city: "A" },
+      ]),
+    ).toBe("neighborhood");
+    expect(
+      resolveTerritoryGroupBy([
+        { neighborhood: null, city: "A" },
+        { neighborhood: "", city: "B" },
+      ]),
+    ).toBe("city");
+  });
+});
+
+describe("territoryFavorabilityFor", () => {
+  const companies = (): TerritoryCompany[] => [
+    c("1", "Centro", 80, false, true),
+    c("2", "Centro", 70, false, true),
+    c("3", "Centro", 60, false),
+    c("4", "Bom Fim", 50, true),
+    c("5", "Bom Fim", 50, true),
+    c("6", "Bom Fim", 50, true),
+  ];
+
+  test("sample below MIN_TERRITORY_SAMPLE → null (component neutral, never invented)", () => {
+    const stats = aggregateTerritories([
+      c("1", "Centro", 80, false),
+      c("2", "Centro", 70, false),
+      c("3", "Bom Fim", 50, true),
+    ]);
+    const insights = buildTerritoryInsights(stats);
+    expect(stats.find((s) => s.key === "Centro")!.companyCount).toBeLessThan(
+      MIN_TERRITORY_SAMPLE,
+    );
+    expect(territoryFavorabilityFor(stats, insights, "Centro")).toBeNull();
+  });
+
+  test("unknown key → null", () => {
+    const stats = aggregateTerritories(companies());
+    expect(territoryFavorabilityFor(stats, buildTerritoryInsights(stats), "Zona Norte")).toBeNull();
+  });
+
+  test("only one eligible region → null (no comparative base)", () => {
+    const stats = aggregateTerritories([
+      c("1", "Centro", 80, false, true),
+      c("2", "Centro", 70, false),
+      c("3", "Centro", 60, false),
+    ]);
+    expect(territoryFavorabilityFor(stats, [], "Centro")).toBeNull();
+  });
+
+  test("hot + digital-gap region scores higher than its complement", () => {
+    const stats = aggregateTerritories(companies());
+    const insights = buildTerritoryInsights(stats);
+    const centro = territoryFavorabilityFor(stats, insights, "Centro");
+    const bomFim = territoryFavorabilityFor(stats, insights, "Bom Fim");
+    expect(centro).not.toBeNull();
+    expect(bomFim).not.toBeNull();
+    // Centro: 2/3 hot, 3/3 sem site vs média baixa → bem mais favorável
+    expect(centro!).toBeGreaterThan(bomFim!);
+  });
+
+  test("stays within [0,1] and scales with sample confidence", () => {
+    const stats = aggregateTerritories(companies());
+    const insights = buildTerritoryInsights(stats);
+    const favor = territoryFavorabilityFor(stats, insights, "Centro")!;
+    expect(favor).toBeGreaterThanOrEqual(0);
+    expect(favor).toBeLessThanOrEqual(1);
+
+    // Same composition with a larger sample → higher confidence → higher favor.
+    const big: TerritoryCompany[] = [];
+    for (let i = 0; i < 8; i++) big.push(c(`x${i}`, "Centro", 80, false, i < 4));
+    for (let i = 0; i < 8; i++) big.push(c(`y${i}`, "Bom Fim", 50, true));
+    const bigStats = aggregateTerritories(big);
+    const bigFavor = territoryFavorabilityFor(bigStats, buildTerritoryInsights(bigStats), "Centro")!;
+    expect(bigFavor).toBeGreaterThan(favor);
   });
 });
 
