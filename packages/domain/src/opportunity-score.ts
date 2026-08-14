@@ -14,8 +14,37 @@
 
 import type { CompanySignal } from "./signals.ts";
 import { temperatureFromScore } from "./score.ts";
+import type { EnrichmentState } from "./enrichment-state.ts";
 
-export const OPPORTUNITY_SCORE_VERSION = "v1.1.0";
+export const OPPORTUNITY_SCORE_VERSION = "v1.2.0";
+
+// ── Score progression state (V3-C) ─────────────────────────────────────────
+//
+// Named, honest stages of the score's own lifecycle:
+//   - ANALISANDO: the automatic source (website) has not finished yet;
+//   - PARCIAL:   the pipeline ran but a consulted source failed;
+//   - FINALIZADO: the automatic source finished and any consulted registry
+//                 source is fine. The registry is ON-DEMAND — its absence
+//                 never blocks FINALIZADO.
+
+export const OPPORTUNITY_SCORE_STATES = ["ANALISANDO", "PARCIAL", "FINALIZADO"] as const;
+export type OpportunityScoreState = (typeof OPPORTUNITY_SCORE_STATES)[number];
+
+export interface ScoreStateInput {
+  /** enrichment_sources.website.status */
+  websiteState?: EnrichmentState | null;
+  /** enrichment_sources.business_registry.status */
+  registryState?: EnrichmentState | null;
+}
+
+export function deriveOpportunityScoreState(input: ScoreStateInput): OpportunityScoreState {
+  const website = input.websiteState ?? null;
+  const registry = input.registryState ?? null;
+  if (website === "failed") return "PARCIAL"; // automatic source errored
+  if (website !== "enriched" && website !== "partial") return "ANALISANDO";
+  if (registry === "failed") return "PARCIAL"; // consulted source errored
+  return "FINALIZADO";
+}
 
 // ── Confidence bands ────────────────────────────────────────────────────────
 //
@@ -64,6 +93,9 @@ export interface OpportunityScoreInput {
   territoryFavorability?: number | null;
   /** Data freshness in days since last enrichment (absent = unknown). */
   freshnessDays?: number | null;
+  /** Source states for the score progression state (V3-C). */
+  websiteState?: EnrichmentState | null;
+  registryState?: EnrichmentState | null;
 }
 
 export interface OpportunityScoreComponent {
@@ -81,6 +113,8 @@ export interface OpportunityScoreBreakdown {
   confidence: number; // 0..1
   /** LOW/MEDIUM/HIGH band of `confidence` — part of the persisted contract. */
   confidenceBand: ConfidenceBand;
+  /** ANALISANDO/PARCIAL/FINALIZADO — the score's own lifecycle (V3-C). */
+  scoreState: OpportunityScoreState;
   components: OpportunityScoreComponent[];
 }
 
@@ -214,6 +248,10 @@ export function calculateOpportunityScore(input: OpportunityScoreInput): Opportu
     total,
     confidence,
     confidenceBand: confidenceBandFromConfidence(confidence),
+    scoreState: deriveOpportunityScoreState({
+      websiteState: input.websiteState,
+      registryState: input.registryState,
+    }),
     components,
   };
 }

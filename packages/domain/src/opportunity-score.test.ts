@@ -3,6 +3,7 @@ import {
   calculateOpportunityScore,
   confidenceBandFromConfidence,
   CONFIDENCE_BANDS,
+  deriveOpportunityScoreState,
   OPPORTUNITY_SCORE_WEIGHTS,
   opportunityTemperatureFromScore,
   type OpportunityScoreInput,
@@ -97,7 +98,7 @@ describe("calculateOpportunityScore", () => {
 
   test("version and confidence are present", () => {
     const result = calculateOpportunityScore(input());
-    expect(result.version).toBe("v1.1.0");
+    expect(result.version).toBe("v1.2.0");
     expect(result.confidence).toBeGreaterThanOrEqual(0);
     expect(result.confidence).toBeLessThanOrEqual(1);
     expect(result.components.length).toBe(Object.keys(OPPORTUNITY_SCORE_WEIGHTS).length);
@@ -110,6 +111,36 @@ describe("calculateOpportunityScore", () => {
       input({ rating: 4.5, reviewCount: 30, intentMatch: 0.8, territoryFavorability: 0.6 }),
     );
     expect(rich.confidenceBand).toBe("high"); // 4 observed → 0.92
+  });
+});
+
+describe("deriveOpportunityScoreState (V3-C)", () => {
+  test("no website source finished → ANALISANDO", () => {
+    expect(deriveOpportunityScoreState({ websiteState: null })).toBe("ANALISANDO");
+    expect(deriveOpportunityScoreState({ websiteState: "pending" })).toBe("ANALISANDO");
+    expect(deriveOpportunityScoreState({ websiteState: "processing" })).toBe("ANALISANDO");
+  });
+  test("website enriched + no registry consulted → FINALIZADO (registry is on-demand)", () => {
+    expect(deriveOpportunityScoreState({ websiteState: "enriched" })).toBe("FINALIZADO");
+    expect(
+      deriveOpportunityScoreState({ websiteState: "partial", registryState: "enriched" }),
+    ).toBe("FINALIZADO");
+  });
+  test("website failed → PARCIAL (automatic source errored)", () => {
+    expect(deriveOpportunityScoreState({ websiteState: "failed" })).toBe("PARCIAL");
+  });
+  test("website fine but registry failed → PARCIAL (consulted source errored)", () => {
+    expect(
+      deriveOpportunityScoreState({ websiteState: "enriched", registryState: "failed" }),
+    ).toBe("PARCIAL");
+  });
+  test("breakdown persists scoreState (v1.2.0)", () => {
+    const analyzing = calculateOpportunityScore(input({}));
+    expect(analyzing.scoreState).toBe("ANALISANDO");
+    const done = calculateOpportunityScore(input({ websiteState: "enriched" }));
+    expect(done.scoreState).toBe("FINALIZADO");
+    const partial = calculateOpportunityScore(input({ websiteState: "failed" }));
+    expect(partial.scoreState).toBe("PARCIAL");
   });
 });
 

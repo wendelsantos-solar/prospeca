@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import {
   buildSignalEvidence,
   calculateOpportunityScore,
+  deriveOpportunityScoreState,
   deriveSignals,
   OPPORTUNITY_SCORE_VERSION,
   opportunityTemperatureFromScore,
@@ -143,6 +144,14 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
     ? persisted.temperature
     : opportunityTemperatureFromScore(score.total);
 
+  // Named score progression (V3-C): persisted state wins; the client fallback
+  // approximates it from the lead's global enrichment lifecycle.
+  const scoreState =
+    (persistedBreakdown?.scoreState as "ANALISANDO" | "PARCIAL" | "FINALIZADO" | undefined) ??
+    deriveOpportunityScoreState({
+      websiteState: lead.enrichmentState ?? null,
+    });
+
   // Persisted signal evidence wins (server-derived, with provenance); the
   // client-side derivation covers demo/legacy rows with the same shape.
   const evidence = persisted
@@ -167,6 +176,29 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
         <ScorePill score={score.total} temperature={temperature} />
         <span className="text-caption text-muted-foreground">
           confiança {Math.round(score.confidence * 100)}%
+        </span>
+        <span
+          className={cn(
+            "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            scoreState === "FINALIZADO"
+              ? "border-primary/30 bg-primary-soft text-primary"
+              : scoreState === "PARCIAL"
+                ? "border-warning/40 bg-warning-soft text-warning-foreground"
+                : "border-dashed border-border text-muted-foreground",
+          )}
+          title={
+            scoreState === "FINALIZADO"
+              ? "Fontes automáticas concluídas"
+              : scoreState === "PARCIAL"
+                ? "Uma fonte consultada falhou — score parcial"
+                : "Análise em andamento — o score pode mudar"
+          }
+        >
+          {scoreState === "FINALIZADO"
+            ? "finalizado"
+            : scoreState === "PARCIAL"
+              ? "parcial"
+              : "analisando"}
         </span>
       </div>
 

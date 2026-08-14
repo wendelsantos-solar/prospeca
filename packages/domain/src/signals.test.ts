@@ -97,6 +97,88 @@ describe("signalSeverity", () => {
   });
 });
 
+describe("V3-C signals", () => {
+  test("ESTABLISHED_COMPANY only from real review volume", () => {
+    const ctx: SignalContext = { ...base, reviewCount: 80 };
+    expect(hasSignal(deriveSignals(ctx), "ESTABLISHED_COMPANY")).toBe(true);
+    expect(hasSignal(deriveSignals({ ...base, reviewCount: 10 }), "ESTABLISHED_COMPANY")).toBe(
+      false,
+    );
+    expect(hasSignal(deriveSignals(base), "ESTABLISHED_COMPANY")).toBe(false); // absent ≠ false
+  });
+
+  test("V3-D: ESTABLISHED_COMPANY second trigger — real registry age", () => {
+    expect(
+      hasSignal(deriveSignals({ ...base, yearsInBusiness: 8 }), "ESTABLISHED_COMPANY"),
+    ).toBe(true);
+    expect(
+      hasSignal(deriveSignals({ ...base, yearsInBusiness: 2 }), "ESTABLISHED_COMPANY"),
+    ).toBe(false);
+    expect(hasSignal(deriveSignals(base), "ESTABLISHED_COMPANY")).toBe(false); // no age data
+    // Age evidence carries metadata + registry source.
+    const evidence = buildSignalEvidence(deriveSignals({ ...base, yearsInBusiness: 8 }), {
+      ...base,
+      yearsInBusiness: 8,
+    });
+    const est = evidence.find((e) => e.signal === "ESTABLISHED_COMPANY")!;
+    expect(est.metadata).toEqual({ yearsInBusiness: 8 });
+    expect(est.source).toBe("business_registry");
+  });
+
+  test("WEAK_WEBSITE only when a website exists AND the source failed", () => {
+    expect(
+      hasSignal(
+        deriveSignals({ ...base, hasWebsite: true, websiteSourceFailed: true }),
+        "WEAK_WEBSITE",
+      ),
+    ).toBe(true);
+    expect(
+      hasSignal(deriveSignals({ ...base, hasWebsite: true }), "WEAK_WEBSITE"),
+    ).toBe(false);
+    expect(
+      hasSignal(
+        deriveSignals({ ...base, hasWebsite: false, websiteSourceFailed: true }),
+        "WEAK_WEBSITE",
+      ),
+    ).toBe(false); // no site → nothing to fail
+  });
+
+  test("NO_SOCIAL_PRESENCE only from a CHECKED absence", () => {
+    expect(
+      hasSignal(
+        deriveSignals({ ...base, instagramAbsentAfterCheck: true }),
+        "NO_SOCIAL_PRESENCE",
+      ),
+    ).toBe(true);
+    expect(
+      hasSignal(deriveSignals(base), "NO_SOCIAL_PRESENCE"),
+    ).toBe(false); // unchecked ≠ absent
+  });
+
+  test("HIGH_LOCAL_DEMAND only with real territory favorability", () => {
+    expect(
+      hasSignal(
+        deriveSignals({ ...base, territoryFavorability: 0.8 }),
+        "HIGH_LOCAL_DEMAND",
+      ),
+    ).toBe(true);
+    expect(
+      hasSignal(deriveSignals({ ...base, territoryFavorability: 0.4 }), "HIGH_LOCAL_DEMAND"),
+    ).toBe(false);
+    expect(hasSignal(deriveSignals(base), "HIGH_LOCAL_DEMAND")).toBe(false); // no territory
+  });
+
+  test("evidence carries metadata for the new signals", () => {
+    const ctx: SignalContext = { ...base, reviewCount: 120, territoryFavorability: 0.75 };
+    const evidence = buildSignalEvidence(deriveSignals(ctx), ctx);
+    const established = evidence.find((e) => e.signal === "ESTABLISHED_COMPANY")!;
+    expect(established.metadata).toEqual({ reviewCount: 120 });
+    const demand = evidence.find((e) => e.signal === "HIGH_LOCAL_DEMAND")!;
+    expect(demand.metadata).toEqual({ territoryFavorability: 0.75 });
+    expect(demand.evidence).toContain("0.75");
+  });
+});
+
 describe("buildSignalEvidence", () => {
   test("empty signal list → empty evidence array", () => {
     expect(buildSignalEvidence([], base)).toEqual([]);

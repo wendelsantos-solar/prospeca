@@ -265,12 +265,21 @@ export function recommendNextBestAction(input: NextBestActionInput): NextBestAct
   }
 
   const channel = channelFor(input);
-  const recommendation =
-    channel === "whatsapp"
-      ? "Inicie uma conversa via WhatsApp com uma abordagem consultiva."
-      : channel === "email"
-        ? "Envie um e-mail de apresentação com uma proposta de valor."
-        : "Faça uma ligação de qualificação.";
+  // Contextual recommendation (V3-C): derived from the SAME honest signals,
+  // never a sales-y promise — a no-website business gets a website-oriented
+  // opener, a weak-reputation one gets a reputation diagnostic.
+  const hasNoWebsite = !input.hasWebsite;
+  const hasWeakReputation =
+    input.rating != null && input.rating < 3.5; // SIGNAL_THRESHOLDS.weakReputationMax
+  const recommendation = hasNoWebsite
+    ? "Oferecer criação de website"
+    : hasWeakReputation
+      ? "Enviar diagnóstico de reputação"
+      : channel === "whatsapp"
+        ? "Inicie uma conversa via WhatsApp com uma abordagem consultiva."
+        : channel === "email"
+          ? "Envie um e-mail de apresentação com uma proposta de valor."
+          : "Faça uma ligação de qualificação.";
 
   return { channel, recommendation, reason, urgency, messageSignals: signals };
 }

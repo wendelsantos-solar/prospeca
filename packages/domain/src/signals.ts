@@ -18,6 +18,10 @@ export const COMPANY_SIGNALS = [
   "HAS_EMAIL",
   "HIGH_LOCAL_DENSITY",
   "LOW_DIGITAL_COMPETITION",
+  "ESTABLISHED_COMPANY",
+  "WEAK_WEBSITE",
+  "NO_SOCIAL_PRESENCE",
+  "HIGH_LOCAL_DEMAND",
 ] as const;
 
 export type CompanySignal = (typeof COMPANY_SIGNALS)[number];
@@ -34,6 +38,12 @@ export const SIGNAL_THRESHOLDS = {
   instagramWeakFollowersMax: 1000,
   /** ≥ this 0..1 density counts as "high local density". */
   highLocalDensityMin: 0.7,
+  /** ≥ this review count counts as an ESTABLISHED company (consolidated). */
+  establishedReviewCountMin: 50,
+  /** ≥ this many years of operation counts as ESTABLISHED (from founded_at). */
+  establishedYearsMin: 5,
+  /** ≥ this 0..1 territory favorability counts as HIGH_LOCAL_DEMAND. */
+  highLocalDemandMin: 0.7,
 } as const;
 
 export interface SignalContext {
@@ -52,6 +62,17 @@ export interface SignalContext {
   localDensity?: number | null;
   /** Whether the region has low digital competition. */
   lowDigitalCompetition?: boolean | null;
+  /** 0..1 territory favorability (server-side territory_stats) — absent = no
+   * territory data, HIGH_LOCAL_DEMAND never emits (honest). */
+  territoryFavorability?: number | null;
+  /** Website declared but the website-source scrape FAILED (V3-C). */
+  websiteSourceFailed?: boolean | null;
+  /** The website source was checked (enriched) and found NO Instagram — a
+   * checked absence, distinct from "not checked yet" (V3-C). */
+  instagramAbsentAfterCheck?: boolean | null;
+  /** Whole years of operation from the registry (founded_at). Absent = never
+   * fabricate an age (V3-D). */
+  yearsInBusiness?: number | null;
 }
 
 /**
@@ -97,6 +118,32 @@ export function deriveSignals(ctx: SignalContext): CompanySignal[] {
 
   if (ctx.lowDigitalCompetition === true) signals.push("LOW_DIGITAL_COMPETITION");
 
+  // V3-C signals — only from REAL, checked data (absent ≠ false, never
+  // fabricated).
+  const establishedByReviews =
+    ctx.reviewCount != null && ctx.reviewCount >= SIGNAL_THRESHOLDS.establishedReviewCountMin;
+  // V3-D second trigger: real registry age — never an invented age.
+  const establishedByAge =
+    ctx.yearsInBusiness != null && ctx.yearsInBusiness >= SIGNAL_THRESHOLDS.establishedYearsMin;
+  if (establishedByReviews || establishedByAge) {
+    signals.push("ESTABLISHED_COMPANY");
+  }
+
+  if (ctx.hasWebsite && ctx.websiteSourceFailed === true) {
+    signals.push("WEAK_WEBSITE");
+  }
+
+  if (ctx.instagramAbsentAfterCheck === true) {
+    signals.push("NO_SOCIAL_PRESENCE");
+  }
+
+  if (
+    ctx.territoryFavorability != null &&
+    ctx.territoryFavorability >= SIGNAL_THRESHOLDS.highLocalDemandMin
+  ) {
+    signals.push("HIGH_LOCAL_DEMAND");
+  }
+
   return signals;
 }
 
@@ -115,7 +162,7 @@ export function hasSignal(signals: CompanySignal[], signal: CompanySignal): bool
 export type SignalSeverity = "high" | "medium" | "low";
 
 /** Where the underlying data came from. */
-export type SignalSource = "google_places" | "website" | "derived";
+export type SignalSource = "google_places" | "website" | "business_registry" | "derived";
 
 const SIGNAL_SEVERITY: Record<CompanySignal, SignalSeverity> = {
   NO_WEBSITE: "high",
@@ -126,11 +173,15 @@ const SIGNAL_SEVERITY: Record<CompanySignal, SignalSeverity> = {
   NEW_BUSINESS: "medium",
   HIGH_LOCAL_DENSITY: "medium",
   LOW_DIGITAL_COMPETITION: "medium",
+  WEAK_WEBSITE: "medium",
+  NO_SOCIAL_PRESENCE: "medium",
+  HIGH_LOCAL_DEMAND: "medium",
   HIGH_RATING: "low",
   BUSINESS_ACTIVE: "low",
   VALID_PHONE: "low",
   HAS_EMAIL: "low",
   WHATSAPP_VALIDATED: "low",
+  ESTABLISHED_COMPANY: "low",
 };
 
 export function signalSeverity(signal: CompanySignal): SignalSeverity {
@@ -148,6 +199,8 @@ export interface SignalEvidence {
   source: SignalSource;
   /** ISO timestamp of derivation. */
   derivedAt: string;
+  /** Optional structured extras (V3-C) — e.g. {reviewCount: 120}. */
+  metadata?: Record<string, unknown>;
 }
 
 /** Defensive fallback for a signal present in the list but whose supporting
@@ -332,6 +385,74 @@ export function buildSignalEvidence(
           source: "derived",
           derivedAt: at,
         });
+        break;
+      case "ESTABLISHED_COMPANY":
+        {
+          const byAge =
+            ctx.yearsInBusiness != null &&
+            ctx.yearsInBusiness >= SIGNAL_THRESHOLDS.establishedYearsMin;
+          const byReviews =
+            ctx.reviewCount != null &&
+            ctx.reviewCount >= SIGNAL_THRESHOLDS.establishedReviewCountMin;
+          out.push(
+            byAge && ctx.yearsInBusiness != null
+              ? {
+                  signal,
+                  severity: signalSeverity(signal),
+                  evidence: `negócio consolidado (${ctx.yearsInBusiness} anos de operação)`,
+                  confidence: 0.9,
+                  source: "business_registry",
+                  derivedAt: at,
+                  metadata: { yearsInBusiness: ctx.yearsInBusiness },
+                }
+              : byReviews && ctx.reviewCount != null
+                ? {
+                    signal,
+                    severity: signalSeverity(signal),
+                    evidence: `negócio consolidado (${ctx.reviewCount} avaliações)`,
+                    confidence: 0.8,
+                    source: "google_places",
+                    derivedAt: at,
+                    metadata: { reviewCount: ctx.reviewCount },
+                  }
+                : weakEvidence(signal, at),
+          );
+        }
+        break;
+      case "WEAK_WEBSITE":
+        out.push({
+          signal,
+          severity: signalSeverity(signal),
+          evidence: "site declarado, mas a verificação automática falhou",
+          confidence: 0.7,
+          source: "website",
+          derivedAt: at,
+        });
+        break;
+      case "NO_SOCIAL_PRESENCE":
+        out.push({
+          signal,
+          severity: signalSeverity(signal),
+          evidence: "site verificado sem presença em redes sociais identificada",
+          confidence: 0.6,
+          source: "website",
+          derivedAt: at,
+        });
+        break;
+      case "HIGH_LOCAL_DEMAND":
+        out.push(
+          ctx.territoryFavorability != null
+            ? {
+                signal,
+                severity: signalSeverity(signal),
+                evidence: `região de alta demanda relativa (favorabilidade ${ctx.territoryFavorability.toFixed(2)})`,
+                confidence: 0.6,
+                source: "derived",
+                derivedAt: at,
+                metadata: { territoryFavorability: ctx.territoryFavorability },
+              }
+            : weakEvidence(signal, at),
+        );
         break;
       default:
         out.push(weakEvidence(signal, at));

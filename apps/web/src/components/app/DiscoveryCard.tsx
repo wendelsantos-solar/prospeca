@@ -230,6 +230,28 @@ export const DiscoveryCard = memo(function DiscoveryCard({
             {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
               <ConfidenceBadge confidence={result.opportunityConfidence} />
             )}
+            {result.pipelineState == null &&
+              result.enrichmentState === "failed" &&
+              isFeatureEnabled("v2ScoringInDiscovery") && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
+                  score parcial
+                </span>
+              )}
+            {result.pipelineState === "enriching" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                ⟳ enriquecendo
+              </span>
+            )}
+            {result.pipelineState === "queued" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                ⟳ na fila
+              </span>
+            )}
+            {result.pipelineState === "retrying" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
+                ⟳ reprocessando
+              </span>
+            )}
             {isProvisionalScore(result.enrichmentState) && (
               <span className="inline-flex items-center rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 provisório

@@ -187,10 +187,46 @@ describe("recommendNextBestAction — funnel branches (migrated from web compute
   });
 
   test("legacy contract unchanged: no crmStage → channels + signals behavior", () => {
-    const r = recommendNextBestAction({ ...base, whatsappStatus: "verified" });
+    const r = recommendNextBestAction({
+      ...base,
+      hasWebsite: true,
+      whatsappStatus: "verified",
+    });
     expect(r.channel).toBe("whatsapp");
     expect(r.recommendation).toContain("WhatsApp");
     expect(r.cadenceStepId).toBeUndefined();
     expect(r.ctaHint).toBeUndefined();
+  });
+
+  test("V3-C contextual: NO_WEBSITE → website-oriented recommendation", () => {
+    const r = recommendNextBestAction({ ...base, whatsappStatus: "verified" }); // hasWebsite: false
+    expect(r.recommendation).toBe("Oferecer criação de website");
+    expect(r.channel).toBe("whatsapp"); // channel logic untouched
+  });
+
+  test("V3-C contextual: WEAK_REPUTATION → reputation diagnostic (with site)", () => {
+    const r = recommendNextBestAction({
+      ...base,
+      hasWebsite: true,
+      rating: 2.8,
+      reviewCount: 5,
+      whatsappStatus: "verified",
+    });
+    expect(r.recommendation).toBe("Enviar diagnóstico de reputação");
+    expect(r.messageSignals).toContain("poucas avaliações");
+  });
+
+  test("V3-C contextual: funnel branches are preserved (no contextual override)", () => {
+    const won = recommendNextBestAction({ ...funnelLead, crmStage: "won" });
+    expect(won.recommendation).toBe("Registrar próximos passos");
+    const cadence = recommendNextBestAction({
+      ...funnelLead,
+      crmStage: "contacted",
+      cadenceStartedDays: 3,
+      cadenceStep: 0,
+      lastContactDays: 3,
+    });
+    expect(cadence.cadenceStepId).toBe("followup-1");
+    expect(cadence.recommendation).toBe("Follow-up curto");
   });
 });
