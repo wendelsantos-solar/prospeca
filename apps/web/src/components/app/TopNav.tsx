@@ -187,7 +187,13 @@ export function TopNav() {
         <select
           value={heatMetric}
           onChange={(e) =>
-            setHeatMetric(e.target.value as "opportunity" | "density" | "weak_digital")
+            setHeatMetric(
+              e.target.value as
+                | "opportunity"
+                | "density"
+                | "weak_digital"
+                | "segment_concentration",
+            )
           }
           className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
           aria-label="Métrica do heatmap"
@@ -195,6 +201,7 @@ export function TopNav() {
           <option value="opportunity">Oportunidade</option>
           <option value="density">Densidade</option>
           <option value="weak_digital">Presença digital fraca</option>
+          <option value="segment_concentration">Concentração de segmento</option>
         </select>
       )}
 

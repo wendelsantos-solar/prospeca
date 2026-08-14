@@ -78,6 +78,7 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
             : input.presence === "with-website"
               ? "with_website"
               : "all",
+        maxResults: input.maxResults,
         forceRefresh: input.forceRefresh,
       };
 

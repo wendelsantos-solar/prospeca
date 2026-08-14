@@ -23,10 +23,26 @@ export function buildHeatPoints(
   results: DiscoveryResult[],
   metric: HeatMetric = "opportunity",
 ): HeatPoint[] {
+  // Segment share per category — the input of the segment_concentration metric
+  // (share of the company's segment in the visible set; 0..1). Honest: derived
+  // from the loaded results only, never an external universe number.
+  const countByCategory = new Map<string, number>();
+  for (const r of results) {
+    const key = (r.category ?? "").trim().toLowerCase() || "unknown";
+    countByCategory.set(key, (countByCategory.get(key) ?? 0) + 1);
+  }
+  const total = results.length;
+
   const points: HeatPoint[] = [];
   for (const r of results) {
     if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) continue;
-    const weight = heatMetricWeight(metric, { score: r.score ?? 0, hasWebsite: r.hasWebsite });
+    const key = (r.category ?? "").trim().toLowerCase() || "unknown";
+    const segmentShare = total > 0 ? (countByCategory.get(key) ?? 0) / total : 0;
+    const weight = heatMetricWeight(metric, {
+      score: r.score ?? 0,
+      hasWebsite: r.hasWebsite,
+      segmentShare,
+    });
     if (weight <= 0) continue;
     points.push({ lat: r.latitude, lng: r.longitude, weight });
   }

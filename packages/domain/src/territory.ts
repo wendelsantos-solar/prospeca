@@ -225,26 +225,51 @@ export function heatWeight(
 // ── Heatmap by metric ──────────────────────────────────────────────────────
 
 /** The metric a heatmap layer can represent (spec #38). */
-export const HEAT_METRICS = ["opportunity", "density", "weak_digital"] as const;
+export const HEAT_METRICS = [
+  "opportunity",
+  "density",
+  "weak_digital",
+  "segment_concentration",
+] as const;
 export type HeatMetric = (typeof HEAT_METRICS)[number];
+
+/** Share of a segment (0..1) at which concentration reads as fully hot. */
+export const SEGMENT_CONCENTRATION_SATURATION = 0.5;
 
 /**
  * Weight of a single point for a given heatmap metric, in [0,1].
  *   - opportunity: driven by the opportunity score (0 = non-opportunity).
  *   - density:     every company contributes equally (pure geographic density).
  *   - weak_digital: no-website businesses burn hotter.
+ *   - segment_concentration: hotter where ONE segment dominates the region
+ *     (segmentShare = the company's segment share in the visible set) — the
+ *     "região de nicho" insight. Satura em 50% do conjunto.
  */
 export function heatMetricWeight(
   metric: HeatMetric,
-  input: { score: number; hasWebsite: boolean },
+  input: {
+    score: number;
+    hasWebsite: boolean;
+    /** Share of this company's segment (0..1) in the visible result set. */
+    segmentShare?: number | null;
+  },
 ): number {
   switch (metric) {
     case "density":
       return 1;
     case "weak_digital":
       return input.hasWebsite ? 0.15 : 1;
+    case "segment_concentration":
+      return segmentConcentrationWeight(input.segmentShare);
     case "opportunity":
     default:
       return Math.max(0, Math.min(1, input.score / 100));
   }
+}
+
+/** Pure segment-concentration weight: 0 for absent/zero share, 1 at/above the
+ * saturation threshold. No share data → 0 (never fabricate a hot zone). */
+export function segmentConcentrationWeight(segmentShare: number | null | undefined): number {
+  if (segmentShare == null || !Number.isFinite(segmentShare) || segmentShare <= 0) return 0;
+  return Math.max(0, Math.min(1, segmentShare / SEGMENT_CONCENTRATION_SATURATION));
 }

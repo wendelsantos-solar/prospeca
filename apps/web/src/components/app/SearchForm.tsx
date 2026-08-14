@@ -93,6 +93,11 @@ export function SearchForm() {
   const locCoords = draft.coords;
   const presence = draft.presence;
   const radius = draft.radiusKm;
+  const maxResults = draft.maxResults ?? 25;
+
+  /** Quantidade de resultados (V3-A) — empresas ENCONTRADAS, conceitualmente
+   * separadas de leads (leads nascem só por ação explícita no funil). */
+  const RESULT_COUNTS = [10, 25, 50, 100] as const;
 
   // Deterministic "missão de prospecção" — friendly interpretation of the
   // chosen filters (no LLM; derived purely from what the user picked).
@@ -187,6 +192,7 @@ export function SearchForm() {
       longitude: input?.longitude ?? current.coords.lng,
       radiusKm: input?.radiusKm ?? current.radiusKm,
       presence: input?.presence ?? current.presence,
+      maxResults: input?.maxResults ?? current.maxResults ?? 25,
       forceRefresh: input?.forceRefresh,
     };
     setSearching(true);
@@ -402,6 +408,25 @@ export function SearchForm() {
         )}
       </div>
 
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+        <label htmlFor="result-count" className="text-[11px] font-medium text-muted-foreground">
+          Empresas encontradas
+        </label>
+        <select
+          id="result-count"
+          value={maxResults}
+          onChange={(e) => setDraft({ maxResults: Number(e.target.value) })}
+          className="h-7 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+          aria-label="Quantidade de empresas encontradas"
+        >
+          {RESULT_COUNTS.map((n) => (
+            <option key={n} value={n}>
+              ~{n}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div>
         <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">Presença digital</div>
         <div
@@ -482,6 +507,12 @@ export function SearchForm() {
               {progress.estimate.resultsMax} resultados · US${" "}
               {progress.estimate.costUsdMin.toFixed(4)}–{progress.estimate.costUsdMax.toFixed(4)}
               {progress.estimate.costUsdMax === 0 ? " (cache — custo zero)" : ""}
+            </p>
+          )}
+          {progress && (
+            <p className="text-[11px] text-muted-foreground">
+              <span className="font-medium">Fontes consultadas:</span> Google Places · Website
+              (enriquecimento) · Cadastro público CNPJ (sob consulta)
             </p>
           )}
         </div>

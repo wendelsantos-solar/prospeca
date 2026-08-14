@@ -12,6 +12,7 @@ import type {
   DashboardPeriod,
 } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
+import type { AdvancedDiscoveryFilters } from "@/lib/filters";
 import {
   DEFAULT_MESSAGE_TEMPLATE,
   STORAGE_KEY,
@@ -57,7 +58,9 @@ interface UIState {
    * opportunity heatmap, or the territories aggregation. */
   discoveryView: "map" | "list" | "heatmap" | "territories";
   /** Heatmap metric (spec #38). */
-  heatMetric: "opportunity" | "density" | "weak_digital";
+  heatMetric: "opportunity" | "density" | "weak_digital" | "segment_concentration";
+  /** Advanced discovery filters (V3-A progressive disclosure). */
+  advancedFilters: AdvancedDiscoveryFilters;
   toggleTheme: () => void;
   setDensity: (d: "compact" | "comfortable") => void;
   setSidebarCollapsed: (v: boolean) => void;
@@ -66,7 +69,8 @@ interface UIState {
   setMapDark: (v: boolean) => void;
   setMapLegendCollapsed: (v: boolean) => void;
   setDiscoveryView: (v: "map" | "list" | "heatmap" | "territories") => void;
-  setHeatMetric: (v: "opportunity" | "density" | "weak_digital") => void;
+  setHeatMetric: (v: "opportunity" | "density" | "weak_digital" | "segment_concentration") => void;
+  setAdvancedFilters: (patch: Partial<AdvancedDiscoveryFilters>) => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -80,6 +84,7 @@ export const useUIStore = create<UIState>()(
       mapLegendCollapsed: false,
       discoveryView: "map",
       heatMetric: "opportunity",
+      advancedFilters: {},
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -94,6 +99,8 @@ export const useUIStore = create<UIState>()(
       setMapLegendCollapsed: (mapLegendCollapsed) => set({ mapLegendCollapsed }),
       setDiscoveryView: (discoveryView) => set({ discoveryView }),
       setHeatMetric: (heatMetric) => set({ heatMetric }),
+      setAdvancedFilters: (patch) =>
+        set((s) => ({ advancedFilters: { ...s.advancedFilters, ...patch } })),
     }),
     { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },
   ),
@@ -525,6 +532,8 @@ export interface SearchDraft {
   coords: { lat: number; lng: number };
   radiusKm: number;
   presence: PresenceFilter;
+  /** Quantidade de empresas a encontrar (V3-A; 10/25/50/100). Default 25. */
+  maxResults?: number;
 }
 interface SearchDraftState {
   draft: SearchDraft;
@@ -537,6 +546,7 @@ const initialDraft: SearchDraft = {
   coords: { lat: 0, lng: 0 },
   radiusKm: 10,
   presence: "all",
+  maxResults: 25,
 };
 export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
   draft: initialDraft,

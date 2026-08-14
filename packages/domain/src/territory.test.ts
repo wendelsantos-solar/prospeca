@@ -6,6 +6,8 @@ import {
   heatWeight,
   MIN_TERRITORY_SAMPLE,
   resolveTerritoryGroupBy,
+  segmentConcentrationWeight,
+  SEGMENT_CONCENTRATION_SATURATION,
   territoryFavorabilityFor,
   territoryKeyForCompany,
   type TerritoryCompany,
@@ -215,5 +217,34 @@ describe("heatMetricWeight", () => {
   test("weak_digital favours no-website", () => {
     expect(heatMetricWeight("weak_digital", { score: 50, hasWebsite: false })).toBe(1);
     expect(heatMetricWeight("weak_digital", { score: 50, hasWebsite: true })).toBe(0.15);
+  });
+  test("segment_concentration: share scales up to saturation", () => {
+    expect(
+      heatMetricWeight("segment_concentration", { score: 50, hasWebsite: true, segmentShare: 0.5 }),
+    ).toBe(1);
+    expect(
+      heatMetricWeight("segment_concentration", { score: 50, hasWebsite: true, segmentShare: 0.25 }),
+    ).toBe(0.5);
+  });
+});
+
+describe("segmentConcentrationWeight", () => {
+  test("high concentration saturates at 1", () => {
+    expect(segmentConcentrationWeight(0.5)).toBe(1);
+    expect(segmentConcentrationWeight(0.8)).toBe(1);
+    expect(segmentConcentrationWeight(1)).toBe(1);
+  });
+  test("low concentration scales linearly", () => {
+    expect(segmentConcentrationWeight(0.25)).toBe(0.5);
+    expect(segmentConcentrationWeight(0.1)).toBeCloseTo(0.2);
+  });
+  test("absent/zero/invalid share → 0 (never fabricate a hot zone)", () => {
+    expect(segmentConcentrationWeight(null)).toBe(0);
+    expect(segmentConcentrationWeight(undefined)).toBe(0);
+    expect(segmentConcentrationWeight(0)).toBe(0);
+    expect(segmentConcentrationWeight(Number.NaN)).toBe(0);
+  });
+  test("saturation constant is 0.5 (segment dominance)", () => {
+    expect(SEGMENT_CONCENTRATION_SATURATION).toBe(0.5);
   });
 });

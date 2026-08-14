@@ -1,4 +1,6 @@
 import type { Lead, LeadFilters } from "@/types";
+import type { DiscoveryResult } from "@leads/contracts";
+import { confidenceBandFromConfidence } from "@leads/domain";
 import type { SortValue } from "@/lib/constants";
 import { distanceKm, type LatLng } from "@/lib/geo";
 
@@ -103,4 +105,79 @@ export function sortLeads(leads: Lead[], sort: SortValue): Lead[] {
           (a.score + (a.temperature === "hot" ? 10 : 0)),
       );
   }
+}
+
+// ── Advanced discovery filters (V3-A — progressive disclosure) ─────────────
+//
+// Filters over data ALREADY present on DiscoveryResult — no new backend calls,
+// no fabricated values. Every predicate is honest: absent data simply does not
+// match an "is present" filter and never matches a fabricated value.
+
+export interface AdvancedDiscoveryFilters {
+  /** Segment (Google primary category), case-insensitive contains. */
+  segment?: string;
+  neighborhood?: string;
+  city?: string;
+  /** LOW/MEDIUM/HIGH band of the persisted V2 confidence, or "unknown". */
+  confidenceBand?: "low" | "medium" | "high" | "unknown";
+  /** Overall enrichment lifecycle. */
+  enrichmentStatus?: "pending" | "processing" | "enriched" | "partial" | "failed";
+  /** Presence of specific contact signals. */
+  signal?: "no_website" | "has_whatsapp" | "has_phone" | "has_email" | "has_website";
+}
+
+export const EMPTY_ADVANCED_FILTERS: AdvancedDiscoveryFilters = {};
+
+/** True when any advanced filter is active. */
+export function hasAdvancedFilters(f: AdvancedDiscoveryFilters): boolean {
+  return Object.values(f).some((v) => v != null && v !== "");
+}
+
+function matchesSegment(r: DiscoveryResult, segment: string): boolean {
+  const q = segment.trim().toLowerCase();
+  if (!q) return true;
+  return (r.category ?? "").toLowerCase().includes(q);
+}
+
+function matchesText(value: string | null | undefined, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (value ?? "").toLowerCase().includes(q);
+}
+
+export function applyAdvancedDiscoveryFilters(
+  results: DiscoveryResult[],
+  filters: AdvancedDiscoveryFilters,
+): DiscoveryResult[] {
+  if (!hasAdvancedFilters(filters)) return results;
+  return results.filter((r) => {
+    if (filters.segment && !matchesSegment(r, filters.segment)) return false;
+    if (filters.neighborhood && !matchesText(r.neighborhood, filters.neighborhood)) return false;
+    if (filters.city && !matchesText(r.city, filters.city)) return false;
+    if (filters.confidenceBand) {
+      // A band filter is EXCLUSIVE: each band is its own set and results
+      // WITHOUT a persisted confidence are the separate "unknown" band
+      // (spec V3 — HIGH/MEDIUM/LOW + UNKNOWN). Filtering by a band never
+      // mixes unknowns in, and filtering by "unknown" only matches them.
+      if (filters.confidenceBand === "unknown") {
+        if (r.opportunityConfidence != null) return false;
+      } else {
+        if (
+          r.opportunityConfidence == null ||
+          confidenceBandFromConfidence(r.opportunityConfidence) !== filters.confidenceBand
+        ) {
+          return false;
+        }
+      }
+    }
+    if (filters.enrichmentStatus && (r.enrichmentState ?? "pending") !== filters.enrichmentStatus) {
+      return false;
+    }
+    if (filters.signal === "no_website" && r.hasWebsite) return false;
+    if (filters.signal === "has_website" && !r.hasWebsite) return false;
+    if (filters.signal === "has_whatsapp" && !r.whatsapp) return false;
+    if (filters.signal === "has_phone" && !r.phone) return false;
+    if (filters.signal === "has_email" && !r.email) return false;
+    return true;
+  });
 }

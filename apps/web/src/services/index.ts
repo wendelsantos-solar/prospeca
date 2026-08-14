@@ -25,6 +25,8 @@ export interface SearchInput {
   longitude: number;
   radiusKm: number;
   presence: PresenceFilter;
+  /** Quantidade de empresas a encontrar (V3-A). Respeita SEARCH_MAX_RESULTS. */
+  maxResults?: number;
   /** "Atualizar": bypass cache, re-fetch from Google (paid). Real mode only. */
   forceRefresh?: boolean;
 }
