@@ -27,7 +27,9 @@ import { adminClient, requireAuth } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
 import { createSupabaseJobQueue, stampJobMetrics } from "../_shared/job-queue.ts";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
-import { buildSignalEvidence, deriveSignals, type SignalContext } from "@leads/domain/signals";
+import { deriveSignals, buildSignalEvidence, type SignalContext } from "@leads/domain/signals";
+import type { EnrichmentSourceMap } from "@leads/domain/enrichment-state";
+import { yearsInBusiness } from "@leads/domain/business-registry";
 import {
   calculateOpportunityScore,
   OPPORTUNITY_SCORE_VERSION,
@@ -65,6 +67,8 @@ type PlaceRowWithId = PlaceRow & {
   id: string;
   formatted_address?: string | null;
   address_components?: unknown;
+  enrichment_sources?: EnrichmentSourceMap | null;
+  founded_at?: string | null;
 };
 
 /** Mission shape persisted on `searches` — the input of intentMatchForCompany. */
@@ -262,7 +266,7 @@ Deno.serve(async (req) => {
     let query = readClient
       .from("places")
       .select(
-        "id, website_uri, national_phone_number, international_phone_number, primary_type, types, email, instagram, whatsapp, rating, user_rating_count, business_status, formatted_address, address_components",
+        "id, website_uri, national_phone_number, international_phone_number, primary_type, types, email, instagram, whatsapp, rating, user_rating_count, business_status, formatted_address, address_components, enrichment_sources, founded_at",
       )
       .in("id", placeIds);
     if (internal) query = query.eq("organization_id", organizationId);
@@ -271,29 +275,6 @@ Deno.serve(async (req) => {
     let updated = 0;
     for (const row of (places ?? []) as PlaceRowWithId[]) {
       const input = scoreInputFromRow(row, distanceByPlace.get(row.id) ?? null);
-      const signalCtx: SignalContext = {
-        hasWebsite: input.hasWebsite,
-        hasValidPhone: input.hasValidPhone,
-        whatsappStatus: input.whatsappStatus,
-        hasEmail: input.hasEmail,
-        rating: input.rating,
-        reviewCount: input.reviewCount,
-        businessStatus: input.businessStatus,
-        instagramFollowers: null,
-        isNewBusiness: null,
-        localDensity: null,
-        lowDigitalCompetition: null,
-      };
-      const signals = deriveSignals(signalCtx);
-      const signalEvidence = buildSignalEvidence(signals, signalCtx);
-
-      const placeMission = mission ?? (missionByPlace.get(row.id) ?? null);
-      const intentMatch = intentMatchForCompany(placeMission, {
-        primaryType: row.primary_type ?? null,
-        types: row.types ?? [],
-        hasWebsite: input.hasWebsite,
-        distanceMeters: distanceByPlace.get(row.id) ?? null,
-      });
 
       // Territory favorability: explicit map first; persisted stats fallback
       // derives the SAME region key the analysis used (parseAddress + groupBy).
@@ -310,6 +291,45 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Per-source states (V3-C): drive the score progression state + the
+      // new checked-absence signals. Registry absent = on-demand, never
+      // blocks FINALIZADO (deriveOpportunityScoreState handles it).
+      const sources = (row.enrichment_sources as EnrichmentSourceMap | null) ?? {};
+      const websiteState = sources.website?.status ?? null;
+      const registryState = sources.business_registry?.status ?? null;
+
+      const signalCtx: SignalContext = {
+        hasWebsite: input.hasWebsite,
+        hasValidPhone: input.hasValidPhone,
+        whatsappStatus: input.whatsappStatus,
+        hasEmail: input.hasEmail,
+        rating: input.rating,
+        reviewCount: input.reviewCount,
+        businessStatus: input.businessStatus,
+        instagramFollowers: null,
+        isNewBusiness: null,
+        localDensity: null,
+        lowDigitalCompetition: null,
+        territoryFavorability,
+        // Checked absence (V3-C): website source finished and found no
+        // Instagram — a VERIFIED absence, distinct from "not checked yet".
+        instagramAbsentAfterCheck:
+          (websiteState === "enriched" || websiteState === "partial") && !row.instagram,
+        websiteSourceFailed: websiteState === "failed" && input.hasWebsite,
+        // V3-D second ESTABLISHED trigger: real registry age (never invented).
+        yearsInBusiness: yearsInBusiness(row.founded_at ?? null),
+      };
+      const signals = deriveSignals(signalCtx);
+      const signalEvidence = buildSignalEvidence(signals, signalCtx);
+
+      const placeMission = mission ?? (missionByPlace.get(row.id) ?? null);
+      const intentMatch = intentMatchForCompany(placeMission, {
+        primaryType: row.primary_type ?? null,
+        types: row.types ?? [],
+        hasWebsite: input.hasWebsite,
+        distanceMeters: distanceByPlace.get(row.id) ?? null,
+      });
+
       const opp = calculateOpportunityScore({
         signals,
         rating: input.rating,
@@ -319,6 +339,8 @@ Deno.serve(async (req) => {
         intentMatch,
         territoryFavorability,
         freshnessDays: null,
+        websiteState,
+        registryState,
       });
 
       const { error } = await admin.from("company_opportunity_scores").upsert(

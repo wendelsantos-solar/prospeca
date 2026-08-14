@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BadgeCheck, FileSearch, Landmark, Loader2 } from "lucide-react";
 import { isValidCnpj, normalizeCnpj } from "@leads/domain";
 import { useBusinessRegistration, useCnpjLookupMutation } from "@/hooks/useLeadsQuery";
+import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const REGISTRY_STATUS_LABELS: Record<string, string> = {
@@ -43,8 +44,16 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
     registration?.tax_id ||
     registration?.legal_name ||
     registration?.primary_cnae ||
-    registration?.registration_status,
+    registration?.registration_status ||
+    registration?.company_size ||
+    registration?.founded_at ||
+    registration?.is_mei,
   );
+
+  // V3-D: age only from a REAL registry date — never invented.
+  const ageYears = registration?.founded_at
+    ? Math.floor((Date.now() - new Date(registration.founded_at).getTime()) / (365.25 * 86400000))
+    : null;
 
   const result = lookup.data;
 
@@ -85,6 +94,63 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
                 registration.registration_status
               }
             />
+          )}
+          {registration?.secondary_cnaes && registration.secondary_cnaes.length > 0 && (
+            <Row label="CNAEs secundários" value={registration.secondary_cnaes.join(", ")} />
+          )}
+          {registration?.company_size && (
+            <Row
+              label="Porte"
+              value={registration.company_size + (registration.is_mei ? " · MEI" : "")}
+            />
+          )}
+          {registration?.legal_nature && (
+            <Row label="Natureza jurídica" value={registration.legal_nature} />
+          )}
+          {registration?.capital_social != null && (
+            <Row label="Capital social" value={formatBRL(registration.capital_social)} />
+          )}
+          {registration?.founded_at && (
+            <Row
+              label="Abertura"
+              value={`${new Date(registration.founded_at).toLocaleDateString("pt-BR")}${
+                ageYears != null && ageYears >= 0 ? ` (${ageYears} anos)` : ""
+              }`}
+            />
+          )}
+          {registration?.simples_nacional != null && (
+            <Row
+              label="Simples Nacional"
+              value={
+                registration.simples_nacional
+                  ? `Optante${
+                      registration.simples_opted_at
+                        ? ` desde ${new Date(registration.simples_opted_at).toLocaleDateString("pt-BR")}`
+                        : ""
+                    }`
+                  : "Não optante"
+              }
+            />
+          )}
+          {registration?.is_mei != null && !registration.company_size && (
+            <Row label="MEI" value={registration.is_mei ? "Sim" : "Não"} />
+          )}
+          {registration?.registry_city && (
+            <Row
+              label="Endereço (registro)"
+              value={[registration.registry_city, registration.registry_state]
+                .filter(Boolean)
+                .join(" - ")}
+            />
+          )}
+          {registration?.registry_postal_code && (
+            <Row label="CEP (registro)" value={registration.registry_postal_code} />
+          )}
+          {registration?.registry_email && (
+            <Row label="E-mail (registro)" value={registration.registry_email} />
+          )}
+          {registration?.registry_phone && (
+            <Row label="Telefone (registro)" value={registration.registry_phone} />
           )}
           {registration?.registration_fetched_at && (
             <Row

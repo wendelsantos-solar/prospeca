@@ -33,6 +33,18 @@ export interface BusinessRegistration {
   phone: string | null;
   email: string | null;
   foundedAt: string | null;
+  /** Porte da empresa (MEI, ME, EPP, Demais). */
+  companySize: string | null;
+  /** Natureza jurídica (raw text). */
+  legalNature: string | null;
+  /** Capital social em reais (BrasilAPI numeric). */
+  capitalSocial: number | null;
+  /** Optante pelo Simples Nacional. */
+  simplesNacional: boolean | null;
+  /** Data de opção pelo Simples (ISO date). */
+  simplesOptedAt: string | null;
+  /** Inscrito como MEI. */
+  isMei: boolean | null;
   fetchedAt: string;
 }
 
@@ -107,4 +119,26 @@ export function companyStatusFromRegistration(
     default:
       return "unknown";
   }
+}
+
+// ── Company age (V3-D) ──────────────────────────────────────────────────────
+
+const DAY_MS = 86_400_000;
+
+/** Whole years since `foundedAt` (ISO date/string) at `now`. Null when the
+ * date is absent or invalid — never fabricates an age. */
+export function yearsInBusiness(foundedAt: string | null | undefined, now: Date = new Date()): number | null {
+  if (!foundedAt) return null;
+  const d = new Date(foundedAt);
+  if (Number.isNaN(d.getTime())) return null;
+  const years = (now.getTime() - d.getTime()) / (365.25 * DAY_MS);
+  return years >= 0 ? Math.floor(years) : null;
+}
+
+/** Established = at least ESTABLISHED_YEARS_MIN years of operation. */
+export const ESTABLISHED_YEARS_MIN = 5;
+
+export function isEstablishedByAge(foundedAt: string | null | undefined, now: Date = new Date()): boolean {
+  const years = yearsInBusiness(foundedAt, now);
+  return years != null && years >= ESTABLISHED_YEARS_MIN;
 }

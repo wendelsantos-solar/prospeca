@@ -27,6 +27,12 @@ interface BrasilApiCnpjResponse {
   ddd_telefone_1?: string;
   email?: string;
   data_inicio_atividade?: string;
+  porte?: string;
+  natureza_juridica?: string;
+  capital_social?: number;
+  opcao_pelo_simples?: boolean;
+  data_opcao_pelo_simples?: string;
+  opcao_pelo_mei?: boolean;
 }
 
 export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
@@ -67,6 +73,12 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
         phone: raw.ddd_telefone_1 ?? null,
         email: raw.email ?? null,
         foundedAt: raw.data_inicio_atividade ?? null,
+        companySize: raw.porte ?? null,
+        legalNature: raw.natureza_juridica ?? null,
+        capitalSocial: typeof raw.capital_social === "number" ? raw.capital_social : null,
+        simplesNacional: raw.opcao_pelo_simples ?? null,
+        simplesOptedAt: raw.data_opcao_pelo_simples ?? null,
+        isMei: raw.opcao_pelo_mei ?? null,
         fetchedAt: new Date().toISOString(),
       };
     } finally {

@@ -53,10 +53,23 @@ export interface BusinessRegistrationRow {
   legal_name: string | null;
   primary_cnae: string | null;
   cnae_description: string | null;
+  secondary_cnaes?: string[] | null;
   registration_status: string | null;
   registration_status_description: string | null;
   registration_fetched_at: string | null;
   enrichment_sources: unknown;
+  company_size?: string | null;
+  legal_nature?: string | null;
+  capital_social?: number | null;
+  simples_nacional?: boolean | null;
+  simples_opted_at?: string | null;
+  is_mei?: boolean | null;
+  founded_at?: string | null;
+  registry_city?: string | null;
+  registry_state?: string | null;
+  registry_postal_code?: string | null;
+  registry_email?: string | null;
+  registry_phone?: string | null;
 }
 
 export function useBusinessRegistration(placeId?: string | null) {
@@ -67,7 +80,7 @@ export function useBusinessRegistration(placeId?: string | null) {
       const { data, error } = await getSupabase()
         .from("places")
         .select(
-          "tax_id, legal_name, primary_cnae, cnae_description, registration_status, registration_status_description, registration_fetched_at, enrichment_sources",
+          "tax_id, legal_name, primary_cnae, cnae_description, secondary_cnaes, registration_status, registration_status_description, registration_fetched_at, enrichment_sources, company_size, legal_nature, capital_social, simples_nacional, simples_opted_at, is_mei, founded_at, registry_city, registry_state, registry_postal_code, registry_email, registry_phone",
         )
         .eq("id", placeId)
         .maybeSingle();

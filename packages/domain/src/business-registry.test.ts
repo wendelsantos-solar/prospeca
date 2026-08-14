@@ -1,9 +1,12 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import {
   normalizeCnpj,
   isValidCnpj,
   registrationStatusFromSituacao,
   companyStatusFromRegistration,
+  yearsInBusiness,
+  isEstablishedByAge,
+  ESTABLISHED_YEARS_MIN,
   type BusinessRegistryProvider,
 } from "./business-registry.ts";
 
@@ -93,5 +96,31 @@ describe("BusinessRegistryProvider contract — resiliência (Fase 5)", () => {
   it("invalid CNPJ is rejected BEFORE any provider call", () => {
     expect(isValidCnpj(normalizeCnpj("00.000.000/0000-00"))).toBe(false);
     expect(isValidCnpj(normalizeCnpj("12345"))).toBe(false);
+  });
+});
+
+describe("company age (V3-D)", () => {
+  test("yearsInBusiness from a real founded date", () => {
+    const now = new Date("2026-08-15T00:00:00Z");
+    expect(yearsInBusiness("2016-01-01", now)).toBe(10);
+    expect(yearsInBusiness("2024-01-01", now)).toBe(2);
+  });
+
+  test("absent/invalid date → null (never fabricate an age)", () => {
+    expect(yearsInBusiness(null)).toBeNull();
+    expect(yearsInBusiness(undefined)).toBeNull();
+    expect(yearsInBusiness("not-a-date")).toBeNull();
+  });
+
+  test("future date → null (not negative years)", () => {
+    expect(yearsInBusiness("2030-01-01", new Date("2026-08-15T00:00:00Z"))).toBeNull();
+  });
+
+  test("isEstablishedByAge threshold (≥ ESTABLISHED_YEARS_MIN)", () => {
+    const now = new Date("2026-08-15T00:00:00Z");
+    expect(ESTABLISHED_YEARS_MIN).toBe(5);
+    expect(isEstablishedByAge("2010-01-01", now)).toBe(true);
+    expect(isEstablishedByAge("2024-01-01", now)).toBe(false);
+    expect(isEstablishedByAge(null, now)).toBe(false);
   });
 });

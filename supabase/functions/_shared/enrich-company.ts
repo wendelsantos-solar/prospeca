@@ -52,7 +52,7 @@ export async function upsertWebsiteSource(
 ): Promise<void> {
   const { data: existing } = await admin
     .from("company_sources")
-    .select("id")
+    .select("id, attempts")
     .eq("organization_id", args.organizationId)
     .eq("place_id", args.placeId)
     .eq("provider", "website")
@@ -67,6 +67,9 @@ export async function upsertWebsiteSource(
     fetched_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + ENRICHMENT_STALE_DAYS * 86400000).toISOString(),
     confidence: websiteSourceConfidence(args.found),
+    attempts: ((existing?.attempts as number | null) ?? 0) + 1,
+    error: null,
+    metadata: { fieldsFound: args.found },
   };
 
   if (existing) {

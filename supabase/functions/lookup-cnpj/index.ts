@@ -93,10 +93,14 @@ Deno.serve(async (req) => {
       await admin.from("places").update({ enrichment_sources: sources }).eq("id", placeId);
     };
 
-    const upsertSourceRow = async (confidence: number, providerExternalId?: string | null) => {
+    const upsertSourceRow = async (
+      confidence: number,
+      providerExternalId?: string | null,
+      metadata?: Record<string, unknown>,
+    ) => {
       const { data: existing } = await admin
         .from("company_sources")
-        .select("id")
+        .select("id, attempts")
         .eq("organization_id", organizationId)
         .eq("place_id", placeId)
         .eq("provider", "business_registry")
@@ -112,6 +116,36 @@ Deno.serve(async (req) => {
           Date.now() + ENRICHMENT_SOURCE_TTL_DAYS.business_registry * 86400000,
         ).toISOString(),
         confidence,
+        attempts: ((existing?.attempts as number | null) ?? 0) + 1,
+        error: null,
+        metadata: metadata ?? null,
+      };
+      if (existing) {
+        await admin.from("company_sources").update(row).eq("id", existing.id as string);
+      } else {
+        await admin.from("company_sources").insert(row).select("id").maybeSingle();
+      }
+    };
+
+    /** Registry source errored — attempts+1, error text, metadata (V3-D). */
+    const markSourceError = async (message: string) => {
+      const { data: existing } = await admin
+        .from("company_sources")
+        .select("id, attempts")
+        .eq("organization_id", organizationId)
+        .eq("place_id", placeId)
+        .eq("provider", "business_registry")
+        .maybeSingle();
+      const row = {
+        organization_id: organizationId,
+        place_id: placeId,
+        provider: "business_registry",
+        source_type: "registry",
+        fetched_at: new Date().toISOString(),
+        confidence: 0,
+        attempts: ((existing?.attempts as number | null) ?? 0) + 1,
+        error: message,
+        metadata: { lastErrorAt: new Date().toISOString() },
       };
       if (existing) {
         await admin.from("company_sources").update(row).eq("id", existing.id as string);
@@ -140,6 +174,7 @@ Deno.serve(async (req) => {
       registration = await businessRegistryProvider().lookupByCnpj(taxId);
     } catch (providerErr) {
       await stampSource("failed");
+      await markSourceError(providerErr instanceof Error ? providerErr.message : String(providerErr));
       logEvent({
         requestId,
         organizationId,
@@ -160,7 +195,7 @@ Deno.serve(async (req) => {
       // error. Stamped as enriched with the 90d TTL so we don't re-consult on
       // every drawer open.
       await stampSource("enriched");
-      await upsertSourceRow(0.9);
+      await upsertSourceRow(0.9, null, { result: "not_found" });
       logEvent({
         requestId,
         organizationId,
@@ -175,6 +210,19 @@ Deno.serve(async (req) => {
       tax_id: registration.taxId,
       registration_status: registration.status,
       registration_fetched_at: registration.fetchedAt,
+      // V3-D registry details — never overwrite Google/provider columns.
+      company_size: registration.companySize,
+      legal_nature: registration.legalNature,
+      capital_social: registration.capitalSocial,
+      simples_nacional: registration.simplesNacional,
+      simples_opted_at: registration.simplesOptedAt,
+      is_mei: registration.isMei,
+      founded_at: registration.foundedAt,
+      registry_city: registration.city,
+      registry_state: registration.state,
+      registry_postal_code: registration.postalCode,
+      registry_email: registration.email,
+      registry_phone: registration.phone,
     };
     if (registration.legalName) patch.legal_name = registration.legalName;
     if (registration.primaryCnae) patch.primary_cnae = registration.primaryCnae;
@@ -185,7 +233,7 @@ Deno.serve(async (req) => {
 
     await admin.from("places").update(patch).eq("id", placeId);
     await stampSource("enriched");
-    await upsertSourceRow(1, registration.taxId);
+    await upsertSourceRow(1, registration.taxId, { result: "found", foundAt: registration.fetchedAt });
 
     logEvent({
       requestId,
