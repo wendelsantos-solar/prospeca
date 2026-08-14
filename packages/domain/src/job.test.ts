@@ -64,6 +64,18 @@ describe("job status machine", () => {
     expect(canTransitionJob("processing", "failed")).toBe(true);
     expect(canTransitionJob("completed", "processing")).toBe(false);
   });
+  test("admin requeue: failed → queued allowed", () => {
+    expect(canTransitionJob("failed", "queued")).toBe(true);
+    expect(canTransitionJob("failed", "completed")).toBe(false);
+  });
+  test("sweeper path: processing → retrying → queued allowed; direct processing → queued NOT allowed", () => {
+    expect(canTransitionJob("processing", "retrying")).toBe(true);
+    expect(canTransitionJob("retrying", "queued")).toBe(true);
+    expect(canTransitionJob("processing", "queued")).toBe(false);
+  });
+  test("retrying → processing allowed (claim-after-backoff)", () => {
+    expect(canTransitionJob("retrying", "processing")).toBe(true);
+  });
   test("terminal detection", () => {
     expect(isTerminalJobStatus("completed")).toBe(true);
     expect(isTerminalJobStatus("failed")).toBe(true);
@@ -77,6 +89,13 @@ describe("dead letter", () => {
     expect(isDeadLetter({ status: "failed", attempt: DEFAULT_MAX_ATTEMPTS })).toBe(true);
     expect(isDeadLetter({ status: "failed", attempt: 1 })).toBe(false);
     expect(isDeadLetter({ status: "processing", attempt: DEFAULT_MAX_ATTEMPTS })).toBe(false);
+  });
+  test("failed + attempts beyond max also dead letter", () => {
+    expect(isDeadLetter({ status: "failed", attempt: 4 })).toBe(true);
+    expect(isDeadLetter({ status: "failed", attempt: 99 })).toBe(true);
+  });
+  test("retrying is never dead letter", () => {
+    expect(isDeadLetter({ status: "retrying", attempt: DEFAULT_MAX_ATTEMPTS })).toBe(false);
   });
 });
 

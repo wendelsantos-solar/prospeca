@@ -9,6 +9,8 @@ import { readPoint } from "@leads/geo";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { fireAndForget } from "../_shared/dispatch.ts";
+import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
+import { companyProcessingKey } from "@leads/domain/job";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import {
   hasRealWebsite,
@@ -318,12 +320,28 @@ Deno.serve(async (req) => {
     );
 
     // V2: ensure the persisted opportunity score exists for every place in this
-    // search (idempotent upsert, async). Newly imported places may not have
+    // search — per-company OPPORTUNITY_SCORING jobs, idempotent (unique key),
+    // drained by the process-jobs worker. Newly imported places may not have
     // been scored at search time (reuse path, cache hits, backfilled searches).
-    fireAndForget("score-company", {
-      searchId: input.searchId,
-      organizationId: ctx.organizationId,
-    });
+    const { data: scoreRows } = await ctx.adminClient
+      .from("search_results")
+      .select("place_id")
+      .eq("search_id", input.searchId);
+    const queue = createSupabaseJobQueue(ctx.adminClient);
+    const placeIds = (scoreRows ?? []).map((r) => r.place_id as string);
+    await Promise.all(
+      placeIds.map((placeId) =>
+        queue.enqueue({
+          type: "OPPORTUNITY_SCORING",
+          organizationId: ctx.organizationId,
+          searchId: input.searchId,
+          companyId: placeId,
+          idempotencyKey: companyProcessingKey(ctx.organizationId, input.searchId, placeId),
+          payload: { searchId: input.searchId, placeId },
+        }),
+      ),
+    );
+    if (placeIds.length > 0) fireAndForget("process-jobs", {}); // single wake
 
     logEvent({ requestId, operation: "import-search-results", status: "ok", ...result });
     return json(result, 200, {}, req);
