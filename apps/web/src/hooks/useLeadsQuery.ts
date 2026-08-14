@@ -23,6 +23,7 @@ import type {
   MissionJobRow,
   MissionSourceRow,
 } from "@/repositories/types";
+import { buildCompanyTimeline, type CompanyTimelineEvent } from "@leads/domain";
 import type { SortValue } from "@/lib/constants";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
@@ -171,6 +172,21 @@ export function useMissionPipeline(searchId?: string | null) {
     enabled: !!searchId,
     staleTime: 15_000,
     refetchInterval: 10_000, // worker lands results in seconds — poll lightly
+  });
+}
+
+/** Unified company timeline (V3-E) — system + commercial events merged by
+ * the pure domain rule, read under RLS. */
+export function useCompanyTimeline(placeId?: string | null) {
+  return useQuery<CompanyTimelineEvent[]>({
+    queryKey: ["company-timeline", placeId ?? "none"],
+    queryFn: async () => {
+      if (!placeId) return [];
+      const data = await getSearchRepository().getCompanyTimeline(placeId);
+      return buildCompanyTimeline(data);
+    },
+    enabled: !!placeId,
+    staleTime: 60_000,
   });
 }
 

@@ -7,10 +7,21 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RotateCcw, History, Bookmark, Flame, GlobeLock, Star, FolderOpen } from "lucide-react";
+import {
+  RotateCcw,
+  History,
+  Bookmark,
+  Flame,
+  GlobeLock,
+  Star,
+  FolderOpen,
+  Copy,
+  Pencil,
+  SquarePen,
+} from "lucide-react";
 import { getSearchRepository } from "@/repositories";
 import { useSearchSession } from "@/stores/searchSession";
-import { useLeadsStore } from "@/stores";
+import { useSearchDraftStore, useLeadsStore } from "@/stores";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatDateTime } from "@/lib/format";
 import { savedSearchToSearch } from "@/lib/saved-search";
@@ -89,6 +100,54 @@ function HistoryPage() {
     navigate({ to: "/app/mapa" });
   };
 
+  /** Duplicar missão (V3-E): nova busca com os MESMOS critérios — uma nova
+   * linha em searches, sem duplicar resultados (reusa create-search). */
+  const duplicateSaved = async (s: SavedSearch) => {
+    try {
+      await getSearchRepository().create({
+        query: s.query,
+        location: { label: s.locationLabel, latitude: s.latitude, longitude: s.longitude },
+        radiusMeters: s.radiusMeters,
+        presenceFilter: s.presenceFilter,
+        maxResults: 25,
+      });
+      toast.success(
+        "Missão duplicada — nova busca iniciada (pode custar ~US$0.03 se não houver cache).",
+      );
+      navigate({ to: "/app/mapa" });
+    } catch {
+      toast.error("Não foi possível duplicar a missão.");
+    }
+  };
+
+  /** Editar critérios (V3-E): prefill do formulário — as buscas são imutáveis
+   * por design; editar = preencher e disparar uma nova busca ajustada. */
+  const editSaved = (s: SavedSearch) => {
+    useSearchDraftStore.getState().setDraft({
+      niche: s.query,
+      location: s.locationLabel,
+      coords: { lat: s.latitude, lng: s.longitude },
+      radiusKm: s.radiusMeters / 1000,
+      presence:
+        s.presenceFilter === "without_website"
+          ? "no-website"
+          : s.presenceFilter === "with_website"
+            ? "with-website"
+            : "all",
+    });
+    toast.info("Critérios carregados no formulário — ajuste e busque.");
+    navigate({ to: "/app/mapa" });
+  };
+
+  const renameSaved = async (s: SavedSearch) => {
+    const name = window.prompt("Nome da missão:", s.savedName ?? "");
+    if (name != null && name.trim()) {
+      await getSearchRepository().saveSearch(s.searchId, name.trim());
+      toast.success("Missão renomeada.");
+      savedQuery.refetch();
+    }
+  };
+
   const saved = savedQuery.data ?? [];
 
   return (
@@ -142,6 +201,33 @@ function HistoryPage() {
                   <Button variant="default" size="sm" onClick={() => openSaved(s)}>
                     <FolderOpen className="mr-1 h-3.5 w-3.5" />
                     Abrir
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => duplicateSaved(s)}
+                    aria-label="Duplicar missão"
+                    title="Duplicar (nova busca com os mesmos critérios)"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => editSaved(s)}
+                    aria-label="Editar critérios da missão"
+                    title="Editar critérios (preenche o formulário)"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => renameSaved(s)}
+                    aria-label="Renomear missão"
+                    title="Renomear"
+                  >
+                    <SquarePen className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"

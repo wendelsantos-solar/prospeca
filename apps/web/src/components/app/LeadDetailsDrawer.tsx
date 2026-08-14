@@ -26,6 +26,7 @@ import { ScorePill } from "@/components/shared/Badges";
 import { CompanyIntelligenceCard } from "./CompanyIntelligenceCard";
 import { IntentSignals } from "./IntentSignals";
 import { BusinessRegistrySection } from "./BusinessRegistrySection";
+import { CompanyTimeline } from "./CompanyTimeline";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { formatBRL, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
@@ -647,6 +648,8 @@ export function LeadDetailsDrawer() {
               <TabsContent value="timeline" className="mt-4">
                 {readOnly ? (
                   <FunnelGate feature="timeline" />
+                ) : lead.placeId ? (
+                  <CompanyTimeline placeId={lead.placeId} fallback={lead.timeline} />
                 ) : (
                   <ol className="space-y-3">
                     {lead.timeline.map((t) => (
