@@ -9,9 +9,10 @@ import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { track } from "@/lib/analytics";
-import { isProvisionalScore } from "@/lib/enrichment";
+import { resolveEnrichmentStatus } from "@/lib/enrichment";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { ConfidenceBadge } from "@/components/shared/Badges";
+import { EnrichmentStatusBadge } from "@/components/app/EnrichmentStatusBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useActivationStore } from "@/stores/activation";
@@ -152,6 +153,8 @@ export const DiscoveryCard = memo(function DiscoveryCard({
   const isFocused = focusedId === result.placeId;
   const inFunnel = result.importedLeadId != null;
   const missingContact = !result.email && !result.instagram && !result.whatsapp;
+  // Single async-status badge: retrying > enriching > queued > failed > provisional.
+  const enrichmentStatus = resolveEnrichmentStatus(result.pipelineState, result.enrichmentState);
 
   // In funnel → open the full lead drawer; otherwise a read-only discovery preview.
   const openDetails = () => {
@@ -230,33 +233,10 @@ export const DiscoveryCard = memo(function DiscoveryCard({
             {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
               <ConfidenceBadge confidence={result.opportunityConfidence} />
             )}
-            {result.pipelineState == null &&
-              result.enrichmentState === "failed" &&
-              isFeatureEnabled("v2ScoringInDiscovery") && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
-                  score parcial
-                </span>
+            {enrichmentStatus != null &&
+              (enrichmentStatus !== "failed" || isFeatureEnabled("v2ScoringInDiscovery")) && (
+                <EnrichmentStatusBadge state={enrichmentStatus} />
               )}
-            {result.pipelineState === "enriching" && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                ⟳ enriquecendo
-              </span>
-            )}
-            {result.pipelineState === "queued" && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                ⟳ na fila
-              </span>
-            )}
-            {result.pipelineState === "retrying" && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
-                ⟳ reprocessando
-              </span>
-            )}
-            {isProvisionalScore(result.enrichmentState) && (
-              <span className="inline-flex items-center rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                provisório
-              </span>
-            )}
             <ChannelChip has={!!result.phone} title="Telefone">
               <Phone className="h-3 w-3" />
             </ChannelChip>

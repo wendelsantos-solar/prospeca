@@ -258,7 +258,7 @@ export class DemoSearchRepository implements SearchRepository {
           l.category.toLowerCase().includes(nicheLower) ||
           l.companyName.toLowerCase().includes(nicheLower),
       )
-      .map((l) => ({
+      .map((l, index) => ({
         placeId: l.id,
         name: l.companyName,
         category: l.category,
@@ -280,9 +280,12 @@ export class DemoSearchRepository implements SearchRepository {
         score: l.score,
         temperature: l.temperature,
         importedLeadId: null, // starts unimported; updated by addToFunnel
-        // Demo data is pre-populated; treat it as already enriched so the
-        // drawer never shows "verificando" on fictional leads.
-        enrichmentState: "enriched",
+        // Deterministic demo seed (by index, never random) so every async
+        // badge state can be validated in the browser: index 0-2 show
+        // queued/enriching/retrying, index 3 shows a provisional score.
+        pipelineState:
+          index === 0 ? "queued" : index === 1 ? "enriching" : index === 2 ? "retrying" : null,
+        enrichmentState: index === 3 ? "pending" : "enriched",
         enrichmentFields: null,
       }));
     this.discoveryCache.set(id, results);
