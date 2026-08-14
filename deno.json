@@ -30,6 +30,7 @@
     "@leads/domain/estimate": "./packages/domain/src/estimate.ts",
     "@leads/domain/pipeline-progress": "./packages/domain/src/pipeline-progress.ts",
     "@leads/domain/company-timeline": "./packages/domain/src/company-timeline.ts",
+    "@leads/domain/xlsx": "./packages/domain/src/xlsx.ts",
     "@leads/domain/business-registry": "./packages/domain/src/business-registry.ts",
     "@leads/domain/notifications": "./packages/domain/src/notifications.ts",
     "@leads/domain/intent-signals": "./packages/domain/src/intent-signals.ts",

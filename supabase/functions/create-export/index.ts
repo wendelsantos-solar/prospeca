@@ -1,47 +1,18 @@
-// create-export: server-side CSV export with formula-injection protection.
-// Small volumes return inline; larger ones go to Storage with a signed URL.
-import { z } from "npm:zod@3";
+// create-export: server-side CSV/XLSX export with formula-injection
+// protection. Field selection via the shared contract (packages/contracts) —
+// unknown fields are REJECTED (422), never silently ignored. Small volumes
+// return inline; larger ones go to Storage with a signed URL (unchanged).
 import { AppError, handleOptions, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, recordUsage, writeAudit } from "../_shared/quota.ts";
+import {
+  CreateExportSchema,
+  EXPORTABLE_LEAD_FIELDS,
+  type ExportableLeadField,
+} from "@leads/contracts/schemas";
+import { buildXlsx } from "@leads/domain/xlsx";
 
-const InputSchema = z.object({
-  format: z.enum(["csv"]),
-  filters: z
-    .object({
-      stages: z.array(z.string()).optional(),
-      temperatures: z.array(z.string()).optional(),
-      cities: z.array(z.string()).optional(),
-      categories: z.array(z.string()).optional(),
-      minScore: z.number().optional(),
-    })
-    .default({}),
-  columns: z.array(z.string()).min(1).max(30),
-});
-
-const EXPORTABLE_COLUMNS = new Set([
-  "company_name",
-  "category",
-  "address",
-  "neighborhood",
-  "city",
-  "state",
-  "phone",
-  "whatsapp",
-  "email",
-  "instagram",
-  "website",
-  "has_website",
-  "rating",
-  "review_count",
-  "score",
-  "temperature",
-  "stage",
-  "estimated_value",
-  "closed_value",
-  "created_at",
-  "last_interaction_at",
-]);
+const EXPORTABLE_COLUMNS = new Set<string>(EXPORTABLE_LEAD_FIELDS);
 
 // CSV formula injection guard: prefix dangerous leading chars.
 function sanitizeCell(value: unknown): string {
@@ -61,18 +32,21 @@ Deno.serve(async (req) => {
 
   try {
     const ctx = await requireAuth(req);
-    const parsed = InputSchema.safeParse(await req.json());
+    const parsed = CreateExportSchema.safeParse(await req.json());
     if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Entrada inválida.");
     const input = parsed.data;
 
-    const columns = input.columns.filter((c) => EXPORTABLE_COLUMNS.has(c));
-    if (columns.length === 0) throw new AppError("VALIDATION_ERROR", "Nenhuma coluna válida.");
+    // V3-F: `fields` is the new contract; `columns` remains as a retrocompat
+    // alias. Unknown fields were already rejected by the zod enum.
+    const requested = input.fields ?? ((input.columns ?? []) as ExportableLeadField[]);
+    const fields = requested.filter((c) => EXPORTABLE_COLUMNS.has(c));
+    if (fields.length === 0) throw new AppError("VALIDATION_ERROR", "Nenhum campo válido.");
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "export_record", 3);
 
     let query = ctx.userClient
       .from("leads")
-      .select(columns.join(","))
+      .select(fields.join(","))
       .eq("organization_id", ctx.organizationId)
       .limit(5000);
     if (input.filters.stages?.length) query = query.in("stage", input.filters.stages);
@@ -87,9 +61,24 @@ Deno.serve(async (req) => {
     // Dynamic .select(string) breaks supabase-js row typing → cast explicitly.
     const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
-    const header = columns.join(";");
-    const lines = rows.map((row) => columns.map((c) => sanitizeCell(row[c])).join(";"));
-    const csv = "﻿" + [header, ...lines].join("\r\n");
+    let body: Uint8Array | string;
+    let contentType: string;
+    let filename: string;
+    if (input.format === "xlsx") {
+      const sheetRows: Array<Array<string | number | boolean | null | undefined>> = [
+        fields.map((f) => f),
+        ...rows.map((row) => fields.map((c) => row[c] as string | number | boolean | null)),
+      ];
+      body = buildXlsx([{ name: "Leads", rows: sheetRows }]);
+      contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      filename = `leads-${Date.now()}.xlsx`;
+    } else {
+      const header = fields.join(";");
+      const lines = rows.map((row) => fields.map((c) => sanitizeCell(row[c])).join(";"));
+      body = "﻿" + [header, ...lines].join("\r\n");
+      contentType = "text/csv; charset=utf-8";
+      filename = `leads-${Date.now()}.csv`;
+    }
 
     await recordUsage(ctx.adminClient, {
       organizationId: ctx.organizationId,
@@ -97,28 +86,41 @@ Deno.serve(async (req) => {
       eventType: "export_record",
       quantity: rows?.length ?? 0,
     });
+    // Auditoria (V3-F): formato, campos e filtros ficam no metadata — mesma
+    // tabela audit_logs, sem migration.
     await writeAudit(ctx.adminClient, {
       organizationId: ctx.organizationId,
       actorUserId: ctx.userId,
       action: "export.created",
       entityType: "export",
-      metadata: { rowCount: rows?.length ?? 0, columns },
+      metadata: {
+        rowCount: rows?.length ?? 0,
+        fields,
+        format: input.format,
+        filters: input.filters,
+      },
     });
     await ctx.adminClient.from("exports").insert({
       organization_id: ctx.organizationId,
       created_by: ctx.userId,
-      format: "csv",
+      format: input.format,
       status: "completed",
       filters: input.filters,
-      columns,
+      columns: fields,
       row_count: rows?.length ?? 0,
     });
 
-    logEvent({ requestId, operation: "create-export", status: "ok", resultCount: rows?.length });
-    return new Response(csv, {
+    logEvent({
+      requestId,
+      operation: "create-export",
+      status: "ok",
+      resultCount: rows?.length,
+      format: input.format,
+    });
+    return new Response(body as BodyInit, {
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="leads-${Date.now()}.csv"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Access-Control-Allow-Origin": Deno.env.get("APP_URL") ?? "*",
       },
     });

@@ -22,7 +22,13 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { LeadListSkeleton, SummarySkeleton } from "@/components/shared/Skeletons";
 import { filterByRadius } from "@/lib/filters";
-import { exportDiscoveryCSV } from "@/lib/export";
+import {
+  exportDiscoveryFile,
+  DISCOVERY_EXPORT_FIELDS,
+  DEFAULT_DISCOVERY_EXPORT_KEYS,
+  type DiscoveryExportFormat,
+} from "@/lib/export";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -114,13 +120,25 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     };
   }, [resultsInRadius]);
 
-  const handleExportCsv = () => {
+  // V3-F: export com formato + seleção de campos (progressive disclosure).
+  const [exportFormat, setExportFormat] = useState<DiscoveryExportFormat>("csv");
+  const [exportFields, setExportFields] = useState<string[]>(DEFAULT_DISCOVERY_EXPORT_KEYS);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const handleExport = () => {
     try {
-      exportDiscoveryCSV(resultsInRadius);
-      toast.success(`CSV exportado (${resultsInRadius.length} empresas)`);
+      exportDiscoveryFile(resultsInRadius, { format: exportFormat, fields: exportFields });
+      toast.success(`${exportFormat.toUpperCase()} exportado (${resultsInRadius.length} empresas)`);
+      setExportOpen(false);
     } catch {
-      toast.error("Falha ao exportar CSV");
+      toast.error("Falha ao exportar");
     }
+  };
+
+  const toggleExportField = (key: string) => {
+    setExportFields((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
   };
 
   // Colapsada = some por completo (igual ao reference). O botão de expandir
@@ -207,7 +225,71 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
                   Exportar
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={handleExportCsv}>Exportar CSV</DropdownMenuItem>
+                  <Popover open={exportOpen} onOpenChange={setExportOpen}>
+                    <PopoverTrigger asChild>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setExportOpen(true);
+                        }}
+                      >
+                        Exportar…
+                      </DropdownMenuItem>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-3">
+                      <div className="space-y-2.5">
+                        <div className="flex gap-1.5">
+                          {(["csv", "xlsx"] as const).map((f) => (
+                            <button
+                              key={f}
+                              type="button"
+                              onClick={() => setExportFormat(f)}
+                              aria-pressed={exportFormat === f}
+                              className={cn(
+                                "rounded-md border px-2.5 py-1 text-[12px] font-medium",
+                                exportFormat === f
+                                  ? "border-primary bg-primary-soft text-primary"
+                                  : "border-border text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {f.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                        {(["básicos", "contato", "score"] as const).map((group) => (
+                          <div key={group}>
+                            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              {group}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {DISCOVERY_EXPORT_FIELDS.filter((f) => f.group === group).map((f) => (
+                                <label
+                                  key={f.key}
+                                  className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={exportFields.includes(f.key)}
+                                    onChange={() => toggleExportField(f.key)}
+                                  />
+                                  {f.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={handleExport}
+                          disabled={exportFields.length === 0}
+                          className="w-full rounded-md bg-primary px-2.5 py-1.5 text-[12px] font-semibold text-primary-foreground disabled:opacity-50"
+                        >
+                          Exportar {exportFormat.toUpperCase()}
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
