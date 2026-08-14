@@ -16,6 +16,7 @@ import type { DiscoveryResult } from "@/repositories/types";
 export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
   return {
     id: r.placeId,
+    placeId: r.placeId,
     companyName: r.name,
     category: r.category ?? "",
     address: r.address ?? "",

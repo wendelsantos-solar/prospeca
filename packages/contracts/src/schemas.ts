@@ -86,6 +86,15 @@ export interface DiscoveryResult {
   score: number;
   temperature: "hot" | "warm" | "cold";
   importedLeadId: string | null;
+  /** Persisted V2 opportunity score (company_opportunity_scores) when available.
+   * When present, `score`/`temperature` above are the persisted values; these
+   * extra fields expose the V2 provenance + breakdown so the UI can render the
+   * explainable card from server data instead of re-computing client-side. */
+  opportunityScore?: number | null;
+  opportunityTemperature?: "hot" | "warm" | "cold" | null;
+  opportunityConfidence?: number | null;
+  /** V2 breakdown persisted as JSON (OpportunityScoreBreakdown shape). */
+  opportunityBreakdown?: unknown;
   /** Overall enrichment lifecycle for this business (pending | processing |
    * enriched | partial | failed). Drives the "ainda não verificamos" vs
    * "não possui" distinction in the UI. */

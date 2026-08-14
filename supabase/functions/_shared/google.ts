@@ -141,6 +141,10 @@ export async function textSearch(input: {
   radiusMeters: number;
   pageToken?: string;
   pageSize?: number;
+  /** Restricts results to places matching this Google Places type (taxonomy
+   * primary type, e.g. "hair_care"). Optional — taxonomy-resolved searches
+   * pass it so the provider itself refines the result set. */
+  includedType?: string;
 }): Promise<{ places: GooglePlace[]; nextPageToken?: string }> {
   const body: Record<string, unknown> = {
     textQuery: input.textQuery,
@@ -153,6 +157,7 @@ export async function textSearch(input: {
     languageCode: "pt-BR",
     regionCode: "BR",
   };
+  if (input.includedType) body.includedType = input.includedType;
   if (input.pageToken) body.pageToken = input.pageToken;
   const data = await placesRequest("/places:searchText", body, SEARCH_FIELD_MASK);
   return { places: data.places ?? [], nextPageToken: data.nextPageToken };

@@ -6,10 +6,18 @@
 // Intent/territory inputs are org-specific; this first wire-up scores from the
 // deterministic signals only (neutral intent/territory), which is a valid,
 // explainable score. Those dimensions get populated as Territory/NBA jobs land.
+//
+// Two call modes:
+//   - Authenticated (frontend): placeIds from the caller, org from the JWT.
+//   - Internal (service role): fired by execute-search / import-search-results
+//     / the process-jobs worker. `organizationId` comes from the body and is
+//     validated against the referenced search. `placeIds` may be omitted — the
+//     function resolves them from the search's search_results.
 
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
-import { requireAuth } from "../_shared/auth.ts";
+import { adminClient, requireAuth } from "../_shared/auth.ts";
+import { isInternalCall } from "../_shared/internal-auth.ts";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import { deriveSignals } from "@leads/domain/signals";
 import {
@@ -18,10 +26,16 @@ import {
   opportunityTemperatureFromScore,
 } from "@leads/domain/opportunity-score";
 
-const InputSchema = z.object({
-  placeIds: z.array(z.string().uuid()).min(1).max(200),
-  searchId: z.string().uuid().optional(),
-});
+const InputSchema = z
+  .object({
+    placeIds: z.array(z.string().uuid()).min(1).max(200).optional(),
+    searchId: z.string().uuid().optional(),
+    /** Internal (service-role) calls only — validated against the search. */
+    organizationId: z.string().uuid().optional(),
+  })
+  .refine((v) => v.searchId || (v.placeIds?.length ?? 0) > 0, {
+    message: "searchId ou placeIds é obrigatório.",
+  });
 
 type PlaceRowWithId = PlaceRow & { id: string };
 
@@ -31,27 +45,61 @@ Deno.serve(async (req) => {
   const requestId = newRequestId();
 
   try {
-    const ctx = await requireAuth(req);
     const parsed = InputSchema.safeParse(await req.json());
     if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Entrada inválida.");
 
-    // Tenant check: the referenced search must belong to the caller's org.
+    const internal = await isInternalCall(req);
+    let organizationId: string;
+    let readClient: ReturnType<typeof adminClient>;
+    const admin = adminClient();
+
+    if (internal) {
+      // Service-role path (post-search triggers + worker). The org id is
+      // carried in the body and proven against the search below.
+      organizationId = parsed.data.organizationId ?? "";
+      if (!organizationId) {
+        throw new AppError("VALIDATION_ERROR", "organizationId obrigatório (chamada interna).");
+      }
+      readClient = admin;
+    } else {
+      const ctx = await requireAuth(req);
+      organizationId = ctx.organizationId;
+      readClient = ctx.userClient; // RLS-scoped reads for authenticated callers
+    }
+
+    // Tenant check: the referenced search must belong to the caller's org, and
+    // it is the source of place ids when none were passed.
+    let placeIds = parsed.data.placeIds ?? [];
     if (parsed.data.searchId) {
-      const { data: search } = await ctx.userClient
+      const { data: search } = await admin
         .from("searches")
         .select("id")
         .eq("id", parsed.data.searchId)
-        .eq("organization_id", ctx.organizationId)
+        .eq("organization_id", organizationId)
         .maybeSingle();
       if (!search) throw new AppError("NOT_FOUND", "Busca não encontrada.");
+      if (placeIds.length === 0) {
+        const { data: results } = await admin
+          .from("search_results")
+          .select("place_id")
+          .eq("search_id", parsed.data.searchId)
+          .limit(200);
+        placeIds = (results ?? []).map((r) => r.place_id as string);
+      }
     }
 
-    const { data: places } = await ctx.userClient
+    if (placeIds.length === 0) {
+      return json({ updated: 0, ruleVersion: OPPORTUNITY_SCORE_VERSION }, 200, {}, req);
+    }
+
+    let query = readClient
       .from("places")
       .select(
         "id, website_uri, national_phone_number, international_phone_number, primary_type, types, email, instagram, whatsapp, rating, user_rating_count, business_status",
       )
-      .in("id", parsed.data.placeIds);
+      .in("id", placeIds);
+    if (internal) query = query.eq("organization_id", organizationId);
+    const { data: places } = await query;
 
     let updated = 0;
     for (const row of (places ?? []) as PlaceRowWithId[]) {
@@ -77,9 +125,9 @@ Deno.serve(async (req) => {
         freshnessDays: null,
       });
 
-      const { error } = await ctx.adminClient.from("company_opportunity_scores").upsert(
+      const { error } = await admin.from("company_opportunity_scores").upsert(
         {
-          organization_id: ctx.organizationId,
+          organization_id: organizationId,
           place_id: row.id,
           search_id: parsed.data.searchId ?? null,
           score: opp.total,

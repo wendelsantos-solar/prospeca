@@ -6,8 +6,10 @@ import {
   OPPORTUNITY_SCORE_VERSION,
   opportunityTemperatureFromScore,
   recommendNextBestAction,
+  type OpportunityScoreBreakdown,
 } from "@leads/domain";
 import type { Lead } from "@/types";
+import { useOpportunityScore } from "@/hooks/useLeadsQuery";
 import { ScorePill } from "@/components/shared/Badges";
 
 const SIGNAL_LABELS: Record<string, string> = {
@@ -32,13 +34,35 @@ const URGENCY_LABEL: Record<string, string> = {
   low: "Baixa",
 };
 
+/** Normalize a persisted breakdown row into the typed domain shape. Honest:
+ * only fields actually present in the stored JSON are used. */
+function asBreakdown(raw: unknown): OpportunityScoreBreakdown | null {
+  if (!raw || typeof raw !== "object") return null;
+  const b = raw as Partial<OpportunityScoreBreakdown>;
+  if (
+    typeof b.total !== "number" ||
+    typeof b.confidence !== "number" ||
+    !Array.isArray(b.components)
+  ) {
+    return null;
+  }
+  return b as OpportunityScoreBreakdown;
+}
+
 /**
  * Company Intelligence Card — the V2 explainable opportunity score (7 weighted
- * components), the named signals behind it, and the next-best-action. Computed
- * client-side from the shared domain, so it is always in sync with the server's
- * scoring (`score-company`).
+ * components), the named signals behind it, and the next-best-action.
+ *
+ * The score comes from the server when `company_opportunity_scores` has one
+ * (computed by score-company, read via RLS) — same deterministic domain engine,
+ * so the breakdown stays explainable. Until then it is computed client-side
+ * from the shared domain, which is always in sync with the server's scoring.
  */
 export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
+  // The persisted per-org score for the lead's canonical place (RLS). Funnel
+  // leads carry place_id; discovery previews set id == placeId.
+  const { data: persisted } = useOpportunityScore(lead.placeId);
+
   const intelligence = useMemo(() => {
     const whatsappStatus = lead.whatsapp ? "verified" : "unknown";
     const signals = deriveSignals({
@@ -70,8 +94,15 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
     return { signals, score, nba };
   }, [lead]);
 
-  const { signals, score, nba } = intelligence;
-  const temperature = opportunityTemperatureFromScore(score.total);
+  const { signals, score: clientScore, nba } = intelligence;
+
+  // Persisted V2 score wins when available; otherwise the client calc (demo
+  // fallback). Both come from the same deterministic domain engine.
+  const persistedBreakdown = persisted ? asBreakdown(persisted.breakdown) : null;
+  const score = persistedBreakdown ?? clientScore;
+  const temperature = persisted
+    ? persisted.temperature
+    : opportunityTemperatureFromScore(score.total);
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-surface p-4">
@@ -82,7 +113,9 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
             Inteligência de oportunidade
           </span>
         </div>
-        <span className="text-[10px] text-muted-foreground">{OPPORTUNITY_SCORE_VERSION}</span>
+        <span className="text-[10px] text-muted-foreground">
+          {persistedBreakdown?.version ?? OPPORTUNITY_SCORE_VERSION}
+        </span>
       </div>
 
       <div className="mt-3 flex items-center gap-3">

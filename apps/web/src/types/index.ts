@@ -72,6 +72,11 @@ export interface TimelineEvent {
 
 export interface Lead {
   id: string;
+  /** The canonical place this lead was materialized from (places.id). Present
+   * for funnel leads; discovery-preview leads set it to the place id too, so
+   * the V2 persisted opportunity score (company_opportunity_scores) can be
+   * read via RLS. */
+  placeId?: string;
   companyName: string;
   category: string;
   description?: string;

@@ -8,6 +8,7 @@ import { isInternalCall } from "../_shared/internal-auth.ts";
 import { readPoint } from "@leads/geo";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
+import { fireAndForget } from "../_shared/dispatch.ts";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import {
   hasRealWebsite,
@@ -315,6 +316,14 @@ Deno.serve(async (req) => {
         };
       },
     );
+
+    // V2: ensure the persisted opportunity score exists for every place in this
+    // search (idempotent upsert, async). Newly imported places may not have
+    // been scored at search time (reuse path, cache hits, backfilled searches).
+    fireAndForget("score-company", {
+      searchId: input.searchId,
+      organizationId: ctx.organizationId,
+    });
 
     logEvent({ requestId, operation: "import-search-results", status: "ok", ...result });
     return json(result, 200, {}, req);

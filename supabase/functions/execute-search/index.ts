@@ -9,6 +9,7 @@ import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "@leads/domain/cache";
 import { shouldForceRefresh } from "../_shared/refresh.ts";
+import { fireAndForget } from "../_shared/dispatch.ts";
 import { readPoint } from "@leads/geo";
 import { selectPlaces, buildResultRows } from "../_shared/search-pipeline.ts";
 
@@ -67,6 +68,11 @@ Deno.serve(async (req) => {
         p_search_id: searchId,
       });
       if (typeof reused === "number" && reused > 0) {
+        // V2: score the (copied) places async — idempotent upsert, non-blocking.
+        fireAndForget("score-company", {
+          searchId,
+          organizationId: search.organization_id,
+        });
         logEvent({
           requestId,
           searchId,
@@ -88,7 +94,16 @@ Deno.serve(async (req) => {
     const [centerLng, centerLat] = center;
 
     const maxResults: number = search.max_results ?? 60;
-    const textQuery = search.category ? `${search.query} ${search.category}` : search.query;
+    // Taxonomy-resolved search (GAP #5): use the CANONICAL category persisted by
+    // create-search, and pass the primary Google Places type to the provider as
+    // includedType (restricts results server-side). Unresolved searches keep the
+    // legacy raw concatenation (or query alone).
+    const canonicalCategory = (search.canonical_category as string | null) ?? null;
+    const placesTypes = ((search.places_types as string[] | null) ?? []) as string[];
+    const textQuery = canonicalCategory ?? search.category
+      ? `${search.query} ${canonicalCategory ?? search.category}`
+      : search.query;
+    const includedType = placesTypes.length > 0 ? placesTypes[0] : undefined;
     let requestCount = 0;
     let collected: GooglePlace[] = [];
 
@@ -206,6 +221,7 @@ Deno.serve(async (req) => {
             longitude: centerLng,
             radiusMeters: search.radius_meters,
             pageToken,
+            includedType,
           });
           requestCount++;
           await recordUsage(admin, {
@@ -247,6 +263,16 @@ Deno.serve(async (req) => {
         }
         await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
       }
+    }
+
+    // Taxonomy type refinement: when the taxonomy resolved, keep only places
+    // whose Google `types` intersect the taxonomy's places_types. Lenient: a
+    // place without type data is kept (coverage-cache payloads may lack it).
+    if (placesTypes.length > 0) {
+      collected = collected.filter((p) => {
+        const types = p.types ?? [];
+        return types.length === 0 || types.some((t) => placesTypes.includes(t));
+      });
     }
 
     collected = collected.slice(0, maxResults);
@@ -303,6 +329,19 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
       })
       .eq("id", searchId);
+
+    // V2: score the discovered places async (idempotent upsert, non-blocking).
+    // The frontend reads company_opportunity_scores via RLS and falls back to
+    // client-side calculation until this lands. A TERRITORY_ANALYSIS job is
+    // enqueued by the process-jobs worker path (see process-jobs).
+    const discoveredPlaceIds = [...idByProviderPlaceId.values()];
+    if (discoveredPlaceIds.length > 0) {
+      fireAndForget("score-company", {
+        searchId,
+        placeIds: discoveredPlaceIds,
+        organizationId: search.organization_id,
+      });
+    }
 
     // Descoberta NÃO materializa leads. O funil é povoado por ação explícita
     // do usuário (+Funil / WhatsApp / disparo em massa), via import-search-results.

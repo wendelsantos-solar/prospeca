@@ -15,7 +15,12 @@ import type {
   CreateLeadActivityInput,
   RecordContactInput,
 } from "@/types";
-import type { MoveLeadInput, PaginatedResult, DiscoveryResult } from "@/repositories/types";
+import type {
+  MoveLeadInput,
+  PaginatedResult,
+  DiscoveryResult,
+  PersistedOpportunityScore,
+} from "@/repositories/types";
 import type { SortValue } from "@/lib/constants";
 import { getSupabase } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
@@ -88,6 +93,18 @@ export function useDiscoveryResults(searchId?: string) {
     enabled: !!searchId,
     staleTime: 60_000,
     structuralSharing: true,
+  });
+}
+
+/** Persisted V2 opportunity score for one place (RLS). Null while not yet
+ * computed — CompanyIntelligenceCard falls back to the client-side calc. */
+export function useOpportunityScore(placeId?: string | null) {
+  return useQuery<PersistedOpportunityScore | null>({
+    queryKey: ["opportunity-score", placeId ?? "none"],
+    queryFn: () =>
+      placeId ? getSearchRepository().getOpportunityScore(placeId) : Promise.resolve(null),
+    enabled: !!placeId,
+    staleTime: 5 * 60_000,
   });
 }
 

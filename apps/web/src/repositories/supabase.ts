@@ -25,6 +25,7 @@ import type {
   ListLeadsInput,
   MoveLeadInput,
   PaginatedResult,
+  PersistedOpportunityScore,
   SearchRepository,
   SearchStatusSnapshot,
   UpdateLeadInput,
@@ -34,6 +35,7 @@ import { formatBRL } from "@/lib/format";
 
 interface LeadRow {
   id: string;
+  place_id: string | null;
   company_name: string;
   category: string | null;
   description: string | null;
@@ -215,6 +217,7 @@ function mapLead(row: LeadRow): Lead {
   const addr = parseAddress(row.address);
   return {
     id: row.id,
+    placeId: row.place_id ?? undefined,
     companyName: row.company_name,
     category: row.category ?? "",
     description: row.description ?? undefined,
@@ -265,7 +268,7 @@ function mapLead(row: LeadRow): Lead {
 // lead_activities so the Hoje/Agenda views can show scheduled calls,
 // follow-ups etc. without a separate query per lead.
 const LEAD_LIST_SELECT =
-  "id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*, activity_external_events(html_url, meeting_url, status))";
+  "id, place_id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*, activity_external_events(html_url, meeting_url, status))";
 
 const LEAD_DETAIL_SELECT =
   "*, lead_notes(*), lead_activities(*, activity_external_events(html_url, meeting_url, status)), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
@@ -706,7 +709,35 @@ export class SupabaseSearchRepository implements SearchRepository {
       ...(organizationId ? { p_organization_id: organizationId } : {}),
     });
     if (error) throw new Error(error.message);
-    return (data as Record<string, unknown>[]).map((r) => {
+    const rows = data as Record<string, unknown>[];
+
+    // V2 persisted opportunity scores (RLS-scoped) — one row per (org, place,
+    // rule_version); keep the most recently calculated per place.
+    const placeIds = rows.map((r) => r.place_id as string);
+    const scoreByPlace = new Map<string, PersistedOpportunityScore>();
+    if (placeIds.length > 0) {
+      const { data: scores, error: scoresError } = await getSupabase()
+        .from("company_opportunity_scores")
+        .select("place_id, score, temperature, confidence, rule_version, breakdown, calculated_at")
+        .in("place_id", placeIds)
+        .order("calculated_at", { ascending: false });
+      if (scoresError) throw new Error(scoresError.message);
+      for (const s of (scores ?? []) as Array<Record<string, unknown>>) {
+        const pid = s.place_id as string;
+        if (!pid || scoreByPlace.has(pid)) continue;
+        scoreByPlace.set(pid, {
+          placeId: pid,
+          score: s.score as number,
+          temperature: (s.temperature as "hot" | "warm" | "cold") ?? "cold",
+          confidence: (s.confidence as number) ?? 0,
+          ruleVersion: s.rule_version as string,
+          calculatedAt: s.calculated_at as string,
+          breakdown: s.breakdown,
+        });
+      }
+    }
+
+    return rows.map((r) => {
       // Google gives us a formatted string on the search path and structured
       // components only after a details refresh — parseAddress handles both.
       const addr = parseAddress(r.formatted_address as string | null, r.address_components);
@@ -719,6 +750,7 @@ export class SupabaseSearchRepository implements SearchRepository {
       const searchLabel = ((r.search_location_label as string | null) ?? "")
         .replace(/,\s*(brazil|brasil)\s*$/i, "")
         .trim();
+      const persisted = scoreByPlace.get(r.place_id as string) ?? null;
       return {
         placeId: r.place_id as string,
         name: r.name as string,
@@ -738,15 +770,46 @@ export class SupabaseSearchRepository implements SearchRepository {
         rating: (r.rating as number) ?? null,
         reviewCount: (r.review_count as number) ?? null,
         distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
-        score: (r.score as number) ?? 0,
-        temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
+        // V2 persisted score wins when present; otherwise keep the search-time
+        // score (client-side V2 calc remains the demo fallback).
+        score: persisted?.score ?? (r.score as number) ?? 0,
+        temperature:
+          persisted?.temperature ??
+          (((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold"),
         importedLeadId: (r.imported_lead_id as string) ?? null,
+        opportunityScore: persisted?.score ?? null,
+        opportunityTemperature: persisted?.temperature ?? null,
+        opportunityConfidence: persisted?.confidence ?? null,
+        opportunityBreakdown: persisted?.breakdown ?? null,
         enrichmentState: ((r.enrichment_state as string) ??
           "pending") as DiscoveryResult["enrichmentState"],
         enrichmentFields:
           (r.enrichment_fields as Record<string, { status: string; has: boolean }> | null) ?? null,
       };
     });
+  }
+
+  /** Persisted V2 opportunity score for one place (RLS). Null when not yet
+   * computed — callers fall back to the client-side calculation. */
+  async getOpportunityScore(placeId: string): Promise<PersistedOpportunityScore | null> {
+    const { data, error } = await getSupabase()
+      .from("company_opportunity_scores")
+      .select("place_id, score, temperature, confidence, rule_version, breakdown, calculated_at")
+      .eq("place_id", placeId)
+      .order("calculated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return {
+      placeId: data.place_id as string,
+      score: data.score as number,
+      temperature: (data.temperature as "hot" | "warm" | "cold") ?? "cold",
+      confidence: (data.confidence as number) ?? 0,
+      ruleVersion: data.rule_version as string,
+      calculatedAt: data.calculated_at as string,
+      breakdown: data.breakdown,
+    };
   }
 
   registerDiscovery(): void {

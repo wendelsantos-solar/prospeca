@@ -78,8 +78,8 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
 /** Noop — used when the registry provider is disabled. Returns null ("não
  * consultei"), never fabricates a record. */
 export class NoopBusinessRegistry implements BusinessRegistryProvider {
-  async lookupByCnpj(_cnpj: string): Promise<BusinessRegistration | null> {
-    return null;
+  lookupByCnpj(_cnpj: string): Promise<BusinessRegistration | null> {
+    return Promise.resolve(null);
   }
 }
 

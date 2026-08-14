@@ -22,6 +22,7 @@ import type {
   ListLeadsInput,
   MoveLeadInput,
   PaginatedResult,
+  PersistedOpportunityScore,
   SearchRepository,
   SearchStatusSnapshot,
   UpdateLeadInput,
@@ -394,6 +395,11 @@ export class DemoSearchRepository implements SearchRepository {
 
   async listSavedSearches(): Promise<SavedSearch[]> {
     return [];
+  }
+
+  /** Demo has no persisted opportunity scores — client-side calc is the fallback. */
+  async getOpportunityScore(_placeId: string): Promise<PersistedOpportunityScore | null> {
+    return null;
   }
 }
 

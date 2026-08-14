@@ -8,6 +8,7 @@ import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../
 import { assertUsageAvailable, recordEntitlementUsage } from "../_shared/entitlements.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
+import { resolveSearchTaxonomy } from "../_shared/taxonomy.ts";
 import { readPoint } from "@leads/geo";
 
 const InputSchema = CreateSearchInputSchema;
@@ -99,6 +100,15 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Taxonomy resolution (GAP #5): resolve the user's term to the canonical
+        // category + Google Places types so execute-search can refine the
+        // provider query (includedType + type post-filter) instead of raw
+        // concatenation. Non-blocking when unresolved — the raw term stays.
+        const tax = await resolveSearchTaxonomy(
+          ctx.adminClient,
+          input.category ?? input.query,
+        );
+
         const { data: search, error } = await ctx.adminClient
           .from("searches")
           .insert({
@@ -106,6 +116,10 @@ Deno.serve(async (req) => {
             created_by: ctx.userId,
             query: input.query,
             category: input.category ?? null,
+            canonical_category: tax.canonicalCategory,
+            places_types: tax.placesTypes,
+            taxonomy_id: tax.taxonomyId,
+            taxonomy_resolved: tax.resolved,
             location_label: input.location.label,
             center: `POINT(${longitude} ${latitude})`,
             radius_meters: input.radiusMeters,

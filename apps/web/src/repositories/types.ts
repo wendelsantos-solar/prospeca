@@ -48,6 +48,18 @@ export interface MoveLeadInput {
 
 export type UpdateLeadInput = Partial<Omit<Lead, "id" | "notes" | "activities" | "timeline">>;
 
+/** A persisted per-org V2 opportunity score (company_opportunity_scores row). */
+export interface PersistedOpportunityScore {
+  placeId: string;
+  score: number;
+  temperature: "hot" | "warm" | "cold";
+  confidence: number;
+  ruleVersion: string;
+  calculatedAt: string;
+  /** OpportunityScoreBreakdown persisted as JSON (components/reasons). */
+  breakdown: unknown;
+}
+
 export interface DashboardOverview {
   totalLeads: number;
   byStage: Record<string, number>;
@@ -119,6 +131,9 @@ export interface SearchRepository {
   unsaveSearch(searchId: string): Promise<void>;
   /** Saved searches with per-search opportunity stats. */
   listSavedSearches(): Promise<SavedSearch[]>;
+  /** Persisted V2 opportunity score for one place (RLS). Null when not yet
+   * computed — callers fall back to the client-side calculation. */
+  getOpportunityScore(placeId: string): Promise<PersistedOpportunityScore | null>;
 }
 
 export interface DashboardRepository {
