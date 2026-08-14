@@ -48,6 +48,9 @@ export interface SearchStatusSnapshot {
   importedCount: number;
   enrichedCount: number;
   providerRequestCount: number;
+  /** Pre-flight cost estimate (USD, range max) persisted by create-search. */
+  estimatedCostUsd?: number | null;
+  estimatedResults?: number | null;
   errorMessage?: string | null;
 }
 

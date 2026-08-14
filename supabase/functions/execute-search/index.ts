@@ -10,10 +10,55 @@ import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "@leads/domain/cache";
 import { shouldForceRefresh } from "../_shared/refresh.ts";
 import { fireAndForget } from "../_shared/dispatch.ts";
+import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
+import { companyProcessingKey } from "@leads/domain/job";
 import { readPoint } from "@leads/geo";
 import { selectPlaces, buildResultRows } from "../_shared/search-pipeline.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
+
+/** Enqueue one OPPORTUNITY_SCORING job per place (tenant-scoped idempotency
+ * key) and wake the worker ONCE. Returns how many jobs were enqueued. */
+async function enqueueScoringJobs(
+  admin: ReturnType<typeof adminClient>,
+  organizationId: string,
+  searchId: string,
+  placeIds: string[],
+): Promise<number> {
+  if (placeIds.length === 0) return 0;
+  const queue = createSupabaseJobQueue(admin);
+  await Promise.all(
+    placeIds.map((placeId) =>
+      queue.enqueue({
+        type: "OPPORTUNITY_SCORING",
+        organizationId,
+        searchId,
+        companyId: placeId,
+        idempotencyKey: companyProcessingKey(organizationId, searchId, placeId),
+        payload: { searchId, placeId },
+      }),
+    ),
+  );
+  fireAndForget("process-jobs", {}); // single wake — the worker drains the queue
+  return placeIds.length;
+}
+
+/** Enqueue ONE TERRITORY_ANALYSIS job per search (spec #37–41). The scoring
+ * enqueue above already woke the worker; a dedicated wake is unnecessary. */
+async function enqueueTerritoryAnalysis(
+  admin: ReturnType<typeof adminClient>,
+  organizationId: string,
+  searchId: string,
+): Promise<void> {
+  const queue = createSupabaseJobQueue(admin);
+  await queue.enqueue({
+    type: "TERRITORY_ANALYSIS",
+    organizationId,
+    searchId,
+    idempotencyKey: `territory-analysis:${organizationId}:${searchId}`,
+    payload: { searchId },
+  });
+}
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -68,11 +113,19 @@ Deno.serve(async (req) => {
         p_search_id: searchId,
       });
       if (typeof reused === "number" && reused > 0) {
-        // V2: score the (copied) places async — idempotent upsert, non-blocking.
-        fireAndForget("score-company", {
+        // V2: score the (copied) places async — per-company jobs, idempotent,
+        // drained by the process-jobs worker (non-blocking).
+        const { data: reusedRows } = await admin
+          .from("search_results")
+          .select("place_id")
+          .eq("search_id", searchId);
+        await enqueueScoringJobs(
+          admin,
+          search.organization_id as string,
           searchId,
-          organizationId: search.organization_id,
-        });
+          (reusedRows ?? []).map((r) => r.place_id as string),
+        );
+        await enqueueTerritoryAnalysis(admin, search.organization_id as string, searchId);
         logEvent({
           requestId,
           searchId,
@@ -82,6 +135,7 @@ Deno.serve(async (req) => {
           durationMs: Date.now() - startedAt,
           status: "completed",
           requestCount: 0,
+          cacheHit: true,
           resultCount: reused,
         });
         return json({ searchId, status: "completed", found: reused, reused: true }, 200, {}, req);
@@ -330,17 +384,15 @@ Deno.serve(async (req) => {
       })
       .eq("id", searchId);
 
-    // V2: score the discovered places async (idempotent upsert, non-blocking).
+    // V2: score the discovered places async — per-company OPPORTUNITY_SCORING
+    // jobs, idempotent (unique key), drained by the process-jobs worker.
     // The frontend reads company_opportunity_scores via RLS and falls back to
-    // client-side calculation until this lands. A TERRITORY_ANALYSIS job is
-    // enqueued by the process-jobs worker path (see process-jobs).
+    // client-side calculation until the scores land. TERRITORY_ANALYSIS is
+    // enqueued as a per-search job and feeds favorability back into the score.
     const discoveredPlaceIds = [...idByProviderPlaceId.values()];
+    await enqueueScoringJobs(admin, search.organization_id as string, searchId, discoveredPlaceIds);
     if (discoveredPlaceIds.length > 0) {
-      fireAndForget("score-company", {
-        searchId,
-        placeIds: discoveredPlaceIds,
-        organizationId: search.organization_id,
-      });
+      await enqueueTerritoryAnalysis(admin, search.organization_id as string, searchId);
     }
 
     // Descoberta NÃO materializa leads. O funil é povoado por ação explícita
@@ -355,6 +407,7 @@ Deno.serve(async (req) => {
       durationMs: Date.now() - startedAt,
       status: "completed",
       requestCount,
+      cacheHit: requestCount === 0,
       resultCount: collected.length,
       insideRadius: insideCount,
     });

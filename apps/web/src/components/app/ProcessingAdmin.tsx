@@ -30,9 +30,20 @@ interface JobRow {
   place_name: string | null;
 }
 
+interface JobMetricRow {
+  type: string;
+  total: number;
+  completed: number;
+  failed: number;
+  retrying: number;
+  avg_duration_ms: number | null;
+  est_cost_usd: number;
+}
+
 interface JobsData {
   counts: JobCounts;
   jobs: JobRow[];
+  metrics?: JobMetricRow[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -194,6 +205,45 @@ export function ProcessingAdmin() {
         <CountCard label="Falhas" value={c?.failed ?? 0} tone="warn" />
         <CountCard label="Dead-letter" value={c?.deadLetter ?? 0} tone="error" />
       </div>
+      {data?.metrics && data.metrics.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Métricas por tipo de job
+          </p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-border text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-1.5 pr-3">Tipo</th>
+                  <th className="py-1.5 pr-3 text-right">Total</th>
+                  <th className="py-1.5 pr-3 text-right">Concluídos</th>
+                  <th className="py-1.5 pr-3 text-right">Falhas</th>
+                  <th className="py-1.5 pr-3 text-right">Dur. média</th>
+                  <th className="py-1.5 text-right">Custo est. (US$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.metrics.map((m) => (
+                  <tr key={m.type} className="border-b border-border/60 last:border-0">
+                    <td className="py-1.5 pr-3 font-mono text-[11px]">{m.type}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{m.total}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{m.completed}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-destructive">
+                      {m.failed}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">
+                      {m.avg_duration_ms != null ? `${m.avg_duration_ms}ms` : "—"}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {m.est_cost_usd?.toFixed(4) ?? "0"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div className="rounded-xl border border-border bg-surface p-4">
         <DataTable
           columns={columns}

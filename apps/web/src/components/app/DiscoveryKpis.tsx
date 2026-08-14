@@ -1,10 +1,17 @@
-import { Building2, Flame, Gauge, GlobeLock } from "lucide-react";
+import { Building2, Flame, Gauge, GlobeLock, Coins } from "lucide-react";
 import type { DiscoveryKpis } from "@/lib/discovery-kpis";
 
 /** KPI strip for the discovery workspace — empresas encontradas, oportunidades
  * quentes, score médio e negócios sem site. Derived from the loaded results,
- * no extra round-trip. */
-export function DiscoveryKpis({ kpis }: { kpis: DiscoveryKpis }) {
+ * no extra round-trip. When the current search carries a pre-flight estimate,
+ * an honest "estimativa" tile shows the persisted range (never exact). */
+export function DiscoveryKpis({
+  kpis,
+  estimate,
+}: {
+  kpis: DiscoveryKpis;
+  estimate?: { costUsdMax: number; resultsMax: number } | null;
+}) {
   const items = [
     { icon: Building2, label: "Empresas encontradas", value: kpis.total },
     { icon: Flame, label: "Oportunidades quentes", value: kpis.hot },
@@ -24,6 +31,20 @@ export function DiscoveryKpis({ kpis }: { kpis: DiscoveryKpis }) {
           </div>
         </div>
       ))}
+      {estimate != null && (
+        <div
+          className="rounded-lg border border-border bg-surface px-3 py-2.5"
+          title="Estimativa pré-busca — range honesto, nunca valor exato"
+        >
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Coins className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Estimativa (busca)</span>
+          </div>
+          <div className="mt-1 font-mono text-[13px] font-bold tabular-nums leading-tight text-foreground">
+            ~{estimate.resultsMax} · US$ {estimate.costUsdMax.toFixed(3)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

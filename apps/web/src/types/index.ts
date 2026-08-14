@@ -137,6 +137,9 @@ export interface Search {
   enrichedCount: number;
   addedToPipeline: number;
   contactsFound: number;
+  /** Pre-flight estimates persisted by create-search (honest ranges). */
+  estimatedCostUsd?: number | null;
+  estimatedResults?: number | null;
 }
 
 /** A search the user explicitly saved as a reusable "missão", with per-search

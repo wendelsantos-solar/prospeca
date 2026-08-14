@@ -28,6 +28,7 @@ import type {
   UpdateLeadInput,
 } from "./types";
 import type { TerritoryStats } from "@leads/domain";
+import type { SearchEstimate } from "@leads/domain";
 
 let demoLeads: Lead[] = [...MOCK_LEADS];
 const demoSearches: Search[] = [];
@@ -231,7 +232,10 @@ export class DemoSearchRepository implements SearchRepository {
   // Map searchId → discovery results so the sidebar list + map stay populated.
   private discoveryCache = new Map<string, DiscoveryResult[]>();
 
-  async create(input: CreateSearchInput): Promise<{ searchId: string }> {
+  async create(
+    input: CreateSearchInput,
+    _idempotencyKey?: string,
+  ): Promise<{ searchId: string; estimate?: SearchEstimate | null }> {
     const id = `demo-search-${Date.now()}`;
 
     // Build discovery results from mock leads — same data the service returns

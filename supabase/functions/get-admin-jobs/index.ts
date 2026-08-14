@@ -17,15 +17,21 @@ Deno.serve(async (req) => {
     const limit = Math.min(200, Math.max(1, Number(body?.limit) || 50));
 
     const uc = ctx.userClient;
-    const [counts, jobs] = await Promise.all([
+    const [counts, jobs, metrics] = await Promise.all([
       uc.rpc("get_admin_job_counts"),
       uc.rpc("get_admin_jobs", { p_limit: limit, p_status: status }),
+      uc.rpc("get_admin_job_metrics"),
     ]);
     if (counts.error) {
       throw new AppError("FORBIDDEN", "Acesso restrito ao administrador da plataforma.");
     }
     logEvent({ requestId, operation: "get-admin-jobs", status: "ok" });
-    return json({ counts: counts.data, jobs: jobs.data ?? [] }, 200, {}, req);
+    return json(
+      { counts: counts.data, jobs: jobs.data ?? [], metrics: metrics.data ?? [] },
+      200,
+      {},
+      req,
+    );
   } catch (err) {
     if (err instanceof AppError) return err.toResponse(requestId, req);
     logEvent({ requestId, operation: "get-admin-jobs", status: "error" });

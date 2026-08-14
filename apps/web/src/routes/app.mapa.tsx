@@ -230,7 +230,17 @@ function MapaPage() {
       <div className="flex h-full flex-col">
         <h1 className="sr-only">Mapa de oportunidades</h1>
         <div className="border-b border-border bg-background px-4 py-3">
-          <DiscoveryKpis kpis={kpis} />
+          <DiscoveryKpis
+            kpis={kpis}
+            estimate={
+              currentSearch?.estimatedCostUsd != null
+                ? {
+                    costUsdMax: currentSearch.estimatedCostUsd,
+                    resultsMax: currentSearch.estimatedResults ?? 0,
+                  }
+                : null
+            }
+          />
         </div>
         <div className="min-h-0 flex-1">
           <ResultsList results={resultsInRadius} searchId={currentSearch.id} />
@@ -244,10 +254,20 @@ function MapaPage() {
       <div className="flex h-full flex-col">
         <h1 className="sr-only">Mapa de oportunidades</h1>
         <div className="border-b border-border bg-background px-4 py-3">
-          <DiscoveryKpis kpis={kpis} />
+          <DiscoveryKpis
+            kpis={kpis}
+            estimate={
+              currentSearch?.estimatedCostUsd != null
+                ? {
+                    costUsdMax: currentSearch.estimatedCostUsd,
+                    resultsMax: currentSearch.estimatedResults ?? 0,
+                  }
+                : null
+            }
+          />
         </div>
         <div className="min-h-0 flex-1">
-          <TerritoriesView results={resultsInRadius} />
+          <TerritoriesView results={resultsInRadius} searchId={currentSearch.id} />
         </div>
       </div>
     );
@@ -257,7 +277,17 @@ function MapaPage() {
     <div className="flex h-full flex-col">
       <h1 className="sr-only">Mapa de oportunidades</h1>
       <div className="border-b border-border bg-background px-4 py-3">
-        <DiscoveryKpis kpis={kpis} />
+        <DiscoveryKpis
+          kpis={kpis}
+          estimate={
+            currentSearch?.estimatedCostUsd != null
+              ? {
+                  costUsdMax: currentSearch.estimatedCostUsd,
+                  resultsMax: currentSearch.estimatedResults ?? 0,
+                }
+              : null
+          }
+        />
       </div>
       <div className="min-h-0 flex-1">
         <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>

@@ -14,7 +14,12 @@ import type {
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { getStoredActiveOrganizationId } from "@/lib/active-organization";
-import { parseAddress, type ScoreBreakdown, type TerritoryStats } from "@leads/domain";
+import {
+  parseAddress,
+  type ScoreBreakdown,
+  type SearchEstimate,
+  type TerritoryStats,
+} from "@leads/domain";
 import { readPoint } from "@leads/geo";
 import type {
   CreateSearchInput,
@@ -587,8 +592,15 @@ export class SupabaseLeadRepository implements LeadRepository {
 }
 
 export class SupabaseSearchRepository implements SearchRepository {
-  async create(input: CreateSearchInput, idempotencyKey?: string): Promise<{ searchId: string }> {
-    return invokeFunction<{ searchId: string }>("create-search", input, { idempotencyKey });
+  async create(
+    input: CreateSearchInput,
+    idempotencyKey?: string,
+  ): Promise<{ searchId: string; estimate?: SearchEstimate | null }> {
+    return invokeFunction<{ searchId: string; estimate?: SearchEstimate | null }>(
+      "create-search",
+      input,
+      { idempotencyKey },
+    );
   }
 
   async getStatus(searchId: string): Promise<SearchStatusSnapshot> {
@@ -599,6 +611,8 @@ export class SupabaseSearchRepository implements SearchRepository {
       imported_count: number;
       enriched_count: number;
       provider_request_count: number;
+      estimated_cost: number | null;
+      estimated_results: number | null;
       error_message: string | null;
     }>("get-search-status", { searchId });
     return {
@@ -608,6 +622,8 @@ export class SupabaseSearchRepository implements SearchRepository {
       importedCount: raw.imported_count,
       enrichedCount: raw.enriched_count,
       providerRequestCount: raw.provider_request_count,
+      estimatedCostUsd: raw.estimated_cost ?? null,
+      estimatedResults: raw.estimated_results ?? null,
       errorMessage: raw.error_message,
     };
   }

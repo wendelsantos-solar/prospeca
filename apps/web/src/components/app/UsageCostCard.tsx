@@ -70,6 +70,14 @@ export function UsageCostCard() {
             <Stat label="Place details" value={String(data.placeDetails ?? 0)} />
             <Stat label="Geocodes" value={String(data.geocodes ?? 0)} />
             <Stat label="Atualizações forçadas" value={String(data.forcedRefreshes ?? 0)} />
+            <Stat
+              label="Custo médio/busca"
+              value={
+                data.searches > 0
+                  ? `US$ ${((data.estCostUsd ?? 0) / data.searches).toFixed(3)}`
+                  : "—"
+              }
+            />
           </div>
         )}
       </CardContent>

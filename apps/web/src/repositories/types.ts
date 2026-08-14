@@ -13,7 +13,7 @@ import type {
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
 import type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult } from "@leads/contracts";
-import type { SignalEvidence, TerritoryStats } from "@leads/domain";
+import type { SearchEstimate, SignalEvidence, TerritoryStats } from "@leads/domain";
 
 export type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult };
 
@@ -106,7 +106,10 @@ export interface LeadRepository {
 }
 
 export interface SearchRepository {
-  create(input: CreateSearchInput, idempotencyKey?: string): Promise<{ searchId: string }>;
+  create(
+    input: CreateSearchInput,
+    idempotencyKey?: string,
+  ): Promise<{ searchId: string; estimate?: SearchEstimate | null }>;
   getStatus(searchId: string): Promise<SearchStatusSnapshot>;
   cancel(searchId: string): Promise<void>;
   listHistory(): Promise<Search[]>;

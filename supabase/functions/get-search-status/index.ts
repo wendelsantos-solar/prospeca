@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const { data: search } = await ctx.userClient
       .from("searches")
       .select(
-        "id, status, found_count, imported_count, enriched_count, provider_request_count, error_message, started_at, completed_at",
+        "id, status, found_count, imported_count, enriched_count, provider_request_count, estimated_cost, estimated_results, error_message, started_at, completed_at",
       )
       .eq("id", searchId)
       .maybeSingle();

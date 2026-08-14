@@ -476,6 +476,14 @@ export function SearchForm() {
           <p className="text-[11px] text-muted-foreground">
             {progress.partialCount} empresas encontradas até agora...
           </p>
+          {progress.estimate && (
+            <p className="text-[11px] text-muted-foreground">
+              <span className="font-medium">Estimativa:</span> ~{progress.estimate.resultsMin}–
+              {progress.estimate.resultsMax} resultados · US${" "}
+              {progress.estimate.costUsdMin.toFixed(4)}–{progress.estimate.costUsdMax.toFixed(4)}
+              {progress.estimate.costUsdMax === 0 ? " (cache — custo zero)" : ""}
+            </p>
+          )}
         </div>
       )}
     </div>
