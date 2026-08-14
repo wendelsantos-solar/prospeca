@@ -46,6 +46,14 @@ describe("registrationStatusFromSituacao", () => {
     expect(registrationStatusFromSituacao("INAPTA")).toBe("inactive");
     expect(registrationStatusFromSituacao("NULA")).toBe("inactive");
   });
+  it("maps NUMERIC RFB codes (BrasilAPI sends numbers — smoke V3 fix)", () => {
+    expect(registrationStatusFromSituacao(2)).toBe("active");
+    expect(registrationStatusFromSituacao(3)).toBe("suspended");
+    expect(registrationStatusFromSituacao(1)).toBe("inactive");
+    expect(registrationStatusFromSituacao(4)).toBe("inactive");
+    expect(registrationStatusFromSituacao(8)).toBe("inactive");
+    expect(registrationStatusFromSituacao(99)).toBe("unknown");
+  });
   it("maps unknown to unknown", () => {
     expect(registrationStatusFromSituacao("X")).toBe("unknown");
     expect(registrationStatusFromSituacao(null)).toBe("unknown");

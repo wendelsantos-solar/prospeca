@@ -83,15 +83,27 @@ export function isValidCnpj(input: string): boolean {
 
 // ── Mapping ─────────────────────────────────────────────────────────────────
 
-/** Map BrasilAPI `situacao_cadastral` → canonical status. */
+/** Map BrasilAPI `situacao_cadastral` → canonical status. The API returns
+ * this field as a NUMBER (RFB codes) in some payloads and as a string in
+ * others — normalize both (smoke V3 found a TypeError on `.trim()`).
+ *
+ * RFB numeric codes: 1 = NULA · 2 = ATIVA · 3 = SUSPENSA · 4 = INAPTA ·
+ * 8 = BAIXADA (the descriptions come separately in descricao_situacao). */
 export function registrationStatusFromSituacao(
-  situacao: string | null | undefined,
+  situacao: string | number | null | undefined,
 ): BusinessRegistrationStatus {
-  switch ((situacao ?? "").trim().toUpperCase()) {
+  const raw = String(situacao ?? "").trim();
+  const upper = raw.toUpperCase();
+  switch (upper) {
+    case "2":
     case "ATIVA":
       return "active";
+    case "3":
     case "SUSPENSA":
       return "suspended";
+    case "1":
+    case "4":
+    case "8":
     case "BAIXADA":
     case "INAPTA":
     case "NULA":

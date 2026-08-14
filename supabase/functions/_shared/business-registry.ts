@@ -19,7 +19,7 @@ interface BrasilApiCnpjResponse {
   cnae_fiscal?: number;
   cnae_fiscal_descricao?: string;
   cnaes_secundarios?: Array<{ codigo?: number; descricao?: string } | number | string>;
-  situacao_cadastral?: string;
+  situacao_cadastral?: string | number;
   descricao_situacao_cadastral?: string;
   municipio?: string;
   uf?: string;
@@ -64,7 +64,7 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
           .filter(Boolean),
         status: registrationStatusFromSituacao(raw.situacao_cadastral),
         statusDescription:
-          raw.descricao_situacao_cadastral ?? raw.situacao_cadastral ?? null,
+          raw.descricao_situacao_cadastral ?? String(raw.situacao_cadastral ?? "") || null,
         city: raw.municipio ?? null,
         state: raw.uf ?? null,
         postalCode: raw.cep ?? null,
