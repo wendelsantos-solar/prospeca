@@ -100,6 +100,9 @@ export interface DiscoveryResult {
    * enriched | partial | failed). Drives the "ainda não verificamos" vs
    * "não possui" distinction in the UI. */
   enrichmentState: "pending" | "processing" | "enriched" | "partial" | "failed";
+  /** Real job state for this place in the current search (V3-B): derived from
+   * the jobs table when a non-terminal job exists. Null when idle. */
+  pipelineState?: "queued" | "enriching" | "retrying" | null;
   /** Per-field enrichment state { email|instagram|whatsapp: {status, has} }.
    * A missing key means the field was never checked (pending). */
   enrichmentFields: Record<string, { status: string; has: boolean }> | null;
@@ -157,3 +160,56 @@ export const DeleteAccountSchema = z.object({
 });
 
 export type DeleteAccountInput = z.infer<typeof DeleteAccountSchema>;
+
+// ── Export ────────────────────────────────────────────────────────────
+
+export const EXPORT_FORMATS = ["csv", "xlsx"] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** Campos exportáveis de lead (lista fechada — campos desconhecidos são
+ * REJEITADOS com 422, nunca silenciosamente ignorados). */
+export const EXPORTABLE_LEAD_FIELDS = [
+  "company_name",
+  "category",
+  "address",
+  "neighborhood",
+  "city",
+  "state",
+  "phone",
+  "whatsapp",
+  "email",
+  "instagram",
+  "website",
+  "has_website",
+  "rating",
+  "review_count",
+  "score",
+  "temperature",
+  "stage",
+  "estimated_value",
+  "closed_value",
+  "created_at",
+  "last_interaction_at",
+] as const;
+export type ExportableLeadField = (typeof EXPORTABLE_LEAD_FIELDS)[number];
+
+export const CreateExportSchema = z
+  .object({
+    format: z.enum(EXPORT_FORMATS),
+    /** Campos a exportar (V3-F). */
+    fields: z.array(z.enum(EXPORTABLE_LEAD_FIELDS)).min(1).max(30).optional(),
+    /** Retrocompat: alias de `fields` (versões antigas do cliente). */
+    columns: z.array(z.string()).min(1).max(30).optional(),
+    filters: z
+      .object({
+        stages: z.array(z.string()).optional(),
+        temperatures: z.array(z.string()).optional(),
+        cities: z.array(z.string()).optional(),
+        categories: z.array(z.string()).optional(),
+        minScore: z.number().optional(),
+      })
+      .default({}),
+  })
+  .refine((v) => v.fields || v.columns, { message: "fields ou columns é obrigatório." });
+
+export type CreateExportInput = z.infer<typeof CreateExportSchema>;

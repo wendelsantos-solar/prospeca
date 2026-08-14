@@ -20,6 +20,8 @@ import { ResultsList } from "@/components/app/ResultsList";
 import { DiscoveryKpis } from "@/components/app/DiscoveryKpis";
 import { computeDiscoveryKpis } from "@/lib/discovery-kpis";
 import { TerritoriesView } from "@/components/app/TerritoriesView";
+import { AdvancedFiltersPanel, useFilteredResults } from "@/components/app/AdvancedFiltersPanel";
+import { MissionPipeline } from "@/components/app/MissionPipeline";
 
 const MapView = lazy(() =>
   import("@/components/app/MapView").then((m) => ({ default: m.MapView })),
@@ -160,6 +162,9 @@ function MapaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on lat/lng primitives to avoid object-ref churn
     [allResults, radiusCenter.lat, radiusCenter.lng, radiusKm],
   );
+  // Advanced filters (V3-A) apply on top of the hard radius filter — map,
+  // list and territories always agree on the visible set.
+  const filteredResults = useFilteredResults(resultsInRadius);
 
   if (searching && allResults.length === 0) {
     return <CenteredLoader label="Buscando empresas..." />;
@@ -229,7 +234,7 @@ function MapaPage() {
     return (
       <div className="flex h-full flex-col">
         <h1 className="sr-only">Mapa de oportunidades</h1>
-        <div className="border-b border-border bg-background px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
           <DiscoveryKpis
             kpis={kpis}
             estimate={
@@ -241,9 +246,15 @@ function MapaPage() {
                 : null
             }
           />
+          <AdvancedFiltersPanel />
         </div>
+        {currentSearch && (
+          <div className="border-b border-border bg-background px-4 py-2">
+            <MissionPipeline searchId={currentSearch.id} />
+          </div>
+        )}
         <div className="min-h-0 flex-1">
-          <ResultsList results={resultsInRadius} searchId={currentSearch.id} />
+          <ResultsList results={filteredResults} searchId={currentSearch.id} />
         </div>
       </div>
     );
@@ -253,7 +264,7 @@ function MapaPage() {
     return (
       <div className="flex h-full flex-col">
         <h1 className="sr-only">Mapa de oportunidades</h1>
-        <div className="border-b border-border bg-background px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
           <DiscoveryKpis
             kpis={kpis}
             estimate={
@@ -265,9 +276,15 @@ function MapaPage() {
                 : null
             }
           />
+          <AdvancedFiltersPanel />
         </div>
+        {currentSearch && (
+          <div className="border-b border-border bg-background px-4 py-2">
+            <MissionPipeline searchId={currentSearch.id} />
+          </div>
+        )}
         <div className="min-h-0 flex-1">
-          <TerritoriesView results={resultsInRadius} searchId={currentSearch.id} />
+          <TerritoriesView results={filteredResults} searchId={currentSearch.id} />
         </div>
       </div>
     );
@@ -276,7 +293,7 @@ function MapaPage() {
   return (
     <div className="flex h-full flex-col">
       <h1 className="sr-only">Mapa de oportunidades</h1>
-      <div className="border-b border-border bg-background px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
         <DiscoveryKpis
           kpis={kpis}
           estimate={
@@ -288,11 +305,17 @@ function MapaPage() {
               : null
           }
         />
+        <AdvancedFiltersPanel />
       </div>
+      {currentSearch && (
+        <div className="border-b border-border bg-background px-4 py-2">
+          <MissionPipeline searchId={currentSearch.id} />
+        </div>
+      )}
       <div className="min-h-0 flex-1">
         <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
           <MapView
-            results={resultsInRadius}
+            results={filteredResults}
             mode={discoveryView === "heatmap" ? "heatmap" : "markers"}
           />
         </Suspense>

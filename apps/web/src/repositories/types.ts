@@ -13,9 +13,53 @@ import type {
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
 import type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult } from "@leads/contracts";
-import type { SearchEstimate, SignalEvidence, TerritoryStats } from "@leads/domain";
+import type {
+  EnrichmentSourceMap,
+  SearchEstimate,
+  SignalEvidence,
+  TerritoryStats,
+} from "@leads/domain";
 
 export type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult };
+
+/** Real pipeline rows for a mission (V3-B) — jobs under RLS. */
+export interface MissionJobRow {
+  placeId: string | null;
+  type: string;
+  status: string;
+}
+
+/** Per-place enrichment source states (V3-B). */
+export interface MissionSourceRow {
+  placeId: string;
+  sources: EnrichmentSourceMap;
+}
+
+/** Raw timeline rows for one company (V3-E) — merged by the domain. */
+export interface CompanyTimelineData {
+  jobs: Array<{
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string | null;
+    finishedAt: string | null;
+    error: string | null;
+  }>;
+  sources: Array<{
+    id: string;
+    provider: string;
+    fetchedAt: string | null;
+    error: string | null;
+  }>;
+  scores: Array<{
+    id: string;
+    calculatedAt: string | null;
+    score: number | null;
+    temperature: string | null;
+    ruleVersion: string | null;
+  }>;
+  leadEvents: Array<{ id: string; type: string; label: string; detail?: string; at: string }>;
+}
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -145,6 +189,14 @@ export interface SearchRepository {
    * Empty until territory-analysis has run — callers fall back to client-side
    * aggregation over the loaded results. */
   listTerritoryStats(searchId: string): Promise<TerritoryStats[]>;
+  /** Real pipeline data for a mission (V3-B): jobs rows + per-place
+   * enrichment source states, all under RLS. Empty until the worker runs. */
+  getMissionPipeline(
+    searchId: string,
+  ): Promise<{ jobs: MissionJobRow[]; sources: MissionSourceRow[] }>;
+  /** Raw timeline rows for a company (V3-E): jobs, sources, scores and the
+   * lead's commercial events — the domain merges them into one chronology. */
+  getCompanyTimeline(placeId: string): Promise<CompanyTimelineData>;
 }
 
 export interface DashboardRepository {

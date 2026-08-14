@@ -14,12 +14,15 @@ import type {
 import { MOCK_LEADS } from "@/mocks/leads";
 import { applyFilters } from "@/lib/filters";
 import type {
+  CompanyTimelineData,
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
   DiscoveryResult,
   LeadRepository,
   ListLeadsInput,
+  MissionJobRow,
+  MissionSourceRow,
   MoveLeadInput,
   PaginatedResult,
   PersistedOpportunityScore,
@@ -410,6 +413,18 @@ export class DemoSearchRepository implements SearchRepository {
   /** Demo has no server-side territories — the client-side aggregation runs. */
   async listTerritoryStats(_searchId: string): Promise<TerritoryStats[]> {
     return [];
+  }
+
+  /** Demo has no real pipeline rows — honest empty (UI shows "aguardando"). */
+  async getMissionPipeline(
+    _searchId: string,
+  ): Promise<{ jobs: MissionJobRow[]; sources: MissionSourceRow[] }> {
+    return { jobs: [], sources: [] };
+  }
+
+  /** Demo has no real timeline rows — honest empty. */
+  async getCompanyTimeline(_placeId: string): Promise<CompanyTimelineData> {
+    return { jobs: [], sources: [], scores: [], leadEvents: [] };
   }
 }
 

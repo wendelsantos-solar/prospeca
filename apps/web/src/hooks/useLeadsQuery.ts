@@ -20,6 +20,8 @@ import type {
   PaginatedResult,
   DiscoveryResult,
   PersistedOpportunityScore,
+  MissionJobRow,
+  MissionSourceRow,
 } from "@/repositories/types";
 import type { SortValue } from "@/lib/constants";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
@@ -141,6 +143,21 @@ export function useDiscoveryResults(searchId?: string) {
     enabled: !!searchId,
     staleTime: 60_000,
     structuralSharing: true,
+  });
+}
+
+/** Real pipeline data for a mission (V3-B) — jobs + per-place source states,
+ * read under RLS. Empty until the worker has run (UI shows "aguardando"). */
+export function useMissionPipeline(searchId?: string | null) {
+  return useQuery<{ jobs: MissionJobRow[]; sources: MissionSourceRow[] }>({
+    queryKey: ["mission-pipeline", searchId ?? "none"],
+    queryFn: () =>
+      searchId
+        ? getSearchRepository().getMissionPipeline(searchId)
+        : Promise.resolve({ jobs: [], sources: [] }),
+    enabled: !!searchId,
+    staleTime: 15_000,
+    refetchInterval: 10_000, // worker lands results in seconds — poll lightly
   });
 }
 

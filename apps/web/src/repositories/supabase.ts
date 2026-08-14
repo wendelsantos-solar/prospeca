@@ -16,6 +16,7 @@ import { resolveActiveOrganizationId } from "@/lib/tenant";
 import { getStoredActiveOrganizationId } from "@/lib/active-organization";
 import {
   parseAddress,
+  type EnrichmentSourceMap,
   type ScoreBreakdown,
   type SearchEstimate,
   type TerritoryStats,
@@ -28,6 +29,9 @@ import type {
   DiscoveryResult,
   LeadRepository,
   ListLeadsInput,
+  CompanyTimelineData,
+  MissionJobRow,
+  MissionSourceRow,
   MoveLeadInput,
   PaginatedResult,
   PersistedOpportunityScore,
@@ -748,6 +752,26 @@ export class SupabaseSearchRepository implements SearchRepository {
       }
     }
 
+    // Real job state per place (V3-B): a non-terminal job on this search's
+    // pipeline marks the place queued/enriching/retrying — same RLS read.
+    const jobStateByPlace = new Map<string, DiscoveryResult["pipelineState"]>();
+    if (placeIds.length > 0) {
+      const { data: jobs, error: jobsError } = await getSupabase()
+        .from("jobs")
+        .select("place_id, status")
+        .eq("search_id", searchId)
+        .in("place_id", placeIds)
+        .in("status", ["queued", "processing", "retrying"]);
+      if (jobsError) throw new Error(jobsError.message);
+      for (const j of (jobs ?? []) as Array<{ place_id: string; status: string }>) {
+        if (!j.place_id || jobStateByPlace.has(j.place_id)) continue;
+        jobStateByPlace.set(
+          j.place_id,
+          j.status === "queued" ? "queued" : j.status === "retrying" ? "retrying" : "enriching",
+        );
+      }
+    }
+
     return rows.map((r) => {
       // Google gives us a formatted string on the search path and structured
       // components only after a details refresh — parseAddress handles both.
@@ -789,6 +813,7 @@ export class SupabaseSearchRepository implements SearchRepository {
         opportunityConfidence: persisted ?? null,
         enrichmentState: ((r.enrichment_state as string) ??
           "pending") as DiscoveryResult["enrichmentState"],
+        pipelineState: jobStateByPlace.get(r.place_id as string) ?? null,
         enrichmentFields:
           (r.enrichment_fields as Record<string, { status: string; has: boolean }> | null) ?? null,
       };
@@ -841,6 +866,138 @@ export class SupabaseSearchRepository implements SearchRepository {
         withoutWebsiteRatio: ratio,
       };
     });
+  }
+
+  /** Real pipeline data for a mission (V3-B): jobs (RLS) + per-place source
+   * states (RLS on places). No fabricated counts — empty until the worker runs. */
+  async getMissionPipeline(
+    searchId: string,
+  ): Promise<{ jobs: MissionJobRow[]; sources: MissionSourceRow[] }> {
+    const supabase = getSupabase();
+    const [{ data: jobs, error: jobsError }, { data: sources, error: sourcesError }] =
+      await Promise.all([
+        supabase.from("jobs").select("place_id, type, status").eq("search_id", searchId),
+        supabase
+          .from("search_results")
+          .select("place_id, places(enrichment_sources)")
+          .eq("search_id", searchId),
+      ]);
+    if (jobsError) throw new Error(jobsError.message);
+    if (sourcesError) throw new Error(sourcesError.message);
+    return {
+      jobs: ((jobs ?? []) as Array<{ place_id: string | null; type: string; status: string }>).map(
+        (j) => ({ placeId: j.place_id, type: j.type, status: j.status }),
+      ),
+      sources: (
+        (sources ?? []) as unknown as Array<{
+          place_id: string;
+          places:
+            | { enrichment_sources: EnrichmentSourceMap | null }
+            | Array<{ enrichment_sources: EnrichmentSourceMap | null }>
+            | null;
+        }>
+      )
+        .filter((r) => r.places)
+        .map((r) => ({
+          placeId: r.place_id,
+          sources:
+            (Array.isArray(r.places)
+              ? (r.places[0]?.enrichment_sources ?? null)
+              : (r.places?.enrichment_sources ?? null)) ?? {},
+        })),
+    };
+  }
+
+  /** Raw timeline rows for a company (V3-E) — read under RLS; the domain
+   * merges system + commercial events chronologically. */
+  async getCompanyTimeline(placeId: string): Promise<CompanyTimelineData> {
+    const supabase = getSupabase();
+    const [jobs, sources, scores, leads] = await Promise.all([
+      supabase
+        .from("jobs")
+        .select("id, type, status, created_at, finished_at, error")
+        .eq("place_id", placeId),
+      supabase
+        .from("company_sources")
+        .select("id, provider, fetched_at, error")
+        .eq("place_id", placeId),
+      supabase
+        .from("company_opportunity_scores")
+        .select("id, calculated_at, score, temperature, rule_version")
+        .eq("place_id", placeId),
+      supabase
+        .from("leads")
+        .select(
+          "id, lead_activities(id, title, status, scheduled_at, created_at), lead_stage_history(id, to_stage, created_at)",
+        )
+        .eq("place_id", placeId),
+    ]);
+    for (const res of [jobs, sources, scores, leads] as const) {
+      if (res.error) throw new Error(res.error.message);
+    }
+
+    const leadEvents: CompanyTimelineData["leadEvents"] = [];
+    for (const lead of (leads.data ?? []) as Array<{
+      lead_activities: Array<{
+        id: string;
+        title: string | null;
+        status: string | null;
+        scheduled_at: string | null;
+        created_at: string | null;
+      }> | null;
+      lead_stage_history: Array<{
+        id: string;
+        to_stage: string | null;
+        created_at: string | null;
+      }> | null;
+    }>) {
+      for (const a of lead.lead_activities ?? []) {
+        if (!a.scheduled_at && !a.created_at) continue;
+        leadEvents.push({
+          id: `activity:${a.id}`,
+          type: "activity",
+          label: a.title ?? "Atividade",
+          detail: a.status === "completed" ? "concluída" : undefined,
+          at: a.scheduled_at ?? a.created_at!,
+        });
+      }
+      for (const h of lead.lead_stage_history ?? []) {
+        if (!h.created_at) continue;
+        leadEvents.push({
+          id: `stage:${h.id}`,
+          type: "stage_changed",
+          label: h.to_stage
+            ? `Estágio: ${(STAGE_LABELS as Record<string, string>)[h.to_stage] ?? h.to_stage}`
+            : "Estágio alterado",
+          at: h.created_at,
+        });
+      }
+    }
+
+    return {
+      jobs: ((jobs.data ?? []) as Array<Record<string, unknown>>).map((j) => ({
+        id: j.id as string,
+        type: j.type as string,
+        status: j.status as string,
+        createdAt: (j.created_at as string | null) ?? null,
+        finishedAt: (j.finished_at as string | null) ?? null,
+        error: (j.error as string | null) ?? null,
+      })),
+      sources: ((sources.data ?? []) as Array<Record<string, unknown>>).map((s) => ({
+        id: s.id as string,
+        provider: s.provider as string,
+        fetchedAt: (s.fetched_at as string | null) ?? null,
+        error: (s.error as string | null) ?? null,
+      })),
+      scores: ((scores.data ?? []) as Array<Record<string, unknown>>).map((sc) => ({
+        id: sc.id as string,
+        calculatedAt: (sc.calculated_at as string | null) ?? null,
+        score: (sc.score as number | null) ?? null,
+        temperature: (sc.temperature as string | null) ?? null,
+        ruleVersion: (sc.rule_version as string | null) ?? null,
+      })),
+      leadEvents,
+    };
   }
 
   registerDiscovery(): void {

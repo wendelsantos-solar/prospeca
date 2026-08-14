@@ -23,6 +23,7 @@ export * from "./job-queue.ts";
 export * from "./territory.ts";
 export * from "./next-best-action.ts";
 export * from "./estimate.ts";
+export * from "./pipeline-progress.ts";
 export * from "./business-registry.ts";
 export * from "./notifications.ts";
 export * from "./intent-signals.ts";
