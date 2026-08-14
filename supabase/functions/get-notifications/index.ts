@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const { data: leads } = await admin
       .from("leads")
       .select(
-        "id, company_name, stage, last_interaction_at, created_at, has_website, rating, review_count, instagram, whatsapp, lead_activities(id, title, status, scheduled_at)",
+        "id, company_name, stage, temperature, last_interaction_at, created_at, has_website, rating, review_count, instagram, whatsapp, lead_activities(id, title, status, scheduled_at)",
       )
       .eq("organization_id", org);
 
@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
         id: l.id as string,
         companyName: l.company_name as string,
         stage: l.stage as string,
+        temperature: l.temperature as string | null,
         lastInteractionAt: l.last_interaction_at as string | null,
         discoveredAt: l.created_at as string | null,
         hasWebsite: l.has_website as boolean,

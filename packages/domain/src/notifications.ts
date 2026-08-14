@@ -10,6 +10,7 @@ export type NotificationKind =
   | "stalled_lead"
   | "unanswered_proposal"
   | "deal_won"
+  | "intent_signal"
   | "info";
 
 export interface AppNotification {
@@ -29,6 +30,8 @@ export interface NotificationLeadInput {
   id: string;
   companyName: string;
   stage: string;
+  /** V2 temperature ('hot' gates intent-signal notifications). */
+  temperature?: string | null;
   lastInteractionAt?: string | null;
   discoveredAt?: string | null;
   hasWebsite?: boolean;
@@ -54,8 +57,8 @@ const DAY_MS = 86_400_000;
  * - overdue_activity: an open activity whose date has passed.
  * - stalled_lead: a contacted/qualified lead with ≥7 days since last
  *   interaction and no open activity already scheduled.
- * - info (intent): a discrete "why now" signal (site inacessível, reputação
- *   crítica, invisível online) — `deriveIntentSignals`.
+ * - intent_signal: a discrete "why now" signal (site inacessível, reputação
+ *   crítica, invisível online) on HOT leads — `deriveIntentSignals`.
  */
 export function generateNotifications(
   pipeline: NotificationLeadInput[],
@@ -102,25 +105,32 @@ export function generateNotifications(
       });
     }
 
-    // Intent signals — the "why approach NOW" flags. Anchored to a stable
-    // timestamp (discovery date) so the key/order don't drift between runs.
+    // Intent signals — the "why approach NOW" flags (kind intent_signal,
+    // Fase 6). Gated to HOT funnel leads (temperature from the V2 score) so
+    // the bell only surfaces urgent opportunities. Anchored to a stable
+    // timestamp (discovery date) so the key/order don't drift between runs;
+    // the key `intent:<signal>:<leadId>` is the persisted identity — a lead
+    // whose signal clears loses the notification (cleanup in get-notifications),
+    // and if the signal comes back it returns UNREAD (new event).
     const anchor = lead.discoveredAt ?? lead.lastInteractionAt ?? new Date(now).toISOString();
-    for (const s of deriveIntentSignals({
-      hasWebsite: lead.hasWebsite ?? false,
-      enrichmentState: lead.enrichmentState,
-      rating: lead.rating,
-      reviewCount: lead.reviewCount,
-      instagram: lead.instagram,
-      whatsapp: lead.whatsapp,
-    })) {
-      notifs.push({
-        id: `gen-intent-${lead.id}-${s.signal}`,
-        kind: "info",
-        title: `${s.label} — ${lead.companyName}`,
-        description: s.reason,
-        leadId: lead.id,
-        createdAt: anchor,
-      });
+    if (lead.temperature === "hot") {
+      for (const s of deriveIntentSignals({
+        hasWebsite: lead.hasWebsite ?? false,
+        enrichmentState: lead.enrichmentState,
+        rating: lead.rating,
+        reviewCount: lead.reviewCount,
+        instagram: lead.instagram,
+        whatsapp: lead.whatsapp,
+      })) {
+        notifs.push({
+          id: `intent:${s.signal}:${lead.id}`,
+          kind: "intent_signal",
+          title: `${s.label} — ${lead.companyName}`,
+          description: s.reason,
+          leadId: lead.id,
+          createdAt: anchor,
+        });
+      }
     }
   }
 

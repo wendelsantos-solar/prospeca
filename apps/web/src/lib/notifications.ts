@@ -19,6 +19,7 @@ export function generateNotifications(pipeline: Lead[]): AppNotification[] {
       id: l.id,
       companyName: l.companyName,
       stage: l.stage,
+      temperature: l.temperature,
       lastInteractionAt: l.lastInteractionAt,
       discoveredAt: l.discoveredAt,
       hasWebsite: l.hasWebsite,

@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2, AlertCircle, Clock, Trophy } from "lucide-react";
+import { Bell, Check, Trash2, AlertCircle, Clock, Trophy, TrendingUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLeadsStore } from "@/stores";
 import { useNotifications, type NotificationItem } from "@/hooks/useNotifications";
@@ -9,6 +9,7 @@ const ICON: Record<NotificationKind, React.ComponentType<{ className?: string }>
   stalled_lead: Clock,
   unanswered_proposal: Clock,
   deal_won: Trophy,
+  intent_signal: TrendingUp,
   info: Bell,
 };
 
@@ -73,6 +74,7 @@ export function NotificationsPopover() {
               {items.map((n) => {
                 const Icon = ICON[n.kind] ?? Bell;
                 const isRead = n.readAt != null;
+                const isIntent = n.kind === "intent_signal";
                 return (
                   <li key={n.id}>
                     <button
@@ -81,18 +83,29 @@ export function NotificationsPopover() {
                     >
                       <div
                         className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${
-                          isRead ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"
+                          isRead
+                            ? "bg-muted text-muted-foreground"
+                            : isIntent
+                              ? "bg-warning-soft text-warning-foreground"
+                              : "bg-primary-soft text-primary"
                         }`}
                       >
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div
-                          className={`text-[12.5px] ${
-                            isRead ? "text-muted-foreground" : "font-semibold text-foreground"
-                          }`}
-                        >
-                          {n.title}
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={`text-[12.5px] ${
+                              isRead ? "text-muted-foreground" : "font-semibold text-foreground"
+                            }`}
+                          >
+                            {n.title}
+                          </div>
+                          {isIntent && (
+                            <span className="shrink-0 rounded bg-warning-soft px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-warning-foreground">
+                              Sinal
+                            </span>
+                          )}
                         </div>
                         {n.description && (
                           <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">

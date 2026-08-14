@@ -96,24 +96,67 @@ test("won lead → produces zero notifications (excluded)", () => {
   expect(notifs).toHaveLength(0);
 });
 
-test("lead with no online presence → produces an intent (info) notification", () => {
-  const lead = base({ id: "lead-4", companyName: "Invisible", hasWebsite: false });
+test("HOT lead with no online presence → produces an intent_signal notification", () => {
+  const lead = base({
+    id: "lead-4",
+    companyName: "Invisible",
+    hasWebsite: false,
+    temperature: "hot",
+  });
   const notifs = generateNotifications([lead]);
-  const intent = notifs.filter((n) => n.kind === "info");
+  const intent = notifs.filter((n) => n.kind === "intent_signal");
   expect(intent).toHaveLength(1);
   expect(intent[0].title).toContain("Invisível online");
   expect(intent[0].leadId).toBe("lead-4");
+  expect(intent[0].id).toBe("intent:NO_ONLINE_PRESENCE:lead-4");
 });
 
-test("lead with rating < 3.0 → produces a critical reputation intent notification", () => {
+test("HOT lead with rating < 3.0 → critical reputation intent_signal", () => {
   const lead = base({
     id: "lead-5",
     companyName: "Bad Rep",
     hasWebsite: true,
     rating: 2.5,
     reviewCount: 40,
+    temperature: "hot",
   });
   const notifs = generateNotifications([lead]);
-  const intent = notifs.filter((n) => n.kind === "info");
+  const intent = notifs.filter((n) => n.kind === "intent_signal");
   expect(intent.some((n) => n.title.includes("Reputação crítica"))).toBe(true);
+});
+
+test("WARM/COLD leads do NOT emit intent_signal (only hot gates it)", () => {
+  const warm = base({ id: "lead-6", companyName: "Warm", hasWebsite: false, temperature: "warm" });
+  const cold = base({ id: "lead-7", companyName: "Cold", hasWebsite: false, temperature: "cold" });
+  const notifs = generateNotifications([warm, cold]);
+  expect(notifs.filter((n) => n.kind === "intent_signal")).toHaveLength(0);
+});
+
+test("dedupe by key: same lead+signal → ONE notification; signal cleared → gone", () => {
+  // Two derivations of the same snapshot produce identical keys (stable identity).
+  const lead = base({
+    id: "lead-8",
+    companyName: "Dedupe",
+    hasWebsite: false,
+    temperature: "hot",
+  });
+  const run1 = generateNotifications([lead]);
+  const run2 = generateNotifications([lead]);
+  const keys1 = run1.filter((n) => n.kind === "intent_signal").map((n) => n.id);
+  const keys2 = run2.filter((n) => n.kind === "intent_signal").map((n) => n.id);
+  expect(keys1).toEqual(keys2);
+  expect(keys1).toHaveLength(1);
+
+  // Signal cleared (website appears) → no intent notification anymore — the
+  // server-side cleanup deletes the row; if it returns, the SAME key comes
+  // back as a new (unread) event.
+  const healed = base({
+    id: "lead-8",
+    companyName: "Dedupe",
+    hasWebsite: true,
+    whatsapp: "+5511999999999",
+    temperature: "hot",
+  });
+  const run3 = generateNotifications([healed]);
+  expect(run3.filter((n) => n.kind === "intent_signal")).toHaveLength(0);
 });
