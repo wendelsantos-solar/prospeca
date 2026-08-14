@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScorePill } from "@/components/shared/Badges";
 import { CompanyIntelligenceCard } from "./CompanyIntelligenceCard";
 import { IntentSignals } from "./IntentSignals";
+import { BusinessRegistrySection } from "./BusinessRegistrySection";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { formatBRL, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { STAGE_LABELS } from "@/lib/constants";
@@ -472,6 +473,10 @@ export function LeadDetailsDrawer() {
                     value={readOnly ? null : formatDate(lead.discoveredAt)}
                   />
                 </Section>
+
+                {isFeatureEnabled("cnaeIntelligenceEnabled") && lead.placeId && (
+                  <BusinessRegistrySection placeId={lead.placeId} />
+                )}
 
                 {lead.openingHours && lead.openingHours.length > 0 && (
                   <Section title="Horário de funcionamento">

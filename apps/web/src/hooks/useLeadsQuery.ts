@@ -22,7 +22,7 @@ import type {
   PersistedOpportunityScore,
 } from "@/repositories/types";
 import type { SortValue } from "@/lib/constants";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
 
 // ── Query keys ──────────────────────────────────────────────
@@ -38,6 +38,54 @@ export const discoveryKeys = {
 };
 
 export const suppressionKeys = { all: ["suppression"] as const };
+
+// ── Business registry (CNPJ) — Fase 5 ────────────────────────────────
+
+export const businessRegistrationKeys = {
+  byPlace: (placeId: string) => ["business-registration", placeId] as const,
+};
+
+/** Registration fields persisted on the place by lookup-cnpj (RLS read). */
+export interface BusinessRegistrationRow {
+  tax_id: string | null;
+  legal_name: string | null;
+  primary_cnae: string | null;
+  cnae_description: string | null;
+  registration_status: string | null;
+  registration_status_description: string | null;
+  registration_fetched_at: string | null;
+  enrichment_sources: unknown;
+}
+
+export function useBusinessRegistration(placeId?: string | null) {
+  return useQuery<BusinessRegistrationRow | null>({
+    queryKey: businessRegistrationKeys.byPlace(placeId ?? "none"),
+    queryFn: async () => {
+      if (!placeId) return null;
+      const { data, error } = await getSupabase()
+        .from("places")
+        .select(
+          "tax_id, legal_name, primary_cnae, cnae_description, registration_status, registration_status_description, registration_fetched_at, enrichment_sources",
+        )
+        .eq("id", placeId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as BusinessRegistrationRow | null) ?? null;
+    },
+    enabled: !!placeId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCnpjLookupMutation(placeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (cnpj: string) =>
+      invokeFunction<{ found: boolean; reason?: string }>("lookup-cnpj", { placeId, cnpj }),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: businessRegistrationKeys.byPlace(placeId) }),
+  });
+}
 
 /** LGPD opt-out: the org's suppressed contact hashes as a Set for O(1) lookup. */
 export function useSuppressionHashes() {
@@ -195,14 +243,20 @@ export function useAddToFunnelMutation() {
       queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
       queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
     },
-    onSuccess: (data) => {
-      // Enriquecimento pesado (scrape de site) sob demanda, só para os leads
-      // recém-criados que têm site. Fire-and-forget; refresca ao terminar.
+    onSuccess: (data, vars) => {
+      // Enriquecimento por PLACE (Fase 5): o enriquecimento legado por lead
+      // (enrich-lead) foi descontinuado — os leads recém-importados carregam
+      // place_id e o fluxo de enriquecimento canônico roda no place (mesma
+      // fonte, mesma máquina de estados, proveniência em company_sources).
+      // Fire-and-forget sobre a busca; refresca discovery ao terminar.
       if (data.enrichableLeadIds.length > 0) {
         const repo = getSearchRepository();
-        Promise.allSettled(data.enrichableLeadIds.map((id) => repo.enrichLead(id))).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
-        });
+        repo
+          .enrichDiscovery(vars.searchId)
+          .then(() =>
+            queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) }),
+          )
+          .catch(() => {});
       }
     },
   });

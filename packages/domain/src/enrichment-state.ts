@@ -72,6 +72,71 @@ export function buildFieldMap(
   return map;
 }
 
+// ── Multi-source state (Fase 5) ─────────────────────────────────────────────
+//
+// Per-source lifecycle ON TOP of the field-level map above. The global
+// `enrichment_state`/`enrichment_fields` stay derived exactly as before
+// (retrocompat: the old UI keeps working); `enrichment_sources` adds a
+// per-source status + TTL so each source revalidates on its own horizon.
+//
+// Persisted shape on places.enrichment_sources:
+//   { website: {status, fetchedAt, expiresAt}, business_registry: {...} }
+
+export const ENRICHMENT_SOURCES = ["website", "business_registry"] as const;
+export type EnrichmentSourceKey = (typeof ENRICHMENT_SOURCES)[number];
+
+/** TTL per source in days — website re-checked monthly, registry quarterly. */
+export const ENRICHMENT_SOURCE_TTL_DAYS: Record<EnrichmentSourceKey, number> = {
+  website: 30,
+  business_registry: 90,
+};
+
+export interface EnrichmentSourceState {
+  status: EnrichmentState;
+  fetchedAt?: string | null;
+  expiresAt?: string | null;
+}
+
+export type EnrichmentSourceMap = Partial<Record<EnrichmentSourceKey, EnrichmentSourceState>>;
+
+/** Build a per-source state entry from one pass's outcome. */
+export function buildSourceState(
+  status: EnrichmentState,
+  fetchedAt: Date,
+  ttlDays: number,
+): EnrichmentSourceState {
+  return {
+    status,
+    fetchedAt: fetchedAt.toISOString(),
+    expiresAt: new Date(fetchedAt.getTime() + ttlDays * 86400000).toISOString(),
+  };
+}
+
+/** The state of one source — `pending` when it has never been checked. */
+export function deriveSourceState(
+  sources: EnrichmentSourceMap | null | undefined,
+  sourceKey: EnrichmentSourceKey,
+): EnrichmentState {
+  return sources?.[sourceKey]?.status ?? "pending";
+}
+
+/**
+ * Should this source be re-consulted? True when: never checked (absent),
+ * failed (always re-checkable), past its TTL, or missing an expiry.
+ * A fresh, successful source is NOT stale.
+ */
+export function isEnrichmentSourceStale(
+  sources: EnrichmentSourceMap | null | undefined,
+  sourceKey: EnrichmentSourceKey,
+  now: Date = new Date(),
+): boolean {
+  const s = sources?.[sourceKey];
+  if (!s) return true;
+  if (s.status === "failed") return true;
+  if (!s.expiresAt) return true;
+  return new Date(s.expiresAt).getTime() <= now.getTime();
+}
+
 // ── UI-facing interpretation ──────────────────────────────────────────
 
 export type FieldDisplay = "value" | "not_found" | "checking" | "pending" | "error";

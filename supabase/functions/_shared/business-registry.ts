@@ -87,3 +87,9 @@ export function businessRegistryProvider(): BusinessRegistryProvider {
   const disabled = Deno.env.get("BUSINESS_REGISTRY_DISABLED") === "true";
   return disabled ? new NoopBusinessRegistry() : new BrasilApiBusinessRegistry();
 }
+
+/** True when the registry provider is disabled — the lookup answers
+ * {found:false, reason:'provider_disabled'} honestly instead of fabricating. */
+export function isBusinessRegistryDisabled(): boolean {
+  return Deno.env.get("BUSINESS_REGISTRY_DISABLED") === "true";
+}

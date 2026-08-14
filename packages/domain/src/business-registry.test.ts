@@ -4,6 +4,7 @@ import {
   isValidCnpj,
   registrationStatusFromSituacao,
   companyStatusFromRegistration,
+  type BusinessRegistryProvider,
 } from "./business-registry.ts";
 
 describe("normalizeCnpj", () => {
@@ -54,5 +55,43 @@ describe("companyStatusFromRegistration", () => {
     expect(companyStatusFromRegistration("suspended")).toBe("operational");
     expect(companyStatusFromRegistration("inactive")).toBe("closed");
     expect(companyStatusFromRegistration("unknown")).toBe("unknown");
+  });
+});
+
+describe("BusinessRegistryProvider contract — resiliência (Fase 5)", () => {
+  const CNPJ = "11.222.333/0001-81";
+
+  it("null = registry has NO record — a normal answer, never an error/cascade", async () => {
+    // lookup-cnpj answers {found:false} for this and stamps the source
+    // 'enriched' with the 90d TTL — absence of CNPJ ≠ company failure.
+    const provider: BusinessRegistryProvider = {
+      lookupByCnpj: async () => null,
+    };
+    const result = await provider.lookupByCnpj(CNPJ);
+    expect(result).toBeNull();
+  });
+
+  it("throw = source DOWN — caller marks the source failed, company stays usable", async () => {
+    // lookup-cnpj catches this, stamps business_registry 'failed' (re-checkable,
+    // no TTL lock) and answers 200 {found:false, reason:'provider_unavailable'} —
+    // the company profile/score are untouched.
+    const provider: BusinessRegistryProvider = {
+      lookupByCnpj: async () => {
+        throw new Error("ETIMEDOUT: registry timeout");
+      },
+    };
+    let caught: unknown = null;
+    try {
+      await provider.lookupByCnpj(CNPJ);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("ETIMEDOUT");
+  });
+
+  it("invalid CNPJ is rejected BEFORE any provider call", () => {
+    expect(isValidCnpj(normalizeCnpj("00.000.000/0000-00"))).toBe(false);
+    expect(isValidCnpj(normalizeCnpj("12345"))).toBe(false);
   });
 });
