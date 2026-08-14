@@ -64,7 +64,7 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
           .filter(Boolean),
         status: registrationStatusFromSituacao(raw.situacao_cadastral),
         statusDescription:
-          raw.descricao_situacao_cadastral ?? String(raw.situacao_cadastral ?? "") || null,
+          raw.descricao_situacao_cadastral ?? (String(raw.situacao_cadastral ?? "") || null),
         city: raw.municipio ?? null,
         state: raw.uf ?? null,
         postalCode: raw.cep ?? null,
