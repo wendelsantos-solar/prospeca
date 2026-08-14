@@ -801,6 +801,7 @@ export class SupabaseSearchRepository implements SearchRepository {
       ruleVersion: data.rule_version as string,
       calculatedAt: data.calculated_at as string,
       breakdown: data.breakdown,
+      signals: (data.signals as PersistedOpportunityScore["signals"]) ?? null,
     };
   }
 

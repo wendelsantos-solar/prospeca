@@ -1,16 +1,21 @@
 import { useMemo } from "react";
 import { Sparkles } from "lucide-react";
 import {
+  buildSignalEvidence,
   calculateOpportunityScore,
   deriveSignals,
   OPPORTUNITY_SCORE_VERSION,
   opportunityTemperatureFromScore,
   recommendNextBestAction,
+  signalSeverity,
   type OpportunityScoreBreakdown,
+  type SignalEvidence,
+  type SignalSeverity,
 } from "@leads/domain";
 import type { Lead } from "@/types";
 import { useOpportunityScore } from "@/hooks/useLeadsQuery";
 import { ScorePill } from "@/components/shared/Badges";
+import { cn } from "@/lib/utils";
 
 const SIGNAL_LABELS: Record<string, string> = {
   NO_WEBSITE: "Sem site",
@@ -33,6 +38,36 @@ const URGENCY_LABEL: Record<string, string> = {
   medium: "Média",
   low: "Baixa",
 };
+
+const SEVERITY_STYLES: Record<SignalSeverity, string> = {
+  high: "bg-hot-soft text-hot",
+  medium: "bg-warning-soft text-warning-foreground",
+  low: "bg-muted text-muted-foreground",
+};
+
+/** Normalize a persisted evidence array into the typed domain shape. Honest:
+ * only well-formed entries are kept — malformed rows fall back to client calc. */
+function asSignalEvidence(raw: unknown): SignalEvidence[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: SignalEvidence[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const e = item as Partial<SignalEvidence>;
+    if (typeof e.signal !== "string" || typeof e.evidence !== "string") continue;
+    out.push({
+      signal: e.signal as SignalEvidence["signal"],
+      severity:
+        e.severity === "high" || e.severity === "medium" || e.severity === "low"
+          ? e.severity
+          : signalSeverity(e.signal as SignalEvidence["signal"]),
+      evidence: e.evidence,
+      confidence: typeof e.confidence === "number" ? e.confidence : 0.5,
+      source: e.source ?? "derived",
+      derivedAt: e.derivedAt ?? "",
+    });
+  }
+  return out;
+}
 
 /** Normalize a persisted breakdown row into the typed domain shape. Honest:
  * only fields actually present in the stored JSON are used. */
@@ -65,7 +100,7 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
 
   const intelligence = useMemo(() => {
     const whatsappStatus = lead.whatsapp ? "verified" : "unknown";
-    const signals = deriveSignals({
+    const ctx = {
       hasWebsite: lead.hasWebsite,
       hasValidPhone: !!lead.phone,
       whatsappStatus,
@@ -73,7 +108,11 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
       rating: lead.rating ?? null,
       reviewCount: lead.reviewCount ?? null,
       businessStatus: null,
-    });
+    } as const;
+    const signals = deriveSignals(ctx);
+    // Client-side fallback evidence — same pure rule the server persists, so
+    // demo mode and legacy rows still render severity/evidence honestly.
+    const evidence = buildSignalEvidence(signals, ctx);
     const score = calculateOpportunityScore({
       signals,
       rating: lead.rating ?? null,
@@ -91,10 +130,10 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
       temperature: lead.temperature,
       score: score.total,
     });
-    return { signals, score, nba };
+    return { evidence, score, nba };
   }, [lead]);
 
-  const { signals, score: clientScore, nba } = intelligence;
+  const { evidence: clientEvidence, score: clientScore, nba } = intelligence;
 
   // Persisted V2 score wins when available; otherwise the client calc (demo
   // fallback). Both come from the same deterministic domain engine.
@@ -103,6 +142,12 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
   const temperature = persisted
     ? persisted.temperature
     : opportunityTemperatureFromScore(score.total);
+
+  // Persisted signal evidence wins (server-derived, with provenance); the
+  // client-side derivation covers demo/legacy rows with the same shape.
+  const evidence = persisted
+    ? (asSignalEvidence(persisted.signals) ?? clientEvidence)
+    : clientEvidence;
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-surface p-4">
@@ -139,14 +184,18 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
         ))}
       </div>
 
-      {signals.length > 0 && (
+      {evidence.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1">
-          {signals.map((s) => (
+          {evidence.map((e) => (
             <span
-              key={s}
-              className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary"
+              key={e.signal}
+              className={cn(
+                "cursor-default rounded-full px-2 py-0.5 text-[10px] font-medium",
+                SEVERITY_STYLES[e.severity],
+              )}
+              title={`${e.evidence} · confiança ${Math.round(e.confidence * 100)}% · ${e.source}`}
             >
-              {SIGNAL_LABELS[s] ?? s}
+              {SIGNAL_LABELS[e.signal] ?? e.signal}
             </span>
           ))}
         </div>

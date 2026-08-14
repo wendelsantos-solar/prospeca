@@ -13,6 +13,7 @@ import type {
 } from "@/types";
 import type { SortValue } from "@/lib/constants";
 import type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult } from "@leads/contracts";
+import type { SignalEvidence } from "@leads/domain";
 
 export type { CreateSearchInput, SearchStatusSnapshot, DiscoveryResult };
 
@@ -58,6 +59,9 @@ export interface PersistedOpportunityScore {
   calculatedAt: string;
   /** OpportunityScoreBreakdown persisted as JSON (components/reasons). */
   breakdown: unknown;
+  /** Signal evidence array persisted by score-company (signal/severity/
+   * evidence/confidence/source/derivedAt). Null on legacy rows. */
+  signals?: SignalEvidence[] | null;
 }
 
 export interface DashboardOverview {
