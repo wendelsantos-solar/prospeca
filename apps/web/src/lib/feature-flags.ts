@@ -28,6 +28,7 @@ export type FeatureFlag =
   | "feedbackAttachments"
   // Discovery Intelligence V2 (spec #96)
   | "discoveryV2"
+  | "v2ScoringInDiscovery"
   | "heatmapEnabled"
   | "territoryIntelligenceEnabled"
   | "asyncEnrichmentEnabled"
@@ -46,10 +47,11 @@ const STATIC_DEFAULTS: Record<FeatureFlag, boolean> = {
   whatsappContact: true,
   feedbackAttachments: true,
   discoveryV2: true,
+  v2ScoringInDiscovery: true,
   heatmapEnabled: true,
   territoryIntelligenceEnabled: true,
   asyncEnrichmentEnabled: true,
-  cnaeIntelligenceEnabled: false, // business-registry source pending
+  cnaeIntelligenceEnabled: true, // BrasilAPI (gratuita, sem credencial) — D3 aprovado
   nextBestActionEnabled: true,
 };
 

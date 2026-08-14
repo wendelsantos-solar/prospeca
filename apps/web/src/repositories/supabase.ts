@@ -711,29 +711,24 @@ export class SupabaseSearchRepository implements SearchRepository {
     if (error) throw new Error(error.message);
     const rows = data as Record<string, unknown>[];
 
-    // V2 persisted opportunity scores (RLS-scoped) — one row per (org, place,
-    // rule_version); keep the most recently calculated per place.
+    // V2 metadata (RLS-scoped) — the SCORE itself now comes from the RPC
+    // (search_results.score holds the V2 result written by score-company);
+    // company_opportunity_scores supplies only the CONFIDENCE here, which the
+    // RPC does not expose. One row per (org, place, rule_version) — keep the
+    // most recently calculated per place.
     const placeIds = rows.map((r) => r.place_id as string);
-    const scoreByPlace = new Map<string, PersistedOpportunityScore>();
+    const confidenceByPlace = new Map<string, number>();
     if (placeIds.length > 0) {
       const { data: scores, error: scoresError } = await getSupabase()
         .from("company_opportunity_scores")
-        .select("place_id, score, temperature, confidence, rule_version, breakdown, calculated_at")
+        .select("place_id, confidence, calculated_at")
         .in("place_id", placeIds)
         .order("calculated_at", { ascending: false });
       if (scoresError) throw new Error(scoresError.message);
       for (const s of (scores ?? []) as Array<Record<string, unknown>>) {
         const pid = s.place_id as string;
-        if (!pid || scoreByPlace.has(pid)) continue;
-        scoreByPlace.set(pid, {
-          placeId: pid,
-          score: s.score as number,
-          temperature: (s.temperature as "hot" | "warm" | "cold") ?? "cold",
-          confidence: (s.confidence as number) ?? 0,
-          ruleVersion: s.rule_version as string,
-          calculatedAt: s.calculated_at as string,
-          breakdown: s.breakdown,
-        });
+        if (!pid || confidenceByPlace.has(pid)) continue;
+        confidenceByPlace.set(pid, (s.confidence as number) ?? 0);
       }
     }
 
@@ -750,7 +745,7 @@ export class SupabaseSearchRepository implements SearchRepository {
       const searchLabel = ((r.search_location_label as string | null) ?? "")
         .replace(/,\s*(brazil|brasil)\s*$/i, "")
         .trim();
-      const persisted = scoreByPlace.get(r.place_id as string) ?? null;
+      const persisted = confidenceByPlace.get(r.place_id as string) ?? null;
       return {
         placeId: r.place_id as string,
         name: r.name as string,
@@ -770,17 +765,12 @@ export class SupabaseSearchRepository implements SearchRepository {
         rating: (r.rating as number) ?? null,
         reviewCount: (r.review_count as number) ?? null,
         distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
-        // V2 persisted score wins when present; otherwise keep the search-time
-        // score (client-side V2 calc remains the demo fallback).
-        score: persisted?.score ?? (r.score as number) ?? 0,
-        temperature:
-          persisted?.temperature ??
-          (((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold"),
+        // Single display source: search_results.score IS the V2 opportunity
+        // score (written by score-company); no overlay, no dual source.
+        score: (r.score as number) ?? 0,
+        temperature: ((r.temperature as string) ?? "cold") as "hot" | "warm" | "cold",
         importedLeadId: (r.imported_lead_id as string) ?? null,
-        opportunityScore: persisted?.score ?? null,
-        opportunityTemperature: persisted?.temperature ?? null,
-        opportunityConfidence: persisted?.confidence ?? null,
-        opportunityBreakdown: persisted?.breakdown ?? null,
+        opportunityConfidence: persisted ?? null,
         enrichmentState: ((r.enrichment_state as string) ??
           "pending") as DiscoveryResult["enrichmentState"],
         enrichmentFields:
@@ -794,7 +784,9 @@ export class SupabaseSearchRepository implements SearchRepository {
   async getOpportunityScore(placeId: string): Promise<PersistedOpportunityScore | null> {
     const { data, error } = await getSupabase()
       .from("company_opportunity_scores")
-      .select("place_id, score, temperature, confidence, rule_version, breakdown, calculated_at")
+      .select(
+        "place_id, score, temperature, confidence, rule_version, breakdown, signals, calculated_at",
+      )
       .eq("place_id", placeId)
       .order("calculated_at", { ascending: false })
       .limit(1)

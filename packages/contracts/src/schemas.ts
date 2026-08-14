@@ -83,18 +83,16 @@ export interface DiscoveryResult {
   rating: number | null;
   reviewCount: number | null;
   distanceKm: number;
+  /** Single display source for the discovery list: search_results.score holds
+   * the V2 opportunity score written by score-company (RPC get_search_discovery
+   * serves it unchanged). The funnel (leads.score) stays v3.0.0. */
   score: number;
   temperature: "hot" | "warm" | "cold";
   importedLeadId: string | null;
-  /** Persisted V2 opportunity score (company_opportunity_scores) when available.
-   * When present, `score`/`temperature` above are the persisted values; these
-   * extra fields expose the V2 provenance + breakdown so the UI can render the
-   * explainable card from server data instead of re-computing client-side. */
-  opportunityScore?: number | null;
-  opportunityTemperature?: "hot" | "warm" | "cold" | null;
+  /** V2 score confidence (0..1) from company_opportunity_scores — metadata only
+   * (the RPC does not expose it); null until score-company has scored the place.
+   * Drives the LOW/MEDIUM/HIGH confidence band badge in the list. */
   opportunityConfidence?: number | null;
-  /** V2 breakdown persisted as JSON (OpportunityScoreBreakdown shape). */
-  opportunityBreakdown?: unknown;
   /** Overall enrichment lifecycle for this business (pending | processing |
    * enriched | partial | failed). Drives the "ainda não verificamos" vs
    * "não possui" distinction in the UI. */

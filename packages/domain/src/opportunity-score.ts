@@ -15,7 +15,29 @@
 import type { CompanySignal } from "./signals.ts";
 import { temperatureFromScore } from "./score.ts";
 
-export const OPPORTUNITY_SCORE_VERSION = "v1.0.0";
+export const OPPORTUNITY_SCORE_VERSION = "v1.1.0";
+
+// ── Confidence bands ────────────────────────────────────────────────────────
+//
+// LOW < 0.70 · MEDIUM 0.70–0.84 · HIGH ≥ 0.85. Bands are part of the scoring
+// contract (persisted in the breakdown) — bump OPPORTUNITY_SCORE_VERSION when
+// they change. Today computeConfidence floors at 0.6, so LOW only appears for
+// the least-observed inputs until multi-source enrichment widens the range.
+
+export const CONFIDENCE_BANDS = {
+  /** confidence < this = LOW. */
+  lowMax: 0.7,
+  /** confidence >= this = HIGH; [lowMax, highMin) = MEDIUM. */
+  highMin: 0.85,
+} as const;
+
+export type ConfidenceBand = "low" | "medium" | "high";
+
+export function confidenceBandFromConfidence(confidence: number): ConfidenceBand {
+  if (confidence < CONFIDENCE_BANDS.lowMax) return "low";
+  if (confidence < CONFIDENCE_BANDS.highMin) return "medium";
+  return "high";
+}
 
 /** Weights are part of the scoring contract — bump the version when they change. */
 export const OPPORTUNITY_SCORE_WEIGHTS = {
@@ -57,6 +79,8 @@ export interface OpportunityScoreBreakdown {
   version: string;
   total: number; // 0..100
   confidence: number; // 0..1
+  /** LOW/MEDIUM/HIGH band of `confidence` — part of the persisted contract. */
+  confidenceBand: ConfidenceBand;
   components: OpportunityScoreComponent[];
 }
 
@@ -184,10 +208,12 @@ export function calculateOpportunityScore(input: OpportunityScoreInput): Opportu
   ];
 
   const total = clamp(components.reduce((sum, c) => sum + c.points, 0));
+  const confidence = computeConfidence(input);
   return {
     version: OPPORTUNITY_SCORE_VERSION,
     total,
-    confidence: computeConfidence(input),
+    confidence,
+    confidenceBand: confidenceBandFromConfidence(confidence),
     components,
   };
 }

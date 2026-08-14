@@ -7,6 +7,8 @@ import { useOutbound } from "@/hooks/useOutbound";
 import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import { ConfidenceBadge } from "@/components/shared/Badges";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -110,7 +112,14 @@ const Row = memo(function Row({ result, searchId }: { result: DiscoveryResult; s
         <div className="flex items-center gap-3">
           <ScoreRing score={result.score} temperature={result.temperature} />
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold text-foreground">{result.name}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-[13px] font-semibold text-foreground">
+                {result.name}
+              </span>
+              {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
+                <ConfidenceBadge confidence={result.opportunityConfidence} />
+              )}
+            </div>
             <div className="truncate text-[11.5px] text-muted-foreground">
               {categoryLabel(result.category)}
             </div>

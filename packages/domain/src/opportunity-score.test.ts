@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   calculateOpportunityScore,
+  confidenceBandFromConfidence,
+  CONFIDENCE_BANDS,
   OPPORTUNITY_SCORE_WEIGHTS,
   opportunityTemperatureFromScore,
   type OpportunityScoreInput,
@@ -95,10 +97,33 @@ describe("calculateOpportunityScore", () => {
 
   test("version and confidence are present", () => {
     const result = calculateOpportunityScore(input());
-    expect(result.version).toBe("v1.0.0");
+    expect(result.version).toBe("v1.1.0");
     expect(result.confidence).toBeGreaterThanOrEqual(0);
     expect(result.confidence).toBeLessThanOrEqual(1);
     expect(result.components.length).toBe(Object.keys(OPPORTUNITY_SCORE_WEIGHTS).length);
+  });
+
+  test("breakdown carries the confidence band", () => {
+    const sparse = calculateOpportunityScore(input({}));
+    expect(sparse.confidenceBand).toBe("low"); // floor 0.6, nothing observed
+    const rich = calculateOpportunityScore(
+      input({ rating: 4.5, reviewCount: 30, intentMatch: 0.8, territoryFavorability: 0.6 }),
+    );
+    expect(rich.confidenceBand).toBe("high"); // 4 observed → 0.92
+  });
+});
+
+describe("confidenceBandFromConfidence", () => {
+  test("band thresholds: LOW < 0.70 · MEDIUM 0.70–0.84 · HIGH ≥ 0.85", () => {
+    expect(confidenceBandFromConfidence(0.699)).toBe("low");
+    expect(confidenceBandFromConfidence(CONFIDENCE_BANDS.lowMax)).toBe("medium");
+    expect(confidenceBandFromConfidence(0.849)).toBe("medium");
+    expect(confidenceBandFromConfidence(CONFIDENCE_BANDS.highMin)).toBe("high");
+    expect(confidenceBandFromConfidence(1)).toBe("high");
+  });
+  test("clamps out-of-range values to the nearest band", () => {
+    expect(confidenceBandFromConfidence(0)).toBe("low");
+    expect(confidenceBandFromConfidence(1.5)).toBe("high");
   });
 });
 

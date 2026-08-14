@@ -10,6 +10,8 @@ import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
 import { track } from "@/lib/analytics";
 import { isProvisionalScore } from "@/lib/enrichment";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import { ConfidenceBadge } from "@/components/shared/Badges";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useActivationStore } from "@/stores/activation";
@@ -225,6 +227,9 @@ export const DiscoveryCard = memo(function DiscoveryCard({
 
           <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1.5" : "mt-2")}>
             <TemperatureBadge temperature={result.temperature} />
+            {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
+              <ConfidenceBadge confidence={result.opportunityConfidence} />
+            )}
             {isProvisionalScore(result.enrichmentState) && (
               <span className="inline-flex items-center rounded-full border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 provisório
