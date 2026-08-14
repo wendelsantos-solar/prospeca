@@ -58,7 +58,7 @@ begin
     perform cron.schedule(
       'recover-stuck-jobs',
       '*/5 * * * *',
-      $$ select public.recover_stuck_jobs(); $$
+      $cron$ select public.recover_stuck_jobs(); $cron$
     );
   else
     raise notice 'pg_cron ausente — recover-stuck-jobs NÃO agendado.';
