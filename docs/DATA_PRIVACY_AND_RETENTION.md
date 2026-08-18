@@ -49,6 +49,11 @@
 
 - **PII de places não convertidos em lead:** Purgado após 90 dias via
   `purge_stale_discovery_pii()` (pg_cron, diário 03:00 UTC).
+- **PII de registro (QSA — nomes de sócios/administradores, e-mail e telefone
+  do cadastro público):** mesmo tratamento do contato — purgada após 90 dias
+  em places não convertidos, regida pelo próprio marcador temporal
+  (`registration_fetched_at`, independente de `enriched_at`); places
+  convertidos em lead permanecem (base legal de relacionamento).
 - **PII de leads:** Mantido até que o lead seja deletado ou o contato seja
   suprimido via opt-out.
 - **Opt-out (suppression):** Contatos suprimidos via `suppression_list` são
