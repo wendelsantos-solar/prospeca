@@ -219,7 +219,13 @@ Deno.serve(async (req) => {
     if (placeIds.length === 0) {
       // Nothing to score — the worker's job is still satisfied (honest no-op).
       if (jobId) {
-        await stampJobMetrics(admin, jobId, 0);
+        await stampJobMetrics(admin, jobId, {
+        // Scoring é computação local sobre dados já persistidos — nenhuma
+        // chamada paga de provider: zero COMPROVADO ('measured').
+        realCostUsd: 0,
+        estimatedCostUsd: 0,
+        costSource: "measured",
+      });
         await jobQueue.complete(jobId, { updated: 0, reason: "no places" });
       }
       return json({ updated: 0, ruleVersion: OPPORTUNITY_SCORE_VERSION }, 200, {}, req);
@@ -412,7 +418,13 @@ Deno.serve(async (req) => {
       hasMission: mission != null || missionByPlace.size > 0,
     });
     if (jobId) {
-      await stampJobMetrics(admin, jobId, 0);
+      await stampJobMetrics(admin, jobId, {
+        // Scoring é computação local sobre dados já persistidos — nenhuma
+        // chamada paga de provider: zero COMPROVADO ('measured').
+        realCostUsd: 0,
+        estimatedCostUsd: 0,
+        costSource: "measured",
+      });
       await jobQueue.complete(jobId, { updated, ruleVersion: OPPORTUNITY_SCORE_VERSION });
     }
     return json({ updated, ruleVersion: OPPORTUNITY_SCORE_VERSION }, 200, {}, req);
@@ -422,7 +434,11 @@ Deno.serve(async (req) => {
     // unexpected errors go through classifyRetryableError (bounded retries).
     if (jobId) {
       const jobQueue = createSupabaseJobQueue(adminClient());
-      await stampJobMetrics(adminClient(), jobId, 0).catch(() => {});
+      await stampJobMetrics(adminClient(), jobId, {
+        realCostUsd: 0,
+        estimatedCostUsd: 0,
+        costSource: "measured",
+      }).catch(() => {});
       await jobQueue
         .fail(
           jobId,

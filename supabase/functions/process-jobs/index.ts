@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
         if (!handler) {
           // Honest failure: unknown types land in the DLQ (visible in the admin
           // panel) instead of silently sitting queued forever.
-          await stampJobMetrics(admin, job.id, 0);
+          // Custo de um handler não implementado é DESCONHECIDO — NULL, nunca 0
+          // (regra dura da Fase 7).
+          await stampJobMetrics(admin, job.id, null);
           await queue.fail(job.id, {
             status: 422,
             message: `handler not implemented for ${job.type}`,

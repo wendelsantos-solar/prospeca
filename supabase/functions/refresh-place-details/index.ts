@@ -3,7 +3,8 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { assertRateLimit, recordPaidUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { placeDetails } from "../_shared/google.ts";
 
 const InputSchema = z.object({ placeIds: z.array(z.string().uuid()).min(1).max(20) });
@@ -31,11 +32,16 @@ Deno.serve(async (req) => {
     for (const place of stale ?? []) {
       const details = await placeDetails(place.provider_place_id);
       if (!details) continue; // no place found -> skip, don't count
-      await recordUsage(ctx.adminClient, {
+      const pdCost = calculateUsageCost("google_places", "place_details_request", 1);
+      await recordPaidUsage(ctx.adminClient, {
         organizationId: ctx.organizationId,
         userId: ctx.userId,
         eventType: "place_details_request",
         provider: "google_places",
+        estimatedCostUsd: pdCost.estimatedCostUsd,
+        realCostUsd: pdCost.realCostUsd,
+        costSource: pdCost.source,
+        cacheHit: false,
       });
       await ctx.adminClient
         .from("places")

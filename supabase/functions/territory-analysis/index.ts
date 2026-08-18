@@ -174,7 +174,12 @@ Deno.serve(async (req) => {
 
     if (jobId) {
       const queue = createSupabaseJobQueue(admin);
-      await stampJobMetrics(admin, jobId, 0);
+      await stampJobMetrics(admin, jobId, {
+        // Análise territorial é computação local — zero COMPROVADO.
+        realCostUsd: 0,
+        estimatedCostUsd: 0,
+        costSource: "measured",
+      });
       await queue.complete(jobId, {
         territories: stats.length,
         groupBy,
@@ -207,7 +212,11 @@ Deno.serve(async (req) => {
   } catch (err) {
     if (jobId) {
       const queue = createSupabaseJobQueue(adminClient());
-      await stampJobMetrics(adminClient(), jobId, 0).catch(() => {});
+      await stampJobMetrics(adminClient(), jobId, {
+        realCostUsd: 0,
+        estimatedCostUsd: 0,
+        costSource: "measured",
+      }).catch(() => {});
       await queue
         .fail(
           jobId,

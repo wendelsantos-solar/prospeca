@@ -2,7 +2,8 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { assertRateLimit, recordPaidUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { geocode, reverseGeocode } from "../_shared/google.ts";
 
 const InputSchema = z.union([
@@ -28,11 +29,16 @@ Deno.serve(async (req) => {
     if ("latitude" in parsed.data) {
       const geo = await reverseGeocode(parsed.data.latitude, parsed.data.longitude);
       if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
-      await recordUsage(ctx.adminClient, {
+      const gc1 = calculateUsageCost("google_geocoding", "geocode_request", 1);
+      await recordPaidUsage(ctx.adminClient, {
         organizationId: ctx.organizationId,
         userId: ctx.userId,
         eventType: "geocode_request",
         provider: "google_geocoding",
+        estimatedCostUsd: gc1.estimatedCostUsd,
+        realCostUsd: gc1.realCostUsd,
+        costSource: gc1.source,
+        cacheHit: false,
       });
       logEvent({ requestId, operation: "geocode-location", status: "ok" });
       return json({ ...geo, cached: false }, 200, {}, req);
@@ -59,11 +65,16 @@ Deno.serve(async (req) => {
     const geo = await geocode(parsed.data.query);
     if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
 
-    await recordUsage(ctx.adminClient, {
+    const gc2 = calculateUsageCost("google_geocoding", "geocode_request", 1);
+    await recordPaidUsage(ctx.adminClient, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       eventType: "geocode_request",
       provider: "google_geocoding",
+      estimatedCostUsd: gc2.estimatedCostUsd,
+      realCostUsd: gc2.realCostUsd,
+      costSource: gc2.source,
+      cacheHit: false,
     });
     await ctx.adminClient.from("geocode_cache").upsert(
       {

@@ -4,7 +4,14 @@ import { CreateSearchInputSchema } from "@leads/contracts/schemas";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { captureError } from "../_shared/error-tracking.ts";
-import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
+import {
+  assertRateLimit,
+  assertSearchQuota,
+  recordPaidUsage,
+  recordUsage,
+  writeAudit,
+} from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { assertUsageAvailable, recordEntitlementUsage } from "../_shared/entitlements.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
@@ -84,11 +91,17 @@ Deno.serve(async (req) => {
             if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
             latitude = geo.latitude;
             longitude = geo.longitude;
-            await recordUsage(ctx.adminClient, {
+            // Fase 7: custo do geocode (SKU 0.005) — PÓS-chamada paga → fora de banda.
+            const geoC = calculateUsageCost("google_geocoding", "geocode_request", 1);
+            await recordPaidUsage(ctx.adminClient, {
               organizationId: ctx.organizationId,
               userId: ctx.userId,
               eventType: "geocode_request",
               provider: "google_geocoding",
+              estimatedCostUsd: geoC.estimatedCostUsd,
+              realCostUsd: geoC.realCostUsd,
+              costSource: geoC.source,
+              cacheHit: false,
             });
             await ctx.adminClient.from("geocode_cache").upsert(
               {
@@ -105,10 +118,7 @@ Deno.serve(async (req) => {
         // category + Google Places types so execute-search can refine the
         // provider query (includedType + type post-filter) instead of raw
         // concatenation. Non-blocking when unresolved — the raw term stays.
-        const tax = await resolveSearchTaxonomy(
-          ctx.adminClient,
-          input.category ?? input.query,
-        );
+        const tax = await resolveSearchTaxonomy(ctx.adminClient, input.category ?? input.query);
 
         // ── Pre-flight estimate (Fase 7, honest range) ────────────────────
         // A covering provider cache (same category, circle contained) means

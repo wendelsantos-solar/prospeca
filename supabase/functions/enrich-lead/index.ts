@@ -8,7 +8,8 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/quota.ts";
+import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { enrichFromWebsite } from "../_shared/enrich.ts";
 
 const InputSchema = z.union([
@@ -97,6 +98,20 @@ Deno.serve(async (req) => {
       }
 
       return { leadId, found: fields.length, status };
+    });
+
+    // Fase 7: fecha o ciclo do rate limit (mesmo event_type que o
+    // assertRateLimit acima) + custo zero COMPROVADO (infra própria).
+    const cost = calculateUsageCost("website_scraper", "enrich_request", results.length);
+    await recordUsage(ctx.adminClient, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventType: "enrich_request",
+      provider: "website_scraper",
+      quantity: Math.max(1, results.length),
+      estimatedCostUsd: cost.estimatedCostUsd,
+      realCostUsd: cost.realCostUsd,
+      costSource: cost.source,
     });
 
     logEvent({

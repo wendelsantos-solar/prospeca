@@ -7,7 +7,8 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/quota.ts";
+import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import {
   hasEnoughSignal,
   buildUserPrompt,
@@ -29,6 +30,21 @@ Deno.serve(async (req) => {
     if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Entrada inválida.");
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "ai_message_generate", 10);
+
+    // Fase 7: fecha o ciclo do rate limit (mesmo event_type). Custo do
+    // Anthropic é POR TOKEN e não medimos tokens — DESCONHECIDO (NULL),
+    // nunca 0 (regra dura da fase). Tentativa conta mesmo sem chave.
+    const cost = calculateUsageCost("anthropic", "ai_message_generate", 1);
+    await recordUsage(ctx.adminClient, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventType: "ai_message_generate",
+      provider: "anthropic",
+      quantity: 1,
+      estimatedCostUsd: cost.estimatedCostUsd,
+      realCostUsd: cost.realCostUsd,
+      costSource: cost.source,
+    });
 
     const { data: lead } = await ctx.userClient
       .from("leads")

@@ -268,10 +268,25 @@ export { classifyRetryableError, isRetryableError };
  * (Fase 7 observability). Reads the claim's started_at and writes
  * duration_ms/estimated_cost. Handlers call this right before complete/fail.
  */
+export interface JobCostInput {
+  /** Custo REAL (provider reportou) — null = não reportado. */
+  realCostUsd: number | null;
+  /** Custo ESTIMADO pela tabela do domínio — null = desconhecido. */
+  estimatedCostUsd: number | null;
+  /** 'measured' | 'estimated' | null (null = custo desconhecido). */
+  costSource?: "measured" | "estimated" | null;
+}
+
+/**
+ * Stamp duration + cost on a job before the handler closes it
+ * (Fase 7 observability). Reads the claim's started_at and writes
+ * duration_ms/estimated_cost/real_cost_usd/cost_source.
+ * REGRA DURA: custo desconhecido é NULL, nunca 0.
+ */
 export async function stampJobMetrics(
   admin: SupabaseClient,
   jobId: string,
-  estimatedCostUsd?: number | null,
+  cost?: JobCostInput | null,
 ): Promise<void> {
   const { data: job } = await admin
     .from("jobs")
@@ -286,7 +301,9 @@ export async function stampJobMetrics(
     .from("jobs")
     .update({
       duration_ms: durationMs,
-      estimated_cost: estimatedCostUsd ?? null,
+      estimated_cost: cost?.estimatedCostUsd ?? null,
+      real_cost_usd: cost?.realCostUsd ?? null,
+      cost_source: cost?.costSource ?? null,
     })
     .eq("id", jobId);
   if (error) throw new Error(`job metrics: ${error.message}`);

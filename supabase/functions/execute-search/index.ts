@@ -4,7 +4,8 @@
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
-import { recordUsage } from "../_shared/quota.ts";
+import { recordPaidUsage, recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "@leads/domain/cache";
@@ -138,6 +139,22 @@ Deno.serve(async (req) => {
           cacheHit: true,
           resultCount: reused,
         });
+        // P2-4 (Fase 7b): cache HIT também é gravado — zero COMPROVADO
+        // ('measured'), distinguível de desconhecido e de miss pago.
+        const hitCost = calculateUsageCost("google_places", "place_search_request", 1, {
+          cacheHit: true,
+        });
+        await recordPaidUsage(admin, {
+          organizationId: search.organization_id,
+          eventType: "place_search_request",
+          provider: "google_places",
+          quantity: 1,
+          metadata: { searchId, cache: "hit" },
+          estimatedCostUsd: hitCost.estimatedCostUsd,
+          realCostUsd: hitCost.realCostUsd,
+          costSource: hitCost.source,
+          cacheHit: true,
+        });
         return json({ searchId, status: "completed", found: reused, reused: true }, 200, {}, req);
       }
     }
@@ -154,9 +171,10 @@ Deno.serve(async (req) => {
     // legacy raw concatenation (or query alone).
     const canonicalCategory = (search.canonical_category as string | null) ?? null;
     const placesTypes = ((search.places_types as string[] | null) ?? []) as string[];
-    const textQuery = canonicalCategory ?? search.category
-      ? `${search.query} ${canonicalCategory ?? search.category}`
-      : search.query;
+    const textQuery =
+      (canonicalCategory ?? search.category)
+        ? `${search.query} ${canonicalCategory ?? search.category}`
+        : search.query;
     const includedType = placesTypes.length > 0 ? placesTypes[0] : undefined;
     let requestCount = 0;
     let collected: GooglePlace[] = [];
@@ -242,6 +260,23 @@ Deno.serve(async (req) => {
         .from("searches")
         .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
+      // P2 (Motor, Fase 7c): o cache PRIMÁRIO (provider_search_cache — chave
+      // exata ou cobertura geométrica) também grava o HIT — zero COMPROVADO
+      // ('measured'), distinguível de desconhecido e de miss pago.
+      const providerHitCost = calculateUsageCost("google_places", "place_search_request", 1, {
+        cacheHit: true,
+      });
+      await recordPaidUsage(admin, {
+        organizationId: search.organization_id,
+        eventType: "place_search_request",
+        provider: "google_places",
+        quantity: 1,
+        metadata: { searchId, cache: "provider" },
+        estimatedCostUsd: providerHitCost.estimatedCostUsd,
+        realCostUsd: providerHitCost.realCostUsd,
+        costSource: providerHitCost.source,
+        cacheHit: true,
+      });
     } else {
       // Guarda-corpo de budget (Fase 1): se a org definiu um teto mensal e o
       // gasto estimado do mês já estourou, NÃO paga o Google — a busca completa
@@ -278,12 +313,19 @@ Deno.serve(async (req) => {
             includedType,
           });
           requestCount++;
-          await recordUsage(admin, {
+          // Fase 7: custo REAL do Google (SKU 0.035) — PÓS-trabalho pago:
+          // registro fora de banda (nunca derruba a resposta nem induz retry).
+          const searchCost = calculateUsageCost("google_places", "place_search_request", 1);
+          await recordPaidUsage(admin, {
             organizationId: search.organization_id,
             eventType: "place_search_request",
             provider: "google_places",
             quantity: 1,
             metadata: { searchId, page, forced: doForce },
+            estimatedCostUsd: searchCost.estimatedCostUsd,
+            realCostUsd: searchCost.realCostUsd,
+            costSource: searchCost.source,
+            cacheHit: false,
           });
           collected = collected.concat(res.places);
           await admin
@@ -307,12 +349,17 @@ Deno.serve(async (req) => {
         };
         if (doForce) {
           cacheRow.last_forced_at = new Date().toISOString();
-          await recordUsage(admin, {
+          const refreshCost = calculateUsageCost("google_places", "place_search_refresh", 1);
+          await recordPaidUsage(admin, {
             organizationId: search.organization_id,
             eventType: "place_search_refresh",
             provider: "google_places",
             quantity: 1,
             metadata: { searchId },
+            estimatedCostUsd: refreshCost.estimatedCostUsd,
+            realCostUsd: refreshCost.realCostUsd,
+            costSource: refreshCost.source,
+            cacheHit: false,
           });
         }
         await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
