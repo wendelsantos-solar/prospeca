@@ -20,8 +20,6 @@
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { enrichFromWebsite } from "./enrich.ts";
-import { calculateScore, temperatureFromScore } from "@leads/domain/score";
-import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import {
   buildFieldMap,
   buildSourceState,
@@ -263,18 +261,23 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
       website,
     });
 
-    // Re-score with the merged (post-patch) place state — legacy v3.0.0.
-    const merged = { ...place, ...patch } as PlaceRow;
-    const bd = calculateScore(scoreInputFromRow(merged, args.distanceMeters));
-    await admin
-      .from("search_results")
-      .update({
-        score: bd.total,
-        temperature: temperatureFromScore(bd.total),
-        score_breakdown: bd,
-      })
-      .eq("search_id", searchId)
-      .eq("place_id", placeId);
+    // Fase 3 (unificação de score): o V2 é a engine canônica — em vez de
+    // re-gravar o v3 legado POR CIMA do score V2, enfileira um job
+    // OPPORTUNITY_SCORING novo (idempotente por chave pós-enrich) para o
+    // worker re-scorear com o estado pós-enriquecimento — score-company lê o
+    // place atual e sincroniza search_results + company_opportunity_scores +
+    // leads.score numa operação só.
+    const scoringKey = `${companyProcessingKey(organizationId, searchId, placeId)}:post-enrich`;
+    await queue.enqueue({
+      type: "OPPORTUNITY_SCORING",
+      organizationId,
+      searchId,
+      companyId: placeId,
+      idempotencyKey: scoringKey,
+      payload: { searchId, placeId, reason: "post-enrichment" },
+    });
+    const { fireAndForget } = await import("./dispatch.ts");
+    fireAndForget("process-jobs", {}); // single wake — worker re-scoreia o V2
 
     const result = { fieldsFound: Object.keys(found).length, enrichmentStatus: outcome.status };
 

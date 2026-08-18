@@ -366,6 +366,22 @@ Deno.serve(async (req) => {
       );
       if (!error) updated++;
 
+      // Fase 3 (unificação de score): leads.score = V2 — o MESMO número em
+      // descoberta, detalhe, kanban e painel. Este é o ESCRITOR ÚNICO do V2
+      // em leads; a cópia materializada preserva o contrato de filtro/ordem
+      // do cliente (filters.ts). O v3 anterior permanece em score_legacy_v3
+      // (gravado pela migration/import) para rollback — nunca é sobrescrito
+      // por null.
+      await admin
+        .from("leads")
+        .update({
+          score: opp.total,
+          score_rule_version: OPPORTUNITY_SCORE_VERSION,
+          temperature: opportunityTemperatureFromScore(opp.total),
+        })
+        .eq("organization_id", organizationId)
+        .eq("place_id", row.id);
+
       // Provenance (spec #26): the Google discovery data behind this score,
       // recorded once per place/provider — never duplicated on re-scores.
       const { data: existingSource } = await admin

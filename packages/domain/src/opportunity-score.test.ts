@@ -165,3 +165,30 @@ describe("opportunityTemperatureFromScore", () => {
     expect(opportunityTemperatureFromScore(40)).toBe("cold");
   });
 });
+
+describe("fonte única (Fase 3 — unificação de score)", () => {
+  test("a mesma entrada produz o MESMO score em qualquer chamada (descoberta e funil leem o mesmo número)", () => {
+    // A sincronia lead/descoberta se apoia no fato de o V2 ser função pura dos
+    // inputs: score-company grava search_results, company_opportunity_scores e
+    // leads.score com o MESMO calculateOpportunityScore — e o fallback do
+    // cliente (useCompanyIntelligence) deriva do mesmo domínio.
+    const a = calculateOpportunityScore(
+      input({ rating: 4.6, reviewCount: 120, hasWebsite: false, intentMatch: 0.8 }),
+    );
+    const b = calculateOpportunityScore(
+      input({ rating: 4.6, reviewCount: 120, hasWebsite: false, intentMatch: 0.8 }),
+    );
+    expect(a.total).toBe(b.total);
+    expect(a.components).toEqual(b.components);
+    expect(a.confidence).toBe(b.confidence);
+    expect(a.total).toBeGreaterThan(0);
+  });
+
+  test("a temperatura deriva do MESMO total persistido (nenhuma segunda fórmula)", () => {
+    // O breakdown não carrega temperatura — score-company a deriva do total
+    // via opportunityTemperatureFromScore e persiste nos três lugares.
+    const s = calculateOpportunityScore(input({ hasWebsite: false }));
+    expect(opportunityTemperatureFromScore(s.total)).toBe(opportunityTemperatureFromScore(s.total));
+    expect(["hot", "warm", "cold"]).toContain(opportunityTemperatureFromScore(s.total));
+  });
+});

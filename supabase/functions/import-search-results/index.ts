@@ -20,7 +20,8 @@ import {
   normalizePhone,
   type NormalizedPhone,
 } from "@leads/domain/normalize";
-import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "@leads/domain/score";
+import { calculateScore, temperatureFromScore } from "@leads/domain/score";
+import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain/opportunity-score";
 import { parseAddress } from "@leads/domain/address";
 
 const InputSchema = ImportSearchResultsSchema;
@@ -232,6 +233,21 @@ Deno.serve(async (req) => {
           const breakdown = calculateScore(
             scoreInputFromRow(place as PlaceRow, row.distance_meters),
           );
+
+          // Fase 3 (unificação de score): o lead nasce com o V2 quando ele já
+          // existe para (org, place) — senão, mantém o v3 como LEGADO marcado
+          // (nunca 0) preservado em score_legacy_v3; o job OPPORTUNITY_SCORING
+          // enfileirado abaixo converge o número para o V2 em seguida.
+          const { data: v2Row } = await ctx.adminClient
+            .from("company_opportunity_scores")
+            .select("score, temperature, rule_version, breakdown")
+            .eq("organization_id", ctx.organizationId)
+            .eq("place_id", row.place_id)
+            .order("calculated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const hasV2 =
+            v2Row?.score != null && v2Row?.rule_version === OPPORTUNITY_SCORE_VERSION;
           const addressParts = parseAddress(
             place.formatted_address as string | null,
             place.address_components,
@@ -266,10 +282,18 @@ Deno.serve(async (req) => {
               has_website: meta.websiteReal,
               rating: place.rating ?? null,
               review_count: place.user_rating_count ?? null,
-              score: breakdown.total,
-              score_breakdown: breakdown,
-              score_rule_version: SCORE_RULE_VERSION,
-              temperature: temperatureFromScore(breakdown.total),
+              score: hasV2 ? (v2Row.score as number) : breakdown.total,
+              score_breakdown: hasV2 ? (v2Row.breakdown as unknown) : breakdown,
+              score_rule_version: hasV2
+                ? (v2Row.rule_version as string)
+                : "legacy-v3.0.0",
+              // O v3 SEMPRE é calculado aqui (breakdown.total) e sempre vale como
+              // referência de rollback — mesmo quando o V2 vence o campo `score`.
+              // Antes gravava null quando havia V2, jogando fora o v3 recém-computado.
+              score_legacy_v3: breakdown.total,
+              temperature: hasV2
+                ? ((v2Row.temperature as string | null) ?? "cold")
+                : temperatureFromScore(breakdown.total),
               stage: input.stage,
               source: "search",
               source_search_id: input.searchId,

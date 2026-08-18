@@ -1,6 +1,21 @@
 // Deterministic, versioned lead score. Consolidated from
 // supabase/functions/_shared/score.ts.
 //
+// ⚠️ LEGADO / DEPRECATED (Fase 3 — unificação de score). A engine CANÔNICA é
+// opportunity-score.ts (V2, v1.2.0): multi-componente, confidence, scoreState
+// e inputs por organização. leads.score agora carrega o V2 (cópia
+// materializada sincronizada por score-company; migration
+// 20260817000019_unify_leads_score_v2).
+//
+// Este módulo NÃO é deletado ainda por dois motivos:
+//  1. ROLLBACK: leads.score_legacy_v3 guarda o v3 antigo e o procedimento de
+//     reversão documentado na migration restaura exatamente estes números —
+//     a fórmula precisa continuar disponível e idêntica;
+//  2. LEITURA HISTÓRICA: score_breakdown antigo de leads legados usa esta
+//     versão/forma (ruleVersion 'v3.0.0' / 'legacy-v3.0.0').
+//
+// NÃO use calculateScore para gravar scores novos. Deleção é outra tarefa.
+//
 // v3.0.0 (Google-only): opportunity-oriented. Score alto = negócio de BAIXA
 // maturidade digital e alcançável — o lead que mais precisa do serviço. Usa os
 // sinais que o Google sempre traz (rating, userRatingCount, businessStatus)
