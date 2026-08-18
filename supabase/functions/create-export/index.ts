@@ -93,14 +93,13 @@ Deno.serve(async (req) => {
     const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
     let body: Uint8Array | string;
-    let contentType: string;
     let filename: string;
     // P1-c (Fase 4c): AMBOS os formatos voltam como application/octet-stream.
     // O FunctionsClient do supabase-js inspeciona o Content-Type e, para
     // text/*, devolve STRING — o cliente então quebrava no `instanceof Blob`.
     // Com octet-stream o SDK entrega Blob nos DOIS formatos; o nome/extensão
     // reais ficam no Content-Disposition (a UI usa a própria extensão).
-    contentType = "application/octet-stream";
+    const contentType = "application/octet-stream";
     if (input.format === "xlsx") {
       const sheetRows: Array<Array<string | number | boolean | null | undefined>> = [
         fields.map((f) => f),

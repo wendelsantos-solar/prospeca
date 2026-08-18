@@ -1,9 +1,17 @@
 import { useState } from "react";
-import { BadgeCheck, FileSearch, Landmark, Loader2, Users } from "lucide-react";
+import { BadgeCheck, FileSearch, Landmark, Loader2, RefreshCw } from "lucide-react";
 import { isValidCnpj, normalizeCnpj } from "@leads/domain";
-import { useBusinessRegistration, useCnpjLookupMutation } from "@/hooks/useLeadsQuery";
+import {
+  useBusinessRegistration,
+  useCnpjLookupMutation,
+  useCnpjOrigin,
+} from "@/hooks/useLeadsQuery";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CompanyPeopleSection } from "./CompanyPeopleSection";
+
+/** Espelha ENRICHMENT_SOURCE_TTL_DAYS.business_registry (servidor). */
+const REGISTRY_TTL_DAYS = 90;
 
 const REGISTRY_STATUS_LABELS: Record<string, string> = {
   active: "Ativa",
@@ -35,6 +43,7 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 export function BusinessRegistrySection({ placeId }: { placeId: string }) {
   const { data: registration, isLoading } = useBusinessRegistration(placeId);
   const lookup = useCnpjLookupMutation(placeId);
+  const { data: cnpjOrigin } = useCnpjOrigin(placeId);
   const [cnpj, setCnpj] = useState("");
 
   const normalized = normalizeCnpj(cnpj);
@@ -57,6 +66,19 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
 
   const result = lookup.data;
 
+  /**
+   * Frescor honesto: o TTL do registro é de 90 dias (servidor —
+   * ENRICHMENT_SOURCE_TTL_DAYS.business_registry). Antes disso "Atualizar"
+   * gastaria consulta para reescrever o mesmo dado, então o botão existe mas o
+   * texto diz que já está atualizado.
+   */
+  const fetchedAt = registration?.registration_fetched_at
+    ? new Date(registration.registration_fetched_at)
+    : null;
+  const ageDays = fetchedAt ? (Date.now() - fetchedAt.getTime()) / 86400000 : null;
+  const isStale = ageDays != null && ageDays >= REGISTRY_TTL_DAYS;
+  const registryFreshness = isStale ? "Desatualizado" : "Atualizado";
+
   return (
     <div className="mt-4 rounded-lg border border-border bg-surface/50 p-3">
       <div className="flex items-center gap-1.5">
@@ -77,6 +99,17 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
         <div className="mt-2 divide-y divide-border/60">
           {registration?.legal_name && <Row label="Razão social" value={registration.legal_name} />}
           {registration?.tax_id && <Row label="CNPJ" value={registration.tax_id} />}
+          {/* Proveniência do CNPJ: descoberto no site ≠ informado pelo usuário.
+           * Rodapé brasileiro às vezes traz o CNPJ da agência que fez o site,
+           * então a origem fica visível — e mais visível ainda quando o site
+           * listava mais de um número. */}
+          {cnpjOrigin && cnpjOrigin.provider_external_id === registration?.tax_id && (
+            <p className="py-1 text-[11px] text-muted-foreground">
+              {cnpjOrigin.metadata?.ambiguous
+                ? "CNPJ localizado no site da empresa, que listava mais de um número — confira antes de usar."
+                : "CNPJ localizado automaticamente no site da empresa."}
+            </p>
+          )}
           {registration?.primary_cnae && (
             <Row
               label="CNAE"
@@ -135,6 +168,18 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
           {registration?.is_mei != null && !registration.company_size && (
             <Row label="MEI" value={registration.is_mei ? "Sim" : "Não"} />
           )}
+          {registration?.establishment_type && registration.establishment_type !== "unknown" && (
+            <Row
+              label="Estabelecimento"
+              value={registration.establishment_type === "headquarters" ? "Matriz" : "Filial"}
+            />
+          )}
+          {registration?.registry_street_address && (
+            <Row label="Logradouro (registro)" value={registration.registry_street_address} />
+          )}
+          {registration?.registry_district && (
+            <Row label="Bairro (registro)" value={registration.registry_district} />
+          )}
           {registration?.registry_city && (
             <Row
               label="Endereço (registro)"
@@ -153,48 +198,39 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
             <Row label="Telefone (registro)" value={registration.registry_phone} />
           )}
           {registration?.registration_fetched_at && (
-            <Row
-              label="Consultado em"
-              value={new Date(registration.registration_fetched_at).toLocaleDateString("pt-BR")}
-            />
+            <>
+              <Row
+                label="Última atualização"
+                value={new Date(registration.registration_fetched_at).toLocaleString("pt-BR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              />
+              <Row label="Fonte" value="BrasilAPI · cadastro público" />
+              <Row label="Status" value={registryFreshness} />
+            </>
           )}
         </div>
       )}
 
-      {/* Decisores (QSA — quadro de sócios e administradores). Estados
-       * HONESTOS: sem consulta → "ainda não consultado"; consulta sem QSA na
-       * resposta → "não informado". Dado público de registro, sem fonte nova. */}
-      <div className="mt-3 border-t border-border/60 pt-2">
-        <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <Users className="h-3 w-3" />
-          Decisores
-        </p>
-        {!isLoading && registration?.registration_fetched_at == null ? (
-          <p className="mt-1 text-[11.5px] text-muted-foreground">
-            Ainda não consultado — consulte o CNPJ acima.
-          </p>
-        ) : registration?.qsa == null || registration.qsa.length === 0 ? (
-          <p className="mt-1 text-[11.5px] text-muted-foreground">
-            Não informado pelo cadastro público.
-          </p>
-        ) : (
-          <ul className="mt-1 space-y-1">
-            {registration.qsa.map((s, i) => (
-              <li
-                key={`${s.name}-${i}`}
-                className="flex items-start justify-between gap-2 text-[12px]"
-              >
-                <span className="min-w-0 truncate font-medium text-foreground">{s.name}</span>
-                {s.qualification && (
-                  <span className="shrink-0 text-right text-[11px] text-muted-foreground">
-                    {s.qualification}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <CompanyPeopleSection
+        placeId={placeId}
+        hasBeenLookedUp={registration?.registration_fetched_at != null}
+        isLoadingRegistration={isLoading}
+      />
+
+      {/* Atualizar — reconsulta o MESMO CNPJ já vinculado, sem o usuário
+       * redigitar. Só aparece quando existe CNPJ persistido. */}
+      {registration?.tax_id && (
+        <button
+          onClick={() => lookup.mutate(registration.tax_id!)}
+          disabled={lookup.isPending}
+          className="mt-2 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] font-medium text-foreground transition-colors hover:bg-surface-hover disabled:opacity-50"
+        >
+          <RefreshCw className={cn("h-3 w-3", lookup.isPending && "animate-spin")} />
+          {lookup.isPending ? "Consultando cadastro…" : "Atualizar dados"}
+        </button>
+      )}
 
       {/* Consulta manual — validada no cliente (isValidCnpj) antes de enviar. */}
       <div className="mt-3 flex gap-2">

@@ -3,6 +3,7 @@
 // single page. Returns explicit not_found signals rather than fabricating data.
 import { assertSafeUrl, isPrivateIpv4, isPrivateIpv6, SsrfBlockedError } from "@leads/domain/ssrf";
 import { instagramHandleFromUrl, normalizeDomain } from "@leads/domain/normalize";
+import { extractCnpjCandidates } from "@leads/domain/business-registry";
 
 const MAX_REDIRECTS = 3;
 
@@ -121,16 +122,31 @@ function outcomesFromFound(fields: EnrichedField[]): EnrichmentFieldOutcome[] {
   });
 }
 
-export async function enrichFromWebsite(input: {
-  website?: string | null;
-  timeoutMs?: number;
-}): Promise<{
+/**
+ * Resultado de um pass de scrape.
+ *
+ * `taxIdCandidates` fica FORA de `fields`/`outcomes` de propósito: aquela
+ * máquina de estados é dos campos de contato (email/instagram/whatsapp) e
+ * alimenta `enrichment_fields`/`enrichment_state`. CNPJ não é campo de
+ * contato — é pista de identidade, com fonte e TTL próprios
+ * (enrichment_sources.business_registry). Misturar os dois corromperia o
+ * estado de enriquecimento de contato.
+ */
+export interface WebsiteEnrichment {
   fields: EnrichedField[];
   status: EnrichmentStatus;
   outcomes: EnrichmentFieldOutcome[];
-}> {
+  /** CNPJs plausíveis achados no HTML já baixado — custo zero. */
+  taxIdCandidates: string[];
+}
+
+export async function enrichFromWebsite(input: {
+  website?: string | null;
+  timeoutMs?: number;
+}): Promise<WebsiteEnrichment> {
   const domain = normalizeDomain(input.website);
-  if (!input.website || !domain) return { fields: [], status: "not_found", outcomes: [] };
+  if (!input.website || !domain)
+    return { fields: [], status: "not_found", outcomes: [], taxIdCandidates: [] };
 
   // The "website" IS the Instagram profile — pull the handle from the URL
   // itself rather than fetching (Instagram blocks unauthenticated scraping).
@@ -158,6 +174,9 @@ export async function enrichFromWebsite(input: {
           confidence: 0.9,
         },
       ],
+      // Perfil do Instagram não é o site da empresa — não há HTML institucional
+      // onde procurar CNPJ.
+      taxIdCandidates: [],
     };
   }
 
@@ -167,8 +186,9 @@ export async function enrichFromWebsite(input: {
       input.website.startsWith("http") ? input.website : `https://${domain}`,
     );
   } catch (err) {
-    if (err instanceof SsrfBlockedError) return { fields: [], status: "blocked", outcomes: [] };
-    return { fields: [], status: "not_found", outcomes: [] };
+    if (err instanceof SsrfBlockedError)
+      return { fields: [], status: "blocked", outcomes: [], taxIdCandidates: [] };
+    return { fields: [], status: "not_found", outcomes: [], taxIdCandidates: [] };
   }
 
   const controller = new AbortController();
@@ -182,19 +202,23 @@ export async function enrichFromWebsite(input: {
     // 5xx = transient provider error → surface as "error" so the caller retries.
     if (!res.ok) {
       const status: EnrichmentStatus = res.status >= 500 ? "error" : "not_found";
-      return { fields: [], status, outcomes: [] };
+      return { fields: [], status, outcomes: [], taxIdCandidates: [] };
     }
     const html = (await res.text()).slice(0, 500_000); // bound payload
     const fields = extract(html, safeUrl.toString());
     return {
       fields,
+      // O status continua refletindo só os campos de CONTATO: um site que só
+      // publica o CNPJ não passa a ser "ok" para contato.
       status: fields.length ? "ok" : "not_found",
       outcomes: outcomesFromFound(fields),
+      taxIdCandidates: extractCnpjCandidates(html),
     };
   } catch (err) {
-    if (err instanceof SsrfBlockedError) return { fields: [], status: "blocked", outcomes: [] };
+    if (err instanceof SsrfBlockedError)
+      return { fields: [], status: "blocked", outcomes: [], taxIdCandidates: [] };
     // Timeout / DNS / connection reset → transient; retryable.
-    return { fields: [], status: "error", outcomes: [] };
+    return { fields: [], status: "error", outcomes: [], taxIdCandidates: [] };
   } finally {
     clearTimeout(timer);
   }

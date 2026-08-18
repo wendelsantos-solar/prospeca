@@ -30,6 +30,8 @@ import {
   type EnrichmentSourceMap,
 } from "@leads/domain/enrichment-state";
 import { companyProcessingKey } from "@leads/domain/job";
+import { isEnrichmentSourceStale } from "@leads/domain/enrichment-state";
+import { websiteCnpjConfidence } from "@leads/domain/business-registry";
 import { calculateUsageCost } from "@leads/domain/cost-model";
 import { createSupabaseJobQueue, stampJobMetrics } from "./job-queue.ts";
 
@@ -83,6 +85,63 @@ export async function upsertWebsiteSource(
     attempts: ((existing?.attempts as number | null) ?? 0) + 1,
     error: null,
     metadata: { fieldsFound: args.found },
+  };
+
+  if (existing) {
+    await admin
+      .from("company_sources")
+      .update(row)
+      .eq("id", existing.id as string);
+  } else {
+    await admin.from("company_sources").insert(row).select("id").maybeSingle();
+  }
+}
+
+/**
+ * Registra a PISTA de CNPJ achada no site como fonte própria.
+ *
+ * Provider distinto (`website_cnpj`) e não `website`: são afirmações
+ * diferentes, com confiança diferente e vida útil diferente. Misturar as duas
+ * na mesma linha faria a confiança do CNPJ herdar a do scraping de contato.
+ *
+ * A metadata guarda TODOS os candidatos, não só o escolhido — quando o site
+ * lista mais de um número, a decisão precisa ser auditável depois.
+ */
+export async function upsertWebsiteCnpjSource(
+  admin: SupabaseClient,
+  args: {
+    organizationId: string;
+    placeId: string;
+    candidates: string[];
+    chosen: string;
+    website: string;
+  },
+): Promise<void> {
+  const { data: existing } = await admin
+    .from("company_sources")
+    .select("id, attempts")
+    .eq("organization_id", args.organizationId)
+    .eq("place_id", args.placeId)
+    .eq("provider", "website_cnpj")
+    .maybeSingle();
+
+  const row = {
+    organization_id: args.organizationId,
+    place_id: args.placeId,
+    provider: "website_cnpj",
+    provider_external_id: args.chosen,
+    source_type: "registry_hint",
+    fetched_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + ENRICHMENT_STALE_DAYS * 86400000).toISOString(),
+    confidence: websiteCnpjConfidence(args.candidates.length),
+    attempts: ((existing?.attempts as number | null) ?? 0) + 1,
+    error: null,
+    metadata: {
+      candidates: args.candidates,
+      chosen: args.chosen,
+      sourceUrl: args.website,
+      ambiguous: args.candidates.length > 1,
+    },
   };
 
   if (existing) {
@@ -233,6 +292,16 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
         ),
       },
     };
+    // ── Descoberta de CNPJ (Fase 10) ────────────────────────────────────────
+    //
+    // O HTML já foi baixado acima; extrair o CNPJ dali não custa requisição
+    // nenhuma. ADITIVO como todo o resto: um tax_id já existente (digitado
+    // pelo usuário ou confirmado pelo registro) NUNCA é sobrescrito por um
+    // palpite de rodapé.
+    const priorTaxId = (place.tax_id as string | null) ?? null;
+    const discoveredTaxId = priorTaxId ? null : (outcome.taxIdCandidates[0] ?? null);
+    if (discoveredTaxId) patch.tax_id = discoveredTaxId;
+
     if (found.email && !place.email) patch.email = found.email;
     if (found.instagram && !place.instagram) patch.instagram = found.instagram;
     if (found.whatsapp && !place.whatsapp) {
@@ -270,6 +339,35 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
       found: Object.keys(found).length,
       website,
     });
+
+    if (discoveredTaxId) {
+      await upsertWebsiteCnpjSource(admin, {
+        organizationId,
+        placeId,
+        candidates: outcome.taxIdCandidates,
+        chosen: discoveredTaxId,
+        website,
+      });
+    }
+
+    // ── Consulta automática ao registro (Fase 11) ───────────────────────────
+    //
+    // Fecha a cadeia: descobriu o CNPJ → busca cadastro, QSA, pessoas e
+    // decisores sem o usuário digitar nada.
+    //
+    // Três guardas que mantêm o volume honesto:
+    //   1. só dispara com CNPJ conhecido (descoberto agora ou já persistido);
+    //   2. só quando a fonte de registro está VENCIDA ou nunca foi consultada
+    //      — o TTL de 90 dias é o freio real; reprocessar uma busca não
+    //      reconsulta nada;
+    //   3. fire-and-forget: a BrasilAPI é gratuita mas sem SLA, e nada nela
+    //      pode atrasar ou derrubar o enrichment de contato, que é o que o
+    //      usuário está esperando na tela.
+    const taxIdForLookup = priorTaxId ?? discoveredTaxId;
+    if (taxIdForLookup && isEnrichmentSourceStale(priorSources, "business_registry")) {
+      const { fireAndForget: dispatchLookup } = await import("./dispatch.ts");
+      dispatchLookup("lookup-cnpj", { placeId, cnpj: taxIdForLookup, organizationId });
+    }
 
     // Fase 3 (unificação de score): o V2 é a engine canônica — em vez de
     // re-gravar o v3 legado POR CIMA do score V2, enfileira um job

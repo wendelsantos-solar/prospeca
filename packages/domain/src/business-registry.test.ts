@@ -132,3 +132,214 @@ describe("company age (V3-D)", () => {
     expect(isEstablishedByAge(null, now)).toBe(false);
   });
 });
+
+// ── Mapeamento BrasilAPI (Fase 3) ───────────────────────────────────────────
+//
+// Regressão do P0: o adapter lia `nome`/`qual`, chaves que a BrasilAPI NÃO
+// devolve. Consequência em produção: todo sócio virava name:"" e era filtrado,
+// `places.qsa` gravava sempre [] e a seção "Decisores" da UI mostrava
+// "Não informado" para toda empresa. Estes testes travam o contrato real,
+// verificado contra a API em 2026-08-18.
+
+import {
+  composeStreetAddress,
+  establishmentTypeFromIdentifier,
+  mapBrasilApiCnpj,
+  mapBrasilApiQsaMember,
+  qsaMemberTypeFromIdentifier,
+  type BrasilApiCnpjPayload,
+} from "./business-registry.ts";
+
+const FETCHED_AT = "2026-08-18T12:00:00.000Z";
+
+/** Shape REAL da BrasilAPI (chaves conferidas contra a resposta HTTP 200). */
+const realPayload = (): BrasilApiCnpjPayload => ({
+  razao_social: "PADARIA CENTRAL LTDA",
+  nome_fantasia: "Padaria Central",
+  cnae_fiscal: 4721102,
+  cnae_fiscal_descricao: "Padaria e confeitaria com predominância de revenda",
+  cnaes_secundarios: [{ codigo: 5611203, descricao: "Lanchonetes" }],
+  situacao_cadastral: 2,
+  descricao_situacao_cadastral: "ATIVA",
+  municipio: "FLORIANOPOLIS",
+  uf: "SC",
+  cep: "88010000",
+  logradouro: "RUA FELIPE SCHMIDT",
+  numero: "100",
+  complemento: "SALA 4",
+  bairro: "CENTRO",
+  identificador_matriz_filial: 1,
+  data_inicio_atividade: "2015-03-10",
+  porte: "DEMAIS",
+  natureza_juridica: "206-2 - Sociedade Empresária Limitada",
+  capital_social: 50000,
+  opcao_pelo_simples: true,
+  data_opcao_pelo_simples: "2015-04-01",
+  opcao_pelo_mei: false,
+  qsa: [
+    {
+      nome_socio: "MARIA SOUZA",
+      qualificacao_socio: "49-Sócio-Administrador",
+      codigo_qualificacao_socio: 49,
+      data_entrada_sociedade: "2015-03-10",
+      identificador_de_socio: 2,
+      nome_representante_legal: "",
+      qualificacao_representante_legal: "Não informada",
+      // PII presente na resposta real — não pode atravessar o mapper.
+      cnpj_cpf_do_socio: "***123456**",
+      cpf_representante_legal: "***000000**",
+      faixa_etaria: "Entre 41 a 50 anos",
+      codigo_faixa_etaria: 4,
+    },
+  ],
+});
+
+test("QSA: mapeia nome_socio/qualificacao_socio (regressão do P0)", () => {
+  const reg = mapBrasilApiCnpj("66777395000141", realPayload(), FETCHED_AT);
+  expect(reg.qsa).not.toBeNull();
+  expect(reg.qsa!.length).toBe(1);
+  expect(reg.qsa![0].name).toBe("MARIA SOUZA");
+  expect(reg.qsa![0].qualification).toBe("49-Sócio-Administrador");
+  expect(reg.qsa![0].qualificationCode).toBe("49");
+  expect(reg.qsa![0].since).toBe("2015-03-10");
+  expect(reg.qsa![0].memberType).toBe("person");
+});
+
+test("QSA: as chaves antigas nome/qual NÃO produzem sócio", () => {
+  // Prova que o bug era real: com o shape que o código antigo esperava, a
+  // fonte não entrega nome nenhum.
+  const wrongShape = {
+    qsa: [{ nome: "JOAO", qual: "Administrador" }],
+  } as unknown as BrasilApiCnpjPayload;
+  const reg = mapBrasilApiCnpj("66777395000141", wrongShape, FETCHED_AT);
+  expect(reg.qsa).toEqual([]);
+});
+
+test("QSA: PII (CPF, faixa etária) nunca atravessa o mapper", () => {
+  const reg = mapBrasilApiCnpj("66777395000141", realPayload(), FETCHED_AT);
+  const serialized = JSON.stringify(reg);
+  expect(serialized).not.toContain("123456");
+  expect(serialized).not.toContain("faixa");
+  expect(serialized).not.toContain("41 a 50");
+  expect(Object.keys(reg.qsa![0]).sort()).toEqual([
+    "legalRepresentativeName",
+    "legalRepresentativeQualification",
+    "memberType",
+    "name",
+    "qualification",
+    "qualificationCode",
+    "since",
+  ]);
+});
+
+test("QSA: ausente = null (não sei) e vazio = [] (fonte diz que não há)", () => {
+  expect(mapBrasilApiCnpj("1", {}, FETCHED_AT).qsa).toBeNull();
+  expect(mapBrasilApiCnpj("1", { qsa: [] }, FETCHED_AT).qsa).toEqual([]);
+});
+
+test("QSA: linha sem nome é descartada", () => {
+  expect(mapBrasilApiQsaMember({ qualificacao_socio: "Administrador" })).toBeNull();
+  expect(mapBrasilApiQsaMember({ nome_socio: "   " })).toBeNull();
+});
+
+test("identificador_de_socio → memberType", () => {
+  expect(qsaMemberTypeFromIdentifier(1)).toBe("company");
+  expect(qsaMemberTypeFromIdentifier("2")).toBe("person");
+  expect(qsaMemberTypeFromIdentifier(3)).toBe("foreign");
+  expect(qsaMemberTypeFromIdentifier(null)).toBe("unknown");
+});
+
+test("identificador_matriz_filial → establishmentType", () => {
+  expect(establishmentTypeFromIdentifier(1)).toBe("headquarters");
+  expect(establishmentTypeFromIdentifier("2")).toBe("branch");
+  expect(establishmentTypeFromIdentifier(undefined)).toBe("unknown");
+});
+
+test("endereço oficial compõe só o que a fonte respondeu", () => {
+  expect(composeStreetAddress("RUA A", "100", "SALA 4")).toBe("RUA A, 100 - SALA 4");
+  expect(composeStreetAddress("RUA A", "100", null)).toBe("RUA A, 100");
+  expect(composeStreetAddress("RUA A", null, null)).toBe("RUA A");
+  expect(composeStreetAddress(null, null, null)).toBeNull();
+});
+
+test("payload real → DTO canônico completo", () => {
+  const reg = mapBrasilApiCnpj("66777395000141", realPayload(), FETCHED_AT);
+  expect(reg.taxId).toBe("66777395000141");
+  expect(reg.legalName).toBe("PADARIA CENTRAL LTDA");
+  expect(reg.tradeName).toBe("Padaria Central");
+  expect(reg.primaryCnae).toBe("4721102");
+  expect(reg.secondaryCnaes).toEqual(["5611203"]);
+  expect(reg.status).toBe("active");
+  expect(reg.streetAddress).toBe("RUA FELIPE SCHMIDT, 100 - SALA 4");
+  expect(reg.district).toBe("CENTRO");
+  expect(reg.establishmentType).toBe("headquarters");
+  expect(reg.capitalSocial).toBe(50000);
+  expect(reg.simplesNacional).toBe(true);
+  expect(reg.fetchedAt).toBe(FETCHED_AT);
+});
+
+// ── Descoberta de CNPJ no site (Fase 10) ────────────────────────────────────
+
+import { extractCnpjCandidates, websiteCnpjConfidence } from "./business-registry.ts";
+
+// CNPJs com checksum VÁLIDO, usados só como fixture.
+const VALID_A = "66777395000141";
+const VALID_B = "11222333000181";
+
+test("acha CNPJ formatado no rodapé", () => {
+  const html = `<footer>CNPJ: 66.777.395/0001-41 — Todos os direitos reservados</footer>`;
+  expect(extractCnpjCandidates(html)).toEqual([VALID_A]);
+});
+
+test("acha CNPJ sem formatação", () => {
+  expect(extractCnpjCandidates(`<p>CNPJ ${VALID_A}</p>`)).toEqual([VALID_A]);
+});
+
+test("aceita formatação mista", () => {
+  expect(extractCnpjCandidates("66.777.395/000141")).toEqual([VALID_A]);
+});
+
+test("rejeita 14 dígitos com checksum inválido", () => {
+  // Um telefone concatenado, um id de produto — nada disso é CNPJ.
+  expect(extractCnpjCandidates("<p>12345678901234</p>")).toEqual([]);
+  expect(extractCnpjCandidates("<p>00.000.000/0000-00</p>")).toEqual([]);
+});
+
+test("não casa pedaço de número maior", () => {
+  expect(extractCnpjCandidates(`<p>9${VALID_A}9</p>`)).toEqual([]);
+});
+
+test("descarta CNPJ da AGÊNCIA que fez o site", () => {
+  // Armadilha real de rodapé brasileiro: gravar isso mostraria a empresa errada.
+  const html = `<footer>Desenvolvido por Agência Foo — CNPJ 66.777.395/0001-41</footer>`;
+  expect(extractCnpjCandidates(html)).toEqual([]);
+});
+
+test("mantém o CNPJ da empresa e descarta o da agência no mesmo rodapé", () => {
+  const html = `
+    <footer>
+      Padaria Central — CNPJ ${VALID_A}
+      <span>Site desenvolvido por Bar Agência - CNPJ ${VALID_B}</span>
+    </footer>`;
+  expect(extractCnpjCandidates(html)).toEqual([VALID_A]);
+});
+
+test("marcador de autoria casa com e sem acento", () => {
+  expect(extractCnpjCandidates(`agência responsável, CNPJ ${VALID_A}`)).toEqual([]);
+  expect(extractCnpjCandidates(`agencia responsavel, CNPJ ${VALID_A}`)).toEqual([]);
+});
+
+test("preserva ordem de aparição e não repete", () => {
+  const html = `${VALID_B} ... ${VALID_A} ... ${VALID_B}`;
+  expect(extractCnpjCandidates(html)).toEqual([VALID_B, VALID_A]);
+});
+
+test("HTML vazio ou sem CNPJ devolve lista vazia", () => {
+  expect(extractCnpjCandidates("")).toEqual([]);
+  expect(extractCnpjCandidates("<p>sem numero aqui</p>")).toEqual([]);
+});
+
+test("confiança cai quando o site lista mais de um CNPJ", () => {
+  expect(websiteCnpjConfidence(1)).toBeGreaterThan(websiteCnpjConfidence(2));
+  expect(websiteCnpjConfidence(1)).toBeLessThan(1); // nunca é fato, é candidato
+});

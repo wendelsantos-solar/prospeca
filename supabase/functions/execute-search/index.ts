@@ -4,7 +4,7 @@
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
-import { recordPaidUsage, recordUsage } from "../_shared/quota.ts";
+import { recordPaidUsage } from "../_shared/quota.ts";
 import { calculateUsageCost } from "@leads/domain/cost-model";
 import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";

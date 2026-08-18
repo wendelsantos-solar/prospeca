@@ -91,6 +91,14 @@ export const businessRegistrationKeys = {
   byPlace: (placeId: string) => ["business-registration", placeId] as const,
 };
 
+export const companyPeopleKeys = {
+  byPlace: (placeId: string) => ["company-people", placeId] as const,
+};
+
+export const cnpjOriginKeys = {
+  byPlace: (placeId: string) => ["cnpj-origin", placeId] as const,
+};
+
 /** Registration fields persisted on the place by lookup-cnpj (RLS read). */
 export interface BusinessRegistrationRow {
   tax_id: string | null;
@@ -110,12 +118,18 @@ export interface BusinessRegistrationRow {
   is_mei?: boolean | null;
   founded_at?: string | null;
   registry_city?: string | null;
-  /** QSA — quadro de sócios e administradores (decisores). */
+  /**
+   * QSA — snapshot BRUTO da fonte. A visão de produto (pessoas + decisores)
+   * vem de `useCompanyPeople`; isto aqui é a evidência de origem.
+   */
   qsa?: Array<{ name: string; qualification: string | null }> | null;
   registry_state?: string | null;
   registry_postal_code?: string | null;
   registry_email?: string | null;
   registry_phone?: string | null;
+  registry_street_address?: string | null;
+  registry_district?: string | null;
+  establishment_type?: string | null;
 }
 
 export function useBusinessRegistration(placeId?: string | null) {
@@ -126,7 +140,7 @@ export function useBusinessRegistration(placeId?: string | null) {
       const { data, error } = await getSupabase()
         .from("places")
         .select(
-          "tax_id, legal_name, primary_cnae, cnae_description, secondary_cnaes, registration_status, registration_status_description, registration_fetched_at, enrichment_sources, company_size, legal_nature, capital_social, simples_nacional, simples_opted_at, is_mei, founded_at, registry_city, registry_state, registry_postal_code, registry_email, registry_phone, qsa",
+          "tax_id, legal_name, primary_cnae, cnae_description, secondary_cnaes, registration_status, registration_status_description, registration_fetched_at, enrichment_sources, company_size, legal_nature, capital_social, simples_nacional, simples_opted_at, is_mei, founded_at, registry_city, registry_state, registry_postal_code, registry_email, registry_phone, registry_street_address, registry_district, establishment_type, qsa",
         )
         .eq("id", placeId)
         .maybeSingle();
@@ -138,13 +152,101 @@ export function useBusinessRegistration(placeId?: string | null) {
   });
 }
 
+/**
+ * Pessoas ligadas à empresa, já classificadas como decisores (Fases 4–5).
+ *
+ * Leitura DIRETA sob RLS, mesma convenção de `useBusinessRegistration`: as
+ * policies de `company_people`/`people` só liberam linhas da organização do
+ * usuário, então não há endpoint novo a criar nem provider a expor.
+ */
+export interface CompanyPersonRow {
+  id: string;
+  role: string | null;
+  role_band: "high" | "medium" | "low" | "unknown" | null;
+  decision_score: number | null;
+  decision_reasons: {
+    version?: string;
+    reasons?: string[];
+    dataConfidence?: number;
+  } | null;
+  member_type: "company" | "person" | "foreign" | "unknown";
+  source: string;
+  source_provider: string;
+  confidence: number;
+  started_at: string | null;
+  is_current: boolean;
+  legal_representative_name: string | null;
+  legal_representative_role: string | null;
+  fetched_at: string;
+  people: { full_name: string; identity_confidence: number } | null;
+}
+
+export function useCompanyPeople(placeId?: string | null) {
+  return useQuery<CompanyPersonRow[]>({
+    queryKey: companyPeopleKeys.byPlace(placeId ?? "none"),
+    queryFn: async () => {
+      if (!placeId) return [];
+      const { data, error } = await getSupabase()
+        .from("company_people")
+        .select(
+          "id, role, role_band, decision_score, decision_reasons, member_type, source, source_provider, confidence, started_at, is_current, legal_representative_name, legal_representative_role, fetched_at, people(full_name, identity_confidence)",
+        )
+        .eq("place_id", placeId)
+        .order("decision_score", { ascending: false, nullsFirst: false });
+      if (error) throw new Error(error.message);
+      return (data as unknown as CompanyPersonRow[]) ?? [];
+    },
+    enabled: !!placeId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Origem do CNPJ quando ele foi DESCOBERTO no site da empresa em vez de
+ * digitado. Um CNPJ auto-descoberto pode ser o da agência que fez o site, e
+ * exibi-lo sem essa ressalva o faria passar por dado oficial.
+ */
+export interface CnpjOriginRow {
+  provider_external_id: string | null;
+  confidence: number;
+  fetched_at: string;
+  metadata: { candidates?: string[]; ambiguous?: boolean; sourceUrl?: string } | null;
+}
+
+export function useCnpjOrigin(placeId?: string | null) {
+  return useQuery<CnpjOriginRow | null>({
+    queryKey: cnpjOriginKeys.byPlace(placeId ?? "none"),
+    queryFn: async () => {
+      if (!placeId) return null;
+      const { data, error } = await getSupabase()
+        .from("company_sources")
+        .select("provider_external_id, confidence, fetched_at, metadata")
+        .eq("place_id", placeId)
+        .eq("provider", "website_cnpj")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as CnpjOriginRow | null) ?? null;
+    },
+    enabled: !!placeId,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useCnpjLookupMutation(placeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (cnpj: string) =>
-      invokeFunction<{ found: boolean; reason?: string }>("lookup-cnpj", { placeId, cnpj }),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: businessRegistrationKeys.byPlace(placeId) }),
+      invokeFunction<{ found: boolean; reason?: string; peopleResolved?: number }>("lookup-cnpj", {
+        placeId,
+        cnpj,
+      }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: businessRegistrationKeys.byPlace(placeId) });
+      // A consulta reescreve pessoas e decisores — invalidar só o cadastro
+      // deixaria a lista de decisores exibindo o resultado anterior.
+      queryClient.invalidateQueries({ queryKey: companyPeopleKeys.byPlace(placeId) });
+      queryClient.invalidateQueries({ queryKey: cnpjOriginKeys.byPlace(placeId) });
+    },
   });
 }
 

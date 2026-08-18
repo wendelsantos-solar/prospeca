@@ -109,6 +109,10 @@ describeIfDb(
     let placeContactFresh: string; // contato fresco + registro vencido (por-grupo)
     let placeRecent: string; // tudo fresco — fora da política
     let placeConverted: string; // convertido — intocável
+    let personStaleOnly: string; // só em place vencido → some com ele
+    let personShared: string; // em place vencido E em place fresco → sobrevive
+    let personConverted: string; // em place convertido → intocável
+    let personFreshOrphan: string; // órfã recém-criada → protegida da corrida
 
     beforeAll(async () => {
       org = await createActor("org");
@@ -192,6 +196,49 @@ describeIfDb(
         place_id: placeConverted,
       });
       if (leadError) throw new Error(`insert lead: ${leadError.message}`);
+
+      // ── People Intelligence (20260818000023) ──────────────────────────────
+      // As pessoas derivadas do QSA têm que seguir EXATAMENTE o destino do QSA
+      // bruto: se o registro venceu, a relação e a pessoa órfã somem junto.
+      async function insertPerson(marker: string, createdAt: string): Promise<string> {
+        const { data, error } = await admin
+          .from("people")
+          .insert({
+            organization_id: org.organizationId,
+            full_name: `Pessoa ${marker} ${RUN}`,
+            normalized_name: `pessoa ${marker} ${RUN}`.toLowerCase(),
+            created_at: createdAt,
+          })
+          .select("id")
+          .single();
+        if (error) throw new Error(`insert person ${marker}: ${error.message}`);
+        return data.id;
+      }
+
+      async function relate(placeId: string, personId: string) {
+        const { error } = await admin.from("company_people").insert({
+          organization_id: org.organizationId,
+          place_id: placeId,
+          person_id: personId,
+          role: "Sócio-Administrador",
+          role_code: "49",
+          member_type: "person",
+          source: "qsa",
+        });
+        if (error) throw new Error(`relate: ${error.message}`);
+      }
+
+      personStaleOnly = await insertPerson("stale", OLD);
+      await relate(placeRegistryOnly, personStaleOnly);
+
+      personShared = await insertPerson("shared", OLD);
+      await relate(placeRegistryOnly, personShared);
+      await relate(placeRecent, personShared);
+
+      personConverted = await insertPerson("converted", OLD);
+      await relate(placeConverted, personConverted);
+
+      personFreshOrphan = await insertPerson("freshorphan", FRESH);
     });
 
     afterAll(async () => {
@@ -266,6 +313,53 @@ describeIfDb(
       expect(row.whatsapp).not.toBeNull();
       expect(row.qsa).not.toBeNull();
       expect(row.registry_email).not.toBeNull();
+    });
+
+    // ── People Intelligence — a PII derivada segue o destino da PII bruta ────
+
+    async function relationCount(placeId: string, personId: string): Promise<number> {
+      const { count, error } = await admin
+        .from("company_people")
+        .select("id", { count: "exact", head: true })
+        .eq("place_id", placeId)
+        .eq("person_id", personId);
+      if (error) throw new Error(`count relation: ${error.message}`);
+      return count ?? 0;
+    }
+
+    async function personExists(personId: string): Promise<boolean> {
+      const { data, error } = await admin
+        .from("people")
+        .select("id")
+        .eq("id", personId)
+        .maybeSingle();
+      if (error) throw new Error(`select person: ${error.message}`);
+      return data != null;
+    }
+
+    test("relação derivada de QSA vencido é REMOVIDA junto com o QSA", async () => {
+      expect(await relationCount(placeRegistryOnly, personStaleOnly)).toBe(0);
+    });
+
+    test("pessoa que ficou sem nenhuma relação é removida", async () => {
+      expect(await personExists(personStaleOnly)).toBe(false);
+    });
+
+    test("pessoa com relação AINDA válida em outra empresa sobrevive", async () => {
+      // A relação vencida some; a relação com o place fresco permanece, e com
+      // ela a base legal — a pessoa não pode ser apagada.
+      expect(await relationCount(placeRegistryOnly, personShared)).toBe(0);
+      expect(await relationCount(placeRecent, personShared)).toBe(1);
+      expect(await personExists(personShared)).toBe(true);
+    });
+
+    test("relação de place CONVERTIDO permanece intacta", async () => {
+      expect(await relationCount(placeConverted, personConverted)).toBe(1);
+      expect(await personExists(personConverted)).toBe(true);
+    });
+
+    test("pessoa órfã RECÉM-criada é protegida (corrida com enrichment em curso)", async () => {
+      expect(await personExists(personFreshOrphan)).toBe(true);
     });
   },
 );

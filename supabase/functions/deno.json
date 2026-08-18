@@ -36,6 +36,13 @@
     "@leads/domain/notifications": "../../packages/domain/src/notifications.ts",
     "@leads/domain/intent-signals": "../../packages/domain/src/intent-signals.ts",
     "@leads/geo": "../../packages/geo/src/index.ts",
-    "@leads/domain/cost-model": "../../packages/domain/src/cost-model.ts"
+    "@leads/domain/cost-model": "../../packages/domain/src/cost-model.ts",
+    "@leads/domain/person": "../../packages/domain/src/person.ts",
+    "@leads/domain/decision-maker": "../../packages/domain/src/decision-maker.ts"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
+    }
   }
 }

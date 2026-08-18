@@ -34,6 +34,8 @@ import {
   ENRICHMENT_SOURCE_TTL_DAYS,
   type EnrichmentSourceMap,
 } from "@leads/domain/enrichment-state";
+import { resolvePeopleFromQsa, type ResolvedPerson } from "@leads/domain/person";
+import { calculateDecisionMakerScore } from "@leads/domain/decision-maker";
 
 const InputSchema = z.object({
   placeId: z.string().uuid(),
@@ -41,6 +43,117 @@ const InputSchema = z.object({
   /** Internal (service-role) calls only — validated against the place's org. */
   organizationId: z.string().uuid().optional(),
 });
+
+/**
+ * Materializa pessoas + relações a partir do QSA já normalizado.
+ *
+ * IDEMPOTENTE por construção: `people` tem unique (organization_id,
+ * normalized_name) e `company_people` tem unique (organization_id, place_id,
+ * person_id, source). Reconsultar o mesmo CNPJ, ou dois requests concorrentes,
+ * convergem para as MESMAS linhas — nunca duplicam.
+ *
+ * Relações que sumiram do QSA vigente são marcadas `is_current = false` em vez
+ * de apagadas: a saída de sociedade é informação, e apagar a linha faria a
+ * empresa parecer nunca ter tido aquele sócio. O expurgo LGPD continua sendo o
+ * único a remover linha.
+ */
+async function persistPeople(
+  admin: ReturnType<typeof adminClient>,
+  organizationId: string,
+  placeId: string,
+  resolved: ResolvedPerson[],
+): Promise<number> {
+  if (resolved.length === 0) {
+    // QSA vazio/ausente: nada a criar. As relações anteriores, se houver,
+    // deixam de ser vigentes.
+    await admin
+      .from("company_people")
+      .update({ is_current: false })
+      .eq("organization_id", organizationId)
+      .eq("place_id", placeId)
+      .eq("source", "qsa");
+    return 0;
+  }
+
+  const { data: people, error: peopleErr } = await admin
+    .from("people")
+    .upsert(
+      resolved.map((r) => ({
+        organization_id: organizationId,
+        full_name: r.fullName,
+        normalized_name: r.normalizedName,
+        identity_method: r.identityMethod,
+        identity_confidence: r.identityConfidence,
+      })),
+      { onConflict: "organization_id,normalized_name" },
+    )
+    .select("id, normalized_name");
+  if (peopleErr) throw new Error(`people upsert: ${peopleErr.message}`);
+
+  const idByName = new Map<string, string>(
+    (people ?? []).map((p) => [p.normalized_name as string, p.id as string]),
+  );
+
+  const rows = resolved
+    .map((r) => {
+      const personId = idByName.get(r.normalizedName);
+      if (!personId) return null;
+      // Decision Maker (Fase 5) — determinístico, calculado na escrita para que
+      // a leitura seja barata. Reprocessar é só rodar o classificador de novo
+      // sobre o QSA bruto, sem gastar consulta na fonte.
+      const decision = calculateDecisionMakerScore({
+        role: r.relation.role,
+        memberType: r.relation.memberType,
+        isCurrent: r.relation.isCurrent,
+        confidence: r.relation.confidence,
+        source: r.relation.source,
+        startedAt: r.relation.startedAt,
+        legalRepresentativeName: r.relation.legalRepresentativeName,
+      });
+      return {
+        organization_id: organizationId,
+        place_id: placeId,
+        person_id: personId,
+        role: r.relation.role,
+        role_code: r.relation.roleCode,
+        role_band: decision.band,
+        decision_score: decision.score,
+        decision_reasons: {
+          version: decision.version,
+          reasons: decision.reasons,
+          dataConfidence: decision.dataConfidence,
+        },
+        member_type: r.relation.memberType,
+        source: r.relation.source,
+        source_provider: r.relation.sourceProvider,
+        confidence: r.relation.confidence,
+        started_at: r.relation.startedAt,
+        ended_at: r.relation.endedAt,
+        is_current: r.relation.isCurrent,
+        legal_representative_name: r.relation.legalRepresentativeName,
+        legal_representative_role: r.relation.legalRepresentativeRole,
+        fetched_at: new Date().toISOString(),
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  const { error: relErr } = await admin
+    .from("company_people")
+    .upsert(rows, { onConflict: "organization_id,place_id,person_id,source" });
+  if (relErr) throw new Error(`company_people upsert: ${relErr.message}`);
+
+  // Quem não veio no QSA vigente deixa de ser relação atual.
+  const currentIds = rows.map((r) => r.person_id);
+  await admin
+    .from("company_people")
+    .update({ is_current: false })
+    .eq("organization_id", organizationId)
+    .eq("place_id", placeId)
+    .eq("source", "qsa")
+    .not("person_id", "in", `(${currentIds.join(",")})`);
+
+  return rows.length;
+}
 
 Deno.serve(async (req) => {
   const opts = handleOptions(req);
@@ -240,6 +353,9 @@ Deno.serve(async (req) => {
       registry_postal_code: registration.postalCode,
       registry_email: registration.email,
       registry_phone: registration.phone,
+      registry_street_address: registration.streetAddress,
+      registry_district: registration.district,
+      establishment_type: registration.establishmentType,
     };
     // QSA (decisores) — só grava quando a fonte respondeu o campo; nunca
     // sobrescreve um QSA existente com null.
@@ -252,6 +368,28 @@ Deno.serve(async (req) => {
       patch.registration_status_description = registration.statusDescription;
 
     await admin.from("places").update(patch).eq("id", placeId);
+
+    // People Intelligence — o QSA bruto acabou de ser persistido; aqui ele
+    // vira relação normalizada. Falha nessa derivação NUNCA invalida o
+    // cadastro: o dado empresarial já está gravado e continua utilizável.
+    let peopleResolved = 0;
+    try {
+      peopleResolved = await persistPeople(
+        admin,
+        organizationId,
+        placeId,
+        resolvePeopleFromQsa(registration.qsa),
+      );
+    } catch (peopleErr) {
+      logEvent({
+        requestId,
+        organizationId,
+        operation: "lookup-cnpj",
+        status: "people_resolution_failed",
+        error: peopleErr instanceof Error ? peopleErr.message : String(peopleErr),
+      });
+    }
+
     await stampSource("enriched");
     await upsertSourceRow(1, registration.taxId, {
       result: "found",
@@ -264,7 +402,7 @@ Deno.serve(async (req) => {
       operation: "lookup-cnpj",
       status: "ok",
     });
-    return json({ found: true, registration }, 200, {}, req);
+    return json({ found: true, registration, peopleResolved }, 200, {}, req);
   } catch (err) {
     if (err instanceof AppError) return err.toResponse(requestId, req);
     logEvent({ requestId, operation: "lookup-cnpj", status: "error" });

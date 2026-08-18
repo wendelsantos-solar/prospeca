@@ -3,39 +3,25 @@
 // provided so the lookup path can run disabled/offline without fabricating
 // data. Mirrors the enrich.ts split: HTTP lives here, pure rules in
 // @leads/domain/business-registry.
+//
+// Este arquivo é DELIBERADAMENTE fino: rede (retry/timeout) e nada mais. O
+// shape cru da BrasilAPI e sua tradução vivem no domínio (mapBrasilApiCnpj),
+// onde são cobertos por teste — o mapeamento do QSA já quebrou uma vez em
+// silêncio justamente por morar aqui, fora do alcance dos testes.
 import {
   isValidCnpj,
+  mapBrasilApiCnpj,
   normalizeCnpj,
-  registrationStatusFromSituacao,
+  type BrasilApiCnpjPayload,
   type BusinessRegistration,
   type BusinessRegistryProvider,
 } from "@leads/domain/business-registry";
+import { fetchWithRetry } from "./fetch-retry.ts";
 
 const BRASIL_API_BASE = "https://brasilapi.com.br/api/cnpj/v1";
-
-interface BrasilApiCnpjResponse {
-  razao_social?: string;
-  nome_fantasia?: string | null;
-  cnae_fiscal?: number;
-  cnae_fiscal_descricao?: string;
-  cnaes_secundarios?: Array<{ codigo?: number; descricao?: string } | number | string>;
-  situacao_cadastral?: string | number;
-  descricao_situacao_cadastral?: string;
-  municipio?: string;
-  uf?: string;
-  cep?: string;
-  ddd_telefone_1?: string;
-  email?: string;
-  data_inicio_atividade?: string;
-  porte?: string;
-  natureza_juridica?: string;
-  capital_social?: number;
-  opcao_pelo_simples?: boolean;
-  data_opcao_pelo_simples?: string;
-  opcao_pelo_mei?: boolean;
-  /** QSA — quadro de sócios e administradores (decisores). */
-  qsa?: Array<{ nome?: string; qual?: string }>;
-}
+/** Timeout por tentativa. A BrasilAPI é gratuita e sem SLA — curto de propósito. */
+const REGISTRY_TIMEOUT_MS = 8000;
+const REGISTRY_RETRY_ATTEMPTS = 3;
 
 export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
   constructor(private baseUrl: string = BRASIL_API_BASE) {}
@@ -44,56 +30,23 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
     const taxId = normalizeCnpj(cnpj);
     if (!isValidCnpj(taxId)) return null;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    try {
-      const res = await fetch(`${this.baseUrl}/${taxId}`, {
-        signal: controller.signal,
-        headers: { "User-Agent": "leads-platform-registry/1.0", Accept: "application/json" },
-      });
-      if (res.status === 404) return null; // unknown CNPJ
-      if (!res.ok) throw new Error(`business registry ${res.status}`);
-      const raw = (await res.json()) as BrasilApiCnpjResponse;
+    // Resiliência (brief §17): retry só em transitório (429/408/5xx/timeout/
+    // rede), nunca em 400/404. Backoff exponencial respeitando Retry-After —
+    // mecanismo COMPARTILHADO (_shared/fetch-retry.ts), não um segundo retry.
+    const res = await fetchWithRetry(
+      `${this.baseUrl}/${taxId}`,
+      { headers: { "User-Agent": "leads-platform-registry/1.0", Accept: "application/json" } },
+      {
+        attempts: REGISTRY_RETRY_ATTEMPTS,
+        timeoutMs: REGISTRY_TIMEOUT_MS,
+        onExhausted: () => new Error("business registry unavailable"),
+      },
+    );
+    if (res.status === 404) return null; // unknown CNPJ
+    if (!res.ok) throw new Error(`business registry ${res.status}`);
+    const raw = (await res.json()) as BrasilApiCnpjPayload;
 
-      return {
-        taxId,
-        legalName: raw.razao_social ?? null,
-        tradeName: raw.nome_fantasia ?? null,
-        primaryCnae: raw.cnae_fiscal != null ? String(raw.cnae_fiscal) : null,
-        cnaeDescription: raw.cnae_fiscal_descricao ?? null,
-        secondaryCnaes: (raw.cnaes_secundarios ?? [])
-          .map((c) => (typeof c === "object" ? String(c.codigo ?? "") : String(c)))
-          .filter(Boolean),
-        status: registrationStatusFromSituacao(raw.situacao_cadastral),
-        statusDescription:
-          raw.descricao_situacao_cadastral ?? (String(raw.situacao_cadastral ?? "") || null),
-        city: raw.municipio ?? null,
-        state: raw.uf ?? null,
-        postalCode: raw.cep ?? null,
-        // BrasilAPI only exposes the DDD (full phone is a paid endpoint); keep
-        // it for a future phone-enrichment pass, never treat it as a full number.
-        phone: raw.ddd_telefone_1 ?? null,
-        email: raw.email ?? null,
-        foundedAt: raw.data_inicio_atividade ?? null,
-        companySize: raw.porte ?? null,
-        legalNature: raw.natureza_juridica ?? null,
-        capitalSocial: typeof raw.capital_social === "number" ? raw.capital_social : null,
-        simplesNacional: raw.opcao_pelo_simples ?? null,
-        simplesOptedAt: raw.data_opcao_pelo_simples ?? null,
-        isMei: raw.opcao_pelo_mei ?? null,
-        qsa: Array.isArray(raw.qsa)
-          ? raw.qsa
-              .map((m) => ({
-                name: (m.nome ?? "").trim(),
-                qualification: m.qual?.trim() || null,
-              }))
-              .filter((m) => m.name)
-          : null,
-        fetchedAt: new Date().toISOString(),
-      };
-    } finally {
-      clearTimeout(timer);
-    }
+    return mapBrasilApiCnpj(taxId, raw, new Date().toISOString());
   }
 }
 
