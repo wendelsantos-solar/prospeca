@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { useDashboardOverview } from "@/hooks/useLeadsQuery";
+import { usePeriodStore } from "@/stores";
+import { resolvePeriod, previousWindow } from "@/lib/period";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ValueProofView } from "@/components/app/ValueProofView";
+import { valueProofFromAllTime } from "@/lib/value-proof";
 
 const Dashboard = lazy(() =>
   import("@/components/app/Dashboard").then((m) => ({ default: m.Dashboard })),
 );
-
-const DEFAULT_FILTERS = { quick: [] };
 
 type PainelTab = "conversion" | "value";
 
@@ -34,10 +35,26 @@ function PainelSkeleton() {
 }
 
 function PainelPage() {
-  // CRM real — leads from TanStack Query (Phase 3)
-  const { data, isLoading, error, refetch } = useLeadsList(DEFAULT_FILTERS);
-  const leads = data?.items ?? [];
+  // Fase 4.2: métricas do painel vêm do SERVIDOR (get_dashboard_overview,
+  // membership check, agregação sobre a carteira INTEIRA) — nunca do array
+  // truncado de 50 leads.
+  const period = usePeriodStore((s) => s.period);
+  const customFrom = usePeriodStore((s) => s.customFrom);
+  const customTo = usePeriodStore((s) => s.customTo);
+  const win = useMemo(
+    () => resolvePeriod(period, customFrom, customTo),
+    [period, customFrom, customTo],
+  );
+  const prevWin = useMemo(() => previousWindow(win), [win]);
+  const { current, previous } = useDashboardOverview(win, prevWin);
   const [tab, setTab] = useState<PainelTab>("conversion");
+
+  const isLoading = current.isLoading || previous.isLoading;
+  const error = current.error ?? previous.error;
+  const retry = () => {
+    void current.refetch();
+    void previous.refetch();
+  };
 
   return (
     <div className="h-full overflow-y-auto">
@@ -74,15 +91,15 @@ function PainelPage() {
         ) : error ? (
           <ErrorState
             title="Falha ao carregar o painel"
-            description="Não foi possível carregar os leads. Verifique sua conexão."
-            onRetry={() => refetch()}
+            description="Não foi possível carregar as métricas. Verifique sua conexão."
+            onRetry={retry}
           />
         ) : tab === "conversion" ? (
           <Suspense fallback={<PainelSkeleton />}>
-            <Dashboard leads={leads} />
+            <Dashboard current={current.data!} previous={previous.data!} />
           </Suspense>
         ) : (
-          <ValueProofView leads={leads} />
+          <ValueProofView vp={valueProofFromAllTime(current.data!.allTime)} />
         )}
       </div>
     </div>

@@ -13,8 +13,8 @@ import {
   Trophy,
   Wallet,
 } from "lucide-react";
-import type { Lead } from "@/types";
-import { computeValueProof, valueProofSummary } from "@/lib/value-proof";
+import type { ValueProof } from "@/lib/value-proof";
+import { valueProofSummary } from "@/lib/value-proof";
 import { formatBRL } from "@/lib/format";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,11 @@ import { toast } from "sonner";
 
 /** "Prova de valor" — um resumo real, fundamentado nos números do funil, que o
  * profissional pode mostrar a um prospecto (ou copiar) para justificar o próprio
- * serviço. Nenhum número estimado: só o que de fato foi mapeado e feito. */
-export function ValueProofView({ leads }: { leads: Lead[] }) {
-  const vp = useMemo(() => computeValueProof(leads), [leads]);
+ * serviço. Nenhum número estimado: só o que de fato foi mapeado e feito.
+ * Fase 4.2: recebe o ValueProof já mapeado do bloco `allTime` da
+ * get_dashboard_overview (servidor, carteira inteira) — não agrega arrays. */
+export function ValueProofView({ vp: inputVp }: { vp: ValueProof }) {
+  const vp = useMemo(() => inputVp, [inputVp]);
   const summary = useMemo(() => valueProofSummary(vp), [vp]);
   const [copied, setCopied] = useState(false);
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
+import { useLeadsListInfinite } from "@/hooks/useLeadsQuery";
 import { ActivityItem } from "@/components/app/ActivityItem";
 import { ErrorState } from "@/components/shared/ErrorState";
 import type { Lead, LeadActivity } from "@/types";
@@ -36,8 +36,16 @@ function endOfDay(d: Date) {
 }
 
 function AgendaPage() {
-  const { data, isLoading, error, refetch } = useLeadsList({ quick: [] });
-  const leads = useMemo(() => data?.items ?? [], [data]);
+  // P3 (Fase 4c): consumidor legado do teto — agora infinite (agenda ve toda
+  // a carteira, com paginação sob demanda igual ao Kanban/Hoje).
+  const infinite = useLeadsListInfinite({ quick: [] });
+  const leads = useMemo(
+    () => (infinite.data?.pages ?? []).flatMap((p) => p.items),
+    [infinite.data],
+  );
+  const isLoading = infinite.isLoading;
+  const error = infinite.error;
+  const refetch = () => void infinite.refetch();
   const [tab, setTab] = useState<Tab>("today");
 
   const rows = useMemo(() => {

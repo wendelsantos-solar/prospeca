@@ -5,6 +5,7 @@
 import { AppError, handleOptions, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { assertRateLimit, recordUsage, writeAudit } from "../_shared/quota.ts";
+import { assertFeatureAccess } from "../_shared/entitlements.ts";
 import {
   CreateExportSchema,
   EXPORTABLE_LEAD_FIELDS,
@@ -42,19 +43,49 @@ Deno.serve(async (req) => {
     const fields = requested.filter((c) => EXPORTABLE_COLUMNS.has(c));
     if (fields.length === 0) throw new AppError("VALIDATION_ERROR", "Nenhum campo válido.");
 
-    await assertRateLimit(ctx.adminClient, ctx.organizationId, "export_record", 3);
+    // Fase 4.4: o formato exportado respeita o plano (csv_export / xlsx_export
+    // em billing_plans.features — free tem csv mas NÃO tem xlsx). Antes do rate
+    // limit: export recusado por plano NÃO deve consumir a cota de rate limit.
+    await assertFeatureAccess(
+      ctx.adminClient,
+      ctx.organizationId,
+      input.format === "xlsx" ? "xlsx_export" : "csv_export",
+    );
+
+    // Rate limit do export: 10/min (era 3). Racional: 3 era border-line para
+    // uso legítimo — o export respeita os filtros da tela e um usuário testando
+    // formatos/filtros (CSV depois XLSX, ajuste de filtro) estoura 3 facilmente.
+    // 10 continua anti-abuso (um export lê até 5000 linhas e grava auditoria;
+    // o teto de uso fica por exportRowsPerMonth no plano).
+    await assertRateLimit(ctx.adminClient, ctx.organizationId, "export_record", 10);
 
     let query = ctx.userClient
       .from("leads")
       .select(fields.join(","))
       .eq("organization_id", ctx.organizationId)
       .limit(5000);
-    if (input.filters.stages?.length) query = query.in("stage", input.filters.stages);
-    if (input.filters.temperatures?.length)
-      query = query.in("temperature", input.filters.temperatures);
-    if (input.filters.cities?.length) query = query.in("city", input.filters.cities);
-    if (input.filters.categories?.length) query = query.in("category", input.filters.categories);
-    if (input.filters.minScore != null) query = query.gte("score", input.filters.minScore);
+    const f = input.filters;
+    if (f.stages?.length) query = query.in("stage", f.stages);
+    if (f.temperatures?.length) query = query.in("temperature", f.temperatures);
+    if (f.cities?.length) query = query.in("city", f.cities);
+    if (f.categories?.length) query = query.in("category", f.categories);
+    if (f.neighborhoods?.length) query = query.in("neighborhood", f.neighborhoods);
+    if (f.minScore != null) query = query.gte("score", f.minScore);
+    if (f.maxScore != null) query = query.lte("score", f.maxScore);
+    if (f.minRating != null) query = query.gte("rating", f.minRating);
+    if (f.minReviews != null) query = query.gte("review_count", f.minReviews);
+    if (f.hasWebsite === true) query = query.eq("has_website", true);
+    if (f.hasWebsite === false) query = query.eq("has_website", false);
+    if (f.hasPhone) query = query.not("phone", "is", null);
+    if (f.hasWhatsapp) query = query.not("whatsapp", "is", null);
+    if (f.hasEmail) query = query.not("email", "is", null);
+    if (f.hasInstagram) query = query.not("instagram", "is", null);
+    if (f.assignee != null) query = query.eq("assigned_to", f.assignee);
+    if (f.discoveredAfter) query = query.gte("created_at", f.discoveredAfter);
+    if (f.lastInteractionAfter) query = query.gte("last_interaction_at", f.lastInteractionAfter);
+    if (f.valueMin != null) query = query.gte("estimated_value", f.valueMin);
+    if (f.valueMax != null) query = query.lte("estimated_value", f.valueMax);
+    if (f.search) query = query.ilike("company_name", `%${f.search}%`);
 
     const { data, error } = await query;
     if (error) throw new AppError("EXPORT_FAILED", "Falha ao consultar leads.");
@@ -64,19 +95,23 @@ Deno.serve(async (req) => {
     let body: Uint8Array | string;
     let contentType: string;
     let filename: string;
+    // P1-c (Fase 4c): AMBOS os formatos voltam como application/octet-stream.
+    // O FunctionsClient do supabase-js inspeciona o Content-Type e, para
+    // text/*, devolve STRING — o cliente então quebrava no `instanceof Blob`.
+    // Com octet-stream o SDK entrega Blob nos DOIS formatos; o nome/extensão
+    // reais ficam no Content-Disposition (a UI usa a própria extensão).
+    contentType = "application/octet-stream";
     if (input.format === "xlsx") {
       const sheetRows: Array<Array<string | number | boolean | null | undefined>> = [
         fields.map((f) => f),
         ...rows.map((row) => fields.map((c) => row[c] as string | number | boolean | null)),
       ];
       body = buildXlsx([{ name: "Leads", rows: sheetRows }]);
-      contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       filename = `leads-${Date.now()}.xlsx`;
     } else {
       const header = fields.join(";");
       const lines = rows.map((row) => fields.map((c) => sanitizeCell(row[c])).join(";"));
       body = "﻿" + [header, ...lines].join("\r\n");
-      contentType = "text/csv; charset=utf-8";
       filename = `leads-${Date.now()}.csv`;
     }
 

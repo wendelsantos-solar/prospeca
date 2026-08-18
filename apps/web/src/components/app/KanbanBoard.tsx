@@ -92,10 +92,13 @@ const KanbanCard = memo(function KanbanCard({
   lead,
   density,
   overlay,
+  membersById,
 }: {
   lead: Lead;
   density: "compact" | "comfortable";
   overlay?: boolean;
+  /** userId → nome de exibição (membros da org) — chip de responsável. */
+  membersById?: Map<string, string>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
@@ -177,6 +180,14 @@ const KanbanCard = memo(function KanbanCard({
                 </span>
               )}
             </div>
+          )}
+          {lead.assignedTo && membersById?.get(lead.assignedTo) && (
+            <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <span className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-primary/15 text-[8px] font-semibold text-primary">
+                {membersById.get(lead.assignedTo)!.slice(0, 1).toUpperCase()}
+              </span>
+              {membersById.get(lead.assignedTo)}
+            </p>
           )}
           {density === "comfortable" && lead.nextActivity && (
             <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-info">
@@ -303,10 +314,15 @@ function KanbanColumn({
   stage,
   leads,
   density,
+  serverCount,
+  membersById,
 }: {
   stage: LeadStage;
   leads: Lead[];
   density: "compact" | "comfortable";
+  /** Total REAL do estágio vindo do servidor (COUNT) — nunca do array carregado. */
+  serverCount: number;
+  membersById?: Map<string, string>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const collapsedColumns = useUIStore((s) => s.collapsedColumns);
@@ -333,7 +349,7 @@ function KanbanColumn({
           className="text-[11px] font-semibold text-foreground"
           style={{ writingMode: "vertical-rl" }}
         >
-          {STAGE_LABELS[stage]} ({leads.length})
+          {STAGE_LABELS[stage]} ({serverCount})
         </span>
       </button>
     );
@@ -359,7 +375,8 @@ function KanbanColumn({
             {STAGE_LABELS[stage]}
           </p>
           <p className="text-[10px] text-muted-foreground tabular-nums">
-            {leads.length} leads • {formatBRL(total)}
+            {serverCount} leads
+            {leads.length < serverCount ? ` • ${leads.length} carregados` : ""} • {formatBRL(total)}
           </p>
         </div>
         <DropdownMenu>
@@ -423,7 +440,9 @@ function KanbanColumn({
               </div>
             </div>
           ) : (
-            leads.map((l) => <KanbanCard key={l.id} lead={l} density={density} />)
+            leads.map((l) => (
+              <KanbanCard key={l.id} lead={l} density={density} membersById={membersById} />
+            ))
           )}
         </SortableContext>
       </div>
@@ -434,9 +453,18 @@ function KanbanColumn({
 export function KanbanBoard({
   leads,
   density,
+  stageCounts,
+  membersById,
+  hasMore,
+  onLoadMore,
 }: {
   leads: Lead[];
   density: "compact" | "comfortable";
+  /** Totais por estágio do servidor (COUNT) — visíveis mesmo antes de carregar tudo. */
+  stageCounts?: { total: number; byStage: Record<string, number> };
+  membersById?: Map<string, string>;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const moveMutation = useMoveLeadMutation();
   const setPendingWin = useLeadsStore((s) => s.setPendingWin);
@@ -525,10 +553,30 @@ export function KanbanBoard({
       <div className="h-full snap-x snap-mandatory overflow-x-auto p-2 md:snap-none md:p-4">
         <div className="mx-auto flex h-full w-fit gap-2 md:gap-3">
           {STAGE_ORDER.map((s) => (
-            <KanbanColumn key={s} stage={s} leads={grouped[s]} density={density} />
+            <KanbanColumn
+              key={s}
+              stage={s}
+              leads={grouped[s]}
+              density={density}
+              serverCount={stageCounts?.byStage[s] ?? grouped[s].length}
+              membersById={membersById}
+            />
           ))}
         </div>
       </div>
+      {hasMore && (
+        <div className="flex justify-center border-t bg-surface p-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onLoadMore}
+            className="text-xs"
+            aria-label="Carregar mais leads"
+          >
+            Carregar mais leads
+          </Button>
+        </div>
+      )}
       <DragOverlay>
         {activeLead ? <KanbanCard lead={activeLead} density={density} overlay /> : null}
       </DragOverlay>
@@ -550,6 +598,7 @@ export interface KanbanFilters {
   category: string;
   stage: LeadStage | "all";
   channel: LeadChannel | "all";
+  assignee: string | "all";
 }
 
 export const EMPTY_KANBAN_FILTERS: KanbanFilters = {
@@ -558,6 +607,7 @@ export const EMPTY_KANBAN_FILTERS: KanbanFilters = {
   category: "all",
   stage: "all",
   channel: "all",
+  assignee: "all",
 };
 
 export function applyKanbanFilters(leads: Lead[], f: KanbanFilters): Lead[] {
@@ -566,6 +616,7 @@ export function applyKanbanFilters(leads: Lead[], f: KanbanFilters): Lead[] {
     if (f.city !== "all" && l.city !== f.city) return false;
     if (f.category !== "all" && l.category !== f.category) return false;
     if (f.stage !== "all" && l.stage !== f.stage) return false;
+    if (f.assignee !== "all" && l.assignedTo !== f.assignee) return false;
     if (f.channel !== "all") {
       if (f.channel === "whatsapp" && !l.whatsapp) return false;
       if (f.channel === "phone" && !l.phone) return false;
@@ -592,12 +643,18 @@ export function KanbanTopBar({
   setFilters,
   cities,
   categories,
+  members,
+  loadedCount,
+  onExport,
+  exporting,
 }: {
   search: string;
   setSearch: (v: string) => void;
   density: "compact" | "comfortable";
   setDensity: (d: "compact" | "comfortable") => void;
+  /** Total REAL da carteira (servidor). `loadedCount` é o que está em memória. */
   count: number;
+  loadedCount: number;
   selected: number;
   bulkMode: boolean;
   onToggleBulkMode: () => void;
@@ -607,23 +664,51 @@ export function KanbanTopBar({
   setFilters: (f: KanbanFilters) => void;
   cities: string[];
   categories: string[];
+  members: { userId: string; fullName: string | null }[];
+  onExport: (format: "csv" | "xlsx") => void;
+  exporting: boolean;
 }) {
   const hasFilters =
     filters.temperature !== "all" ||
     filters.city !== "all" ||
     filters.category !== "all" ||
     filters.stage !== "all" ||
-    filters.channel !== "all";
+    filters.channel !== "all" ||
+    filters.assignee !== "all";
   return (
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-surface/95 px-4 py-2.5 backdrop-blur">
       <span className="text-xs text-muted-foreground">
-        <b className="text-foreground">{count}</b> leads
+        {loadedCount < count ? (
+          <>
+            <b className="text-foreground">{loadedCount}</b> de{" "}
+            <b className="text-foreground">{count}</b> leads carregados
+          </>
+        ) : (
+          <>
+            <b className="text-foreground">{count}</b> leads
+          </>
+        )}
       </span>
       {selected > 0 && (
         <span className="text-xs text-muted-foreground">
           • <b className="text-primary">{selected}</b> selecionados
         </span>
       )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={exporting}>
+            {exporting ? "Exportando..." : "Exportar"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => onExport("csv")}>
+            Exportar CSV (o que estou vendo)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onExport("xlsx")}>
+            Exportar XLSX (o que estou vendo)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <div className="relative order-first w-full min-w-[140px] sm:order-none sm:ml-2 sm:max-w-xs sm:flex-1">
         <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -699,6 +784,24 @@ export function KanbanTopBar({
           {categories.map((c) => (
             <SelectItem key={c} value={c} className="text-xs">
               {categoryLabel(c)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={filters.assignee}
+        onValueChange={(v) => setFilters({ ...filters, assignee: v as KanbanFilters["assignee"] })}
+      >
+        <SelectTrigger className="h-8 w-[140px] text-xs" aria-label="Filtrar por responsável">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-xs">
+            Responsável
+          </SelectItem>
+          {members.map((m) => (
+            <SelectItem key={m.userId} value={m.userId} className="text-xs">
+              {m.fullName ?? m.userId.slice(0, 8)}
             </SelectItem>
           ))}
         </SelectContent>

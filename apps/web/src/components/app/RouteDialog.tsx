@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import { useLeadsStore } from "@/stores";
-import { useLeadsList, useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import type { Lead } from "@/types";
+import type { BulkResolvedLead } from "@/repositories/types";
+import {
+  useLeadsListInfinite,
+  useDiscoveryResults,
+  useResolveLeadsBatch,
+} from "@/hooks/useLeadsQuery";
 import {
   optimizeVisitOrder,
   buildGoogleMapsRouteUrl,
@@ -35,14 +41,31 @@ export function RouteDialog({
 }) {
   const selected = useLeadsStore((s) => s.selectedIds);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
-  const { data: leadPage } = useLeadsList({ quick: [] });
+  const infinite = useLeadsListInfinite({ quick: [] });
+  // P3 (4d): memo estável.
+  const leadPage = useMemo(
+    () => ({ items: (infinite.data?.pages ?? []).flatMap((pg) => pg.items) }),
+    [infinite.data],
+  );
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const [locating, setLocating] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
 
+  // P2 (4d): ids fora do cache resolvidos NO SERVIDOR — rota nunca perde
+  // seleção silenciosamente.
+  const cachedLeadIds = useMemo(() => new Set((leadPage.items ?? []).map((l) => l.id)), [leadPage]);
+  const unresolvedIds = useMemo(
+    () => selected.filter((id) => !cachedLeadIds.has(id)),
+    [selected, cachedLeadIds],
+  );
+  const { data: serverResolved, isPending: resolvingBatch } = useResolveLeadsBatch(unresolvedIds);
+
   const targets = useMemo<RouteTarget[]>(() => {
     const byPlace = new Map((discovery ?? []).map((r) => [r.placeId, r]));
-    const byLead = new Map((leadPage?.items ?? []).map((l) => [l.id, l]));
+    const byLead = new Map<string, Lead | BulkResolvedLead>([
+      ...(leadPage?.items ?? []).map((l) => [l.id, l] as const),
+      ...(serverResolved ?? []).map((l) => [l.id, l] as const),
+    ]);
     return selected
       .map((id): RouteTarget | null => {
         const r = byPlace.get(id);
@@ -66,7 +89,7 @@ export function RouteDialog({
         return null;
       })
       .filter((t): t is RouteTarget => t !== null);
-  }, [selected, discovery, leadPage]);
+  }, [selected, discovery, leadPage, serverResolved]);
 
   const ordered = useMemo<OrderedStop[]>(
     () => optimizeVisitOrder(targets, origin ?? undefined),
@@ -115,6 +138,15 @@ export function RouteDialog({
             Google Maps recebe a rota completa; no Waze, abra cada parada na ordem sugerida.
           </DialogDescription>
         </DialogHeader>
+        {!resolvingBatch && targets.length < selected.length && (
+          <p className="text-[12px] text-destructive">
+            {selected.length - targets.length}{" "}
+            {selected.length - targets.length === 1
+              ? "selecionado não pôde"
+              : "selecionados não puderam"}{" "}
+            ser resolvido(s) — a rota não os inclui.
+          </p>
+        )}
 
         <div className="flex items-center justify-between rounded-md border bg-muted/30 p-2.5 text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground">

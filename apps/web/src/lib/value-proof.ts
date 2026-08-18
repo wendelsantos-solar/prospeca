@@ -1,4 +1,5 @@
 import type { Lead } from "@/types";
+import type { ValueProofAllTime } from "@/repositories/types";
 
 /**
  * "Prova de valor" — the concrete, verifiable numbers a professional can show
@@ -30,6 +31,28 @@ export interface ValueProof {
   revenue: number;
   /** Cidades distintas do funil. */
   cities: string[];
+}
+
+/**
+ * Mapeia o bloco `allTime` do get_dashboard_overview (agregação SERVER-SIDE
+ * sobre a carteira inteira — nunca array truncado) para o contrato da Prova de
+ * Valor. Função pura, testável sem banco.
+ */
+export function valueProofFromAllTime(allTime: ValueProofAllTime): ValueProof {
+  return {
+    totalFound: allTime.totalFound,
+    withoutWebsite: allTime.withoutWebsite,
+    noReviews: allTime.noReviews,
+    lowRating: allTime.lowRating,
+    hot: allTime.hot,
+    contacted: allTime.contacted,
+    responded: allTime.responded,
+    meetings: allTime.meetings,
+    proposals: allTime.proposals,
+    won: allTime.won,
+    revenue: allTime.revenue,
+    cities: [...allTime.cities].sort(),
+  };
 }
 
 export function computeValueProof(leads: Lead[]): ValueProof {

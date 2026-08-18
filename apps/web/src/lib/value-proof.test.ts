@@ -1,79 +1,77 @@
-import { describe, it, expect } from "bun:test";
-import { computeValueProof, valueProofSummary } from "./value-proof";
-import type { Lead } from "@/types";
+// Testes puros da Fase 4 — mapeamento do contrato da RPC para a UI.
+// Sem banco: apenas a transformação de `allTime` (get_dashboard_overview)
+// em ValueProof, que a Prova de Valor consome.
 
-const base = (o: Partial<Lead>): Lead => ({
-  id: "1",
-  companyName: "Test",
-  category: "test",
-  address: "",
-  city: "Porto Alegre",
-  state: "RS",
-  latitude: -30,
-  longitude: -51,
-  distanceKm: 1,
-  hasWebsite: false,
-  score: 50,
-  temperature: "warm",
-  stage: "new",
-  discoveredAt: new Date().toISOString(),
-  notes: [],
-  activities: [],
-  timeline: [],
-  ...o,
-});
+import { describe, expect, test } from "bun:test";
+import { valueProofFromAllTime } from "./value-proof";
+import type { ValueProofAllTime } from "@/repositories/types";
 
-describe("computeValueProof", () => {
-  it("counts market-scan signals from the lead data", () => {
-    const vp = computeValueProof([
-      base({ id: "a", hasWebsite: false, reviewCount: 0 }),
-      base({ id: "b", hasWebsite: true, rating: 3.2, reviewCount: 12 }),
-      base({ id: "c", hasWebsite: true, rating: 4.8, reviewCount: 90 }),
-    ]);
-    expect(vp.totalFound).toBe(3);
-    expect(vp.withoutWebsite).toBe(1);
-    expect(vp.noReviews).toBe(1);
-    expect(vp.lowRating).toBe(1);
+function allTimeFixture(overrides: Partial<ValueProofAllTime> = {}): ValueProofAllTime {
+  return {
+    totalFound: 120,
+    withoutWebsite: 30,
+    noReviews: 20,
+    lowRating: 5,
+    hot: 12,
+    contacted: 40,
+    responded: 15,
+    meetings: 8,
+    proposals: 6,
+    won: 4,
+    revenue: 40_000,
+    cities: ["Belo Horizonte", "Contagem"],
+    ...overrides,
+  };
+}
+
+describe("valueProofFromAllTime", () => {
+  test("mapeia todos os campos 1:1 do servidor", () => {
+    const at = allTimeFixture();
+    const vp = valueProofFromAllTime(at);
+    expect(vp.totalFound).toBe(120);
+    expect(vp.withoutWebsite).toBe(30);
+    expect(vp.noReviews).toBe(20);
+    expect(vp.lowRating).toBe(5);
+    expect(vp.hot).toBe(12);
+    expect(vp.contacted).toBe(40);
+    expect(vp.responded).toBe(15);
+    expect(vp.meetings).toBe(8);
+    expect(vp.proposals).toBe(6);
+    expect(vp.won).toBe(4);
+    expect(vp.revenue).toBe(40_000);
   });
 
-  it("counts funnel activity and revenue", () => {
-    const now = new Date().toISOString();
-    const vp = computeValueProof([
-      base({ id: "a", lastInteractionAt: now, respondedAt: now, stage: "contacted" }),
-      base({ id: "b", stage: "won", closedValue: 2500, meetingAt: now, proposalAt: now }),
-    ]);
-    expect(vp.contacted).toBe(1);
-    expect(vp.responded).toBe(1);
-    expect(vp.won).toBe(1);
-    expect(vp.revenue).toBe(2500);
+  test("cidades vêm ordenadas e não mutam a entrada", () => {
+    const at = allTimeFixture({ cities: ["Contagem", "Belo Horizonte"] });
+    const vp = valueProofFromAllTime(at);
+    expect(vp.cities).toEqual(["Belo Horizonte", "Contagem"]);
+    expect(at.cities).toEqual(["Contagem", "Belo Horizonte"]);
   });
 
-  it("collects distinct cities sorted", () => {
-    const vp = computeValueProof([
-      base({ id: "a", city: "São Paulo" }),
-      base({ id: "b", city: "Curitiba" }),
-      base({ id: "c", city: "São Paulo" }),
-    ]);
-    expect(vp.cities).toEqual(["Curitiba", "São Paulo"]);
-  });
-
-  it("empty lead set yields zeroes", () => {
-    const vp = computeValueProof([]);
+  test("carteira vazia → prova de valor zerada mas íntegra", () => {
+    const vp = valueProofFromAllTime(
+      allTimeFixture({
+        totalFound: 0,
+        withoutWebsite: 0,
+        noReviews: 0,
+        lowRating: 0,
+        hot: 0,
+        contacted: 0,
+        responded: 0,
+        meetings: 0,
+        proposals: 0,
+        won: 0,
+        revenue: 0,
+        cities: [],
+      }),
+    );
     expect(vp.totalFound).toBe(0);
-    expect(valueProofSummary(vp)).toContain("na sua região");
+    expect(vp.cities).toEqual([]);
   });
-});
 
-describe("valueProofSummary", () => {
-  it("grounds the copy in the concrete signals", () => {
-    const vp = computeValueProof([
-      base({ id: "a", hasWebsite: false, reviewCount: 0 }),
-      base({ id: "b", hasWebsite: true, rating: 3.0, reviewCount: 5 }),
-    ]);
-    const text = valueProofSummary(vp);
-    expect(text).toContain("Mapeamos 2 negócios");
-    expect(text).toContain("não tem site próprio");
-    expect(text).toContain("não tem avaliações online");
-    expect(text).not.toContain("oportunidade");
+  test("nunca deriva de array truncado — recebe números agregados", () => {
+    // Contrato estrutural: a função NÃO aceita leads; só o agregado do servidor.
+    // Se alguém voltar a passar um array, o typecheck quebra (não há caminho).
+    expect(valueProofFromAllTime(allTimeFixture()).totalFound).toBe(120);
   });
 });

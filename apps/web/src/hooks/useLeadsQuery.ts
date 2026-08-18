@@ -4,9 +4,17 @@
  *
  * Phase 3 — CRM real: Kanban, list, notes, activities, details.
  */
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useEffect } from "react";
-import { getLeadRepository, getSearchRepository } from "@/repositories";
+import { getLeadRepository, getSearchRepository, getDashboardRepository } from "@/repositories";
+import type { ExportPipelineFilters } from "@/repositories/types";
+import type { PeriodWindow } from "@/lib/period";
 import type {
   Lead,
   LeadActivity,
@@ -33,8 +41,43 @@ import { isRealMode } from "@/lib/env";
 export const leadKeys = {
   all: ["leads"] as const,
   list: (filters: LeadFilters, sort?: SortValue) => ["leads", "list", filters, sort] as const,
+  // CHAVE SEPARADA da useQuery: colisão de cache entre useQuery e
+  // useInfiniteQuery no MESMO key (["leads","list",...]) fazia o TanStack
+  // tratar os dois como uma entrada só (shape paginado vs. shape de páginas).
+  // P1-a do gate: corrigido na CAUSA, não no sintoma.
+  infiniteList: (filters: LeadFilters, sort?: SortValue) =>
+    ["leads", "list-infinite", filters, sort] as const,
+  stageCounts: ["leads", "stage-counts"] as const,
+  todayCounts: ["leads", "today-counts"] as const,
   detail: (id: string) => ["leads", "detail", id] as const,
 };
+
+/**
+ * Aplica uma mutação otimista em TODOS os shapes de cache de leads:
+ * o paginado (useLeadsList — { items }) e o infinite (useLeadsListInfinite —
+ * { pages[].items }). Toda invalidação usa leadKeys.all (raiz que cobre ambos),
+ * então update otimista e invalidação nunca mais ficam desalinhados.
+ */
+export function mutateLeadCaches(
+  queryClient: QueryClient,
+  mutateItems: (items: Lead[] | undefined) => Lead[] | undefined,
+) {
+  queryClient.setQueriesData({ queryKey: leadKeys.all }, (old: unknown) => {
+    if (!old || typeof old !== "object") return old;
+    const paginated = old as { items?: Lead[] };
+    if (paginated.items) {
+      return { ...paginated, items: mutateItems(paginated.items) };
+    }
+    const infinite = old as { pages?: Array<{ items?: Lead[] }> };
+    if (infinite.pages) {
+      return {
+        ...infinite,
+        pages: infinite.pages.map((page) => ({ ...page, items: mutateItems(page.items) })),
+      };
+    }
+    return old;
+  });
+}
 
 export const discoveryKeys = {
   bySearch: (searchId: string) => ["discovery", searchId] as const,
@@ -67,6 +110,8 @@ export interface BusinessRegistrationRow {
   is_mei?: boolean | null;
   founded_at?: string | null;
   registry_city?: string | null;
+  /** QSA — quadro de sócios e administradores (decisores). */
+  qsa?: Array<{ name: string; qualification: string | null }> | null;
   registry_state?: string | null;
   registry_postal_code?: string | null;
   registry_email?: string | null;
@@ -81,7 +126,7 @@ export function useBusinessRegistration(placeId?: string | null) {
       const { data, error } = await getSupabase()
         .from("places")
         .select(
-          "tax_id, legal_name, primary_cnae, cnae_description, secondary_cnaes, registration_status, registration_status_description, registration_fetched_at, enrichment_sources, company_size, legal_nature, capital_social, simples_nacional, simples_opted_at, is_mei, founded_at, registry_city, registry_state, registry_postal_code, registry_email, registry_phone",
+          "tax_id, legal_name, primary_cnae, cnae_description, secondary_cnaes, registration_status, registration_status_description, registration_fetched_at, enrichment_sources, company_size, legal_nature, capital_social, simples_nacional, simples_opted_at, is_mei, founded_at, registry_city, registry_state, registry_postal_code, registry_email, registry_phone, qsa",
         )
         .eq("id", placeId)
         .maybeSingle();
@@ -141,6 +186,109 @@ export function useLeadsList(
     structuralSharing: true,
     enabled: opts?.enabled ?? true,
   });
+}
+
+/**
+ * Paginação REAL (Fase 4.1): infinite query com fetch incremental. Substitui o
+ * teto invisível de 50 leads — o total vem do servidor (count exact) e a UI
+ * exibe "mostrando X de Y" com um botão explícito de carregar mais. Escolha:
+ * useInfiniteQuery em vez de virtualização porque o Kanban precisa de dnd entre
+ * colunas e um conjunto plano acumulado é mais simples e consistente que listas
+ * virtualizadas por coluna; o fetch é incremental (50 por página) então nunca
+ * carrega milhares de leads de uma vez.
+ */
+export function useLeadsListInfinite(filters: LeadFilters, sort?: SortValue) {
+  return useInfiniteQuery<PaginatedResult<Lead>>({
+    queryKey: leadKeys.infiniteList(filters, sort),
+    queryFn: ({ pageParam }) =>
+      getLeadRepository().list({ filters, sort, page: pageParam as number, pageSize: 50 }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.hasMore ? last.page + 1 : undefined),
+    staleTime: 60_000,
+    structuralSharing: true,
+  });
+}
+
+/** Totais por estágio vindos do SERVIDOR (COUNT) — nunca do array carregado. */
+export function useLeadStageCounts(enabled = true) {
+  return useQuery({
+    queryKey: leadKeys.stageCounts,
+    queryFn: () => getLeadRepository().stageCounts(),
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+/** Contagens de hoje/atrasadas vindas do SERVIDOR (badge da navegação). */
+export function useTodayCounts(enabled = true) {
+  return useQuery({
+    queryKey: leadKeys.todayCounts,
+    queryFn: () => getLeadRepository().todayCounts(),
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+/** Membros da organização ativa (para atribuição de responsável). */
+export function useOrganizationMembers() {
+  return useQuery({
+    queryKey: ["organization", "members"],
+    queryFn: () => getLeadRepository().members(),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Resolve IDs de leads no SERVIDOR — a seleção em lote não pode depender só
+ * das páginas carregadas do infinite (se o cache resetar, IDs de páginas
+ * descarregadas somiriam da ação sem aviso — P2 da 4d).
+ */
+export function useResolveLeadsBatch(ids: string[]) {
+  const key = [...ids].sort();
+  return useQuery({
+    queryKey: ["leads", "resolve-batch", key],
+    queryFn: () => getLeadRepository().getLeadsByIds(ids),
+    enabled: ids.length > 0,
+    staleTime: 30_000,
+  });
+}
+
+export function useAssignLeadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { leadId: string; userId: string | null }) =>
+      getLeadRepository().assignLead(input.leadId, input.userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
+    },
+  });
+}
+
+/** Export do pipeline via repositório (P1-b): erro já chega traduzido. */
+export function useExportPipelineMutation() {
+  return useMutation({
+    mutationFn: (input: { format: "csv" | "xlsx"; filters: ExportPipelineFilters }) =>
+      getLeadRepository().exportPipeline(input.format, input.filters),
+  });
+}
+
+/**
+ * Painel sobre a carteira INTEIRA: get_dashboard_overview (agregação
+ * server-side com membership check) para a janela atual e a anterior — as
+ * métricas nunca mais derivam do array truncado de 50 leads.
+ */
+export function useDashboardOverview(win: PeriodWindow, prevWin: PeriodWindow) {
+  const current = useQuery({
+    queryKey: ["dashboard", "overview", win.from.toISOString(), win.to.toISOString()],
+    queryFn: () => getDashboardRepository().overview("custom", win.from, win.to),
+    staleTime: 60_000,
+  });
+  const previous = useQuery({
+    queryKey: ["dashboard", "overview", prevWin.from.toISOString(), prevWin.to.toISOString()],
+    queryFn: () => getDashboardRepository().overview("custom", prevWin.from, prevWin.to),
+    staleTime: 60_000,
+  });
+  return { current, previous };
 }
 
 /** Discovery results for a search (map + sidebar list). Reads search_results ⋈
@@ -223,13 +371,13 @@ export function useAddToFunnelMutation() {
       // Cancel outgoing discovery + list queries so they don't overwrite our
       // optimistic update while the mutation is in-flight.
       await queryClient.cancelQueries({ queryKey: discoveryKeys.bySearch(searchId) });
-      await queryClient.cancelQueries({ queryKey: ["leads", "list"] });
+      await queryClient.cancelQueries({ queryKey: leadKeys.all });
 
       // Snapshot previous state for rollback.
       const previousDiscovery = queryClient.getQueryData<DiscoveryResult[]>(
         discoveryKeys.bySearch(searchId),
       );
-      const previousLists = queryClient.getQueriesData({ queryKey: ["leads", "list"] });
+      const previousLists = queryClient.getQueriesData({ queryKey: leadKeys.all });
 
       // Optimistic: mark discovery item as imported so the button switches to
       // "No pipeline" immediately (no blink waiting for refetch).
@@ -261,15 +409,11 @@ export function useAddToFunnelMutation() {
         activities: [],
         timeline: [],
       };
-      queryClient.setQueriesData({ queryKey: ["leads", "list"] }, (old: unknown) => {
-        if (!old || typeof old !== "object") return old;
-        const paginated = old as { items?: unknown[] };
-        if (!paginated.items) return old;
-        return {
-          ...paginated,
-          items: [optimisticLead, ...paginated.items],
-        };
-      });
+      // Optimistic: anexa um card provisório em TODOS os shapes (lista e
+      // infinite) — o lead real substitui no refetch.
+      mutateLeadCaches(queryClient, (items) =>
+        items ? [optimisticLead as unknown as Lead, ...items] : items,
+      );
 
       return { previousDiscovery, previousLists };
     },
@@ -286,7 +430,7 @@ export function useAddToFunnelMutation() {
     },
     onSettled: (_data, _err, vars) => {
       // Always refetch to reconcile optimistic state with server truth.
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(vars.searchId) });
     },
     onSuccess: (data, vars) => {
@@ -341,20 +485,28 @@ export function useMoveLeadMutation() {
       getLeadRepository().moveStage(id, input),
     onMutate: async ({ id, input }) => {
       // Cancel outgoing list queries so they don't overwrite our optimistic update
-      await queryClient.cancelQueries({ queryKey: ["leads", "list"] });
-      // Snapshot previous list data for rollback
-      const previousLists = queryClient.getQueriesData({ queryKey: ["leads", "list"] });
-      // Optimistically update the lead in all cached lists
-      queryClient.setQueriesData({ queryKey: ["leads", "list"] }, (old: unknown) => {
+      await queryClient.cancelQueries({ queryKey: leadKeys.all });
+      // Snapshot previous list data for rollback (paginated + infinite shapes)
+      const previousLists = queryClient.getQueriesData({ queryKey: leadKeys.all });
+      // Optimistic: paginated shape (useLeadsList) E infinite shape
+      // (useLeadsListInfinite — data.pages[].items). Sem isso o otimismo vira
+      // no-op no Kanban (P2-d do gate).
+      queryClient.setQueriesData({ queryKey: leadKeys.all }, (old: unknown) => {
         if (!old || typeof old !== "object") return old;
+        const patchItems = (items: Array<{ id: string; stage: string }> | undefined) =>
+          items?.map((item) => (item.id === id ? { ...item, stage: input.toStage } : item));
         const paginated = old as { items?: Array<{ id: string; stage: string }> };
-        if (!paginated.items) return old;
-        return {
-          ...paginated,
-          items: paginated.items.map((item) =>
-            item.id === id ? { ...item, stage: input.toStage } : item,
-          ),
-        };
+        if (paginated.items) {
+          return { ...paginated, items: patchItems(paginated.items) };
+        }
+        const infinite = old as { pages?: Array<{ items?: Array<{ id: string; stage: string }> }> };
+        if (infinite.pages) {
+          return {
+            ...infinite,
+            pages: infinite.pages.map((page) => ({ ...page, items: patchItems(page.items) })),
+          };
+        }
+        return old;
       });
       return { previousLists };
     },
@@ -367,8 +519,10 @@ export function useMoveLeadMutation() {
       }
     },
     onSuccess: (_data, vars) => {
-      // Only invalidate lists + the moved lead's detail — not every detail cache
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      // P2-c: invalidar também as CONTAGENS do servidor — o arrastar entre
+      // colunas muda os totais por estágio.
+      queryClient.invalidateQueries({ queryKey: leadKeys.stageCounts });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.id) });
     },
   });
@@ -428,7 +582,7 @@ export function useRecordContactMutation() {
     mutationFn: ({ leadId, input }: { leadId: string; input: RecordContactInput }) =>
       getLeadRepository().recordContact(leadId, input),
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
@@ -468,7 +622,7 @@ export function useCompleteActivityMutation() {
       }
     },
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: leadKeys.detail(vars.leadId) });
     },
   });
@@ -523,7 +677,7 @@ export function useRemoveLeadMutation() {
   return useMutation({
     mutationFn: (id: string) => getLeadRepository().removeLead(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
     },
   });
 }
@@ -547,7 +701,7 @@ export function useLeadsRealtimeSubscription() {
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
         // Invalidate list queries so they refetch fresh data.
         // Using a debounce-like approach: batch rapid changes into one invalidation.
-        queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+        queryClient.invalidateQueries({ queryKey: leadKeys.all });
       })
       .subscribe();
 
