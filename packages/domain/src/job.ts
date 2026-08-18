@@ -120,12 +120,25 @@ export function isRetryableError(err: {
 }
 
 /**
- * Exponential backoff with a cap, deterministic (no jitter) so tests and retry
- * timing stay predictable. `attempt` is 1-based (first retry → base delay).
+ * Exponential backoff with a cap, plus EQUITABLE JITTER (50–100% of the capped
+ * deterministic delay) so jobs that fail together don't retry together
+ * (thundering herd). The randomness source is INJECTABLE — the function stays
+ * pure and deterministic in tests; production call sites use the default
+ * Math.random. Injecting `() => 1` reproduces the exact pre-jitter values, so
+ * the cap (maxMs) and the growth contract are preserved. `attempt` is 1-based
+ * (first retry → base delay).
  */
-export function backoffDelayMs(attempt: number, baseMs = 2000, maxMs = 60_000): number {
+export function backoffDelayMs(
+  attempt: number,
+  baseMs = 2000,
+  maxMs = 60_000,
+  random: () => number = Math.random,
+): number {
   const exp = baseMs * 2 ** Math.max(0, attempt - 1);
-  return Math.min(exp, maxMs);
+  const capped = Math.min(exp, maxMs);
+  // Equitable jitter: the delay is uniform in [50%, 100%] of the capped value.
+  // Upper bound stays at the cap (never exceeds maxMs); lower bound halves.
+  return Math.round(capped * (0.5 + 0.5 * random()));
 }
 
 /** A failed job that exhausted its attempts is the dead-letter-equivalent state. */

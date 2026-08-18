@@ -50,11 +50,32 @@ describe("isRetryableError", () => {
 });
 
 describe("backoffDelayMs", () => {
-  test("exponential and capped", () => {
-    expect(backoffDelayMs(1)).toBe(2000);
-    expect(backoffDelayMs(2)).toBe(4000);
-    expect(backoffDelayMs(3)).toBe(8000);
-    expect(backoffDelayMs(100, 2000, 60_000)).toBe(60_000);
+  // Com rng injetado em 1 (limite superior), o contrato original é reproduzido
+  // EXATAMENTE — o jitter só encolhe, nunca estoura o cap.
+  const upperBound = () => 1;
+  const lowerBound = () => 0;
+
+  test("exponential and capped (rng = 1 reproduz os valores pré-jitter)", () => {
+    expect(backoffDelayMs(1, 2000, 60_000, upperBound)).toBe(2000);
+    expect(backoffDelayMs(2, 2000, 60_000, upperBound)).toBe(4000);
+    expect(backoffDelayMs(3, 2000, 60_000, upperBound)).toBe(8000);
+    expect(backoffDelayMs(100, 2000, 60_000, upperBound)).toBe(60_000);
+  });
+
+  test("jitter fica entre 50% e 100% do valor determinístico (cap preservado)", () => {
+    expect(backoffDelayMs(1, 2000, 60_000, lowerBound)).toBe(1000);
+    expect(backoffDelayMs(2, 2000, 60_000, lowerBound)).toBe(2000);
+    expect(backoffDelayMs(3, 2000, 60_000, lowerBound)).toBe(4000);
+    // No cap, o jitter NUNCA estoura maxMs: 60s vira 30–60s.
+    expect(backoffDelayMs(100, 2000, 60_000, lowerBound)).toBe(30_000);
+    expect(backoffDelayMs(100, 2000, 60_000, upperBound)).toBe(60_000);
+    expect(backoffDelayMs(100, 2000, 60_000, () => 0.5)).toBe(45_000);
+  });
+
+  test("determinístico por rng injetado (mesma entrada, mesma saída)", () => {
+    expect(backoffDelayMs(4, 2000, 60_000, () => 0.25)).toBe(
+      backoffDelayMs(4, 2000, 60_000, () => 0.25),
+    );
   });
 });
 
