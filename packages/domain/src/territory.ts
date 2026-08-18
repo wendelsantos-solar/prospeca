@@ -54,9 +54,7 @@ export function territoryKeyForCompany(
 export function resolveTerritoryGroupBy(
   companies: Array<{ neighborhood?: string | null; city?: string | null }>,
 ): TerritoryGroupBy {
-  return companies.some((c) => (c.neighborhood ?? "").trim() !== "")
-    ? "neighborhood"
-    : "city";
+  return companies.some((c) => (c.neighborhood ?? "").trim() !== "") ? "neighborhood" : "city";
 }
 
 export function aggregateTerritories(
@@ -218,7 +216,10 @@ export function heatWeight(
   const conf = Math.max(0, Math.min(1, factors.confidence));
   const density = Math.max(0, Math.min(1, factors.localDensityFactor));
   const den = weights.opportunityScore + weights.confidence + weights.localDensityFactor;
-  const num = score * weights.opportunityScore + conf * weights.confidence + density * weights.localDensityFactor;
+  const num =
+    score * weights.opportunityScore +
+    conf * weights.confidence +
+    density * weights.localDensityFactor;
   return den === 0 ? 0 : Math.round((num / den) * 1000) / 1000;
 }
 

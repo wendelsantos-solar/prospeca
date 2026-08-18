@@ -20,31 +20,31 @@
 
 Obrigatórias para o fluxo V2 (nomes exatos lidos via `Deno.env.get`):
 
-| Env var | Usada por | Obrigatória? |
-|---|---|---|
-| `SUPABASE_URL` | todas as functions + `_shared/dispatch.ts` (invoke entre functions) | **SIM** |
-| `SUPABASE_ANON_KEY` | `_shared/auth.ts` (requireAuth monta o client do caller) | **SIM** |
-| `SUPABASE_SERVICE_ROLE_KEY` | todas (adminClient + `isInternalCall`) | **SIM** |
-| `GOOGLE_MAPS_SERVER_KEY` | `_shared/google.ts` (Places Text Search + Geocoding) | **SIM** — sem ela, busca falha (**BLOCKED_EXTERNAL_CONFIGURATION**) |
-| `SEARCH_MAX_RESULTS` | `create-search` (cap de resultados; default 60) | Não (default 60) |
-| `BUSINESS_REGISTRY_DISABLED` | `lookup-cnpj` (BrasilAPI; default ativa) | Não |
-| `SENTRY_DSN` | `_shared/error-tracking.ts` | Não (fallback sem vendor) |
-| `APP_ENV` / `APP_URL` | logs / links | Não (recomendado) |
+| Env var                      | Usada por                                                           | Obrigatória?                                                        |
+| ---------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `SUPABASE_URL`               | todas as functions + `_shared/dispatch.ts` (invoke entre functions) | **SIM**                                                             |
+| `SUPABASE_ANON_KEY`          | `_shared/auth.ts` (requireAuth monta o client do caller)            | **SIM**                                                             |
+| `SUPABASE_SERVICE_ROLE_KEY`  | todas (adminClient + `isInternalCall`)                              | **SIM**                                                             |
+| `GOOGLE_MAPS_SERVER_KEY`     | `_shared/google.ts` (Places Text Search + Geocoding)                | **SIM** — sem ela, busca falha (**BLOCKED_EXTERNAL_CONFIGURATION**) |
+| `SEARCH_MAX_RESULTS`         | `create-search` (cap de resultados; default 60)                     | Não (default 60)                                                    |
+| `BUSINESS_REGISTRY_DISABLED` | `lookup-cnpj` (BrasilAPI; default ativa)                            | Não                                                                 |
+| `SENTRY_DSN`                 | `_shared/error-tracking.ts`                                         | Não (fallback sem vendor)                                           |
+| `APP_ENV` / `APP_URL`        | logs / links                                                        | Não (recomendado)                                                   |
 
 Demais functions do projeto (billing/calendar/email) têm as próprias
 (`STRIPE_*`, `GOOGLE_CALENDAR_*`, `RESEND_API_KEY`, `SMTP_FROM`, etc.) — não
 fazem parte deste rollout, mas precisam estar setadas se já estavam em
 produção.
 
-### 1.3 Variáveis do app web (VITE_*)
+### 1.3 Variáveis do app web (VITE\_\*)
 
-| Env var | Obrigatória? |
-|---|---|
-| `VITE_SUPABASE_URL` | SIM |
-| `VITE_SUPABASE_ANON_KEY` | SIM |
-| `VITE_GOOGLE_MAPS_BROWSER_KEY` | SIM (mapa; restrita por domínio) |
-| `VITE_DATA_MODE=real` | SIM |
-| `VITE_MAP_TILE_URL` / `VITE_MAP_ATTRIBUTION` | Não (defaults OSM) |
+| Env var                                      | Obrigatória?                     |
+| -------------------------------------------- | -------------------------------- |
+| `VITE_SUPABASE_URL`                          | SIM                              |
+| `VITE_SUPABASE_ANON_KEY`                     | SIM                              |
+| `VITE_GOOGLE_MAPS_BROWSER_KEY`               | SIM (mapa; restrita por domínio) |
+| `VITE_DATA_MODE=real`                        | SIM                              |
+| `VITE_MAP_TILE_URL` / `VITE_MAP_ATTRIBUTION` | Não (defaults OSM)               |
 
 > Se `GOOGLE_MAPS_SERVER_KEY` (ou o faturamento do Google) não existir no
 > projeto de produção: **BLOCKED_EXTERNAL_CONFIGURATION** — não prossiga com
@@ -129,13 +129,13 @@ supabase functions deploy get-search-status     --import-map supabase/import_map
 
 ## 5. Riscos e gatilhos de pausa
 
-| Gatilho | Ação |
-|---|---|
-| `searches.status = partial/failed` no smoke | PARAR — capturar `error_message` e logs da function; reportar antes de liberar busca real |
+| Gatilho                                         | Ação                                                                                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `searches.status = partial/failed` no smoke     | PARAR — capturar `error_message` e logs da function; reportar antes de liberar busca real                               |
 | Erro 42P10 reaparecendo (índice antigo em prod) | A migration `20260815000009` já troca para índice total — confirme que foi aplicada ANTES do deploy das functions novas |
-| Custo acima do esperado (páginas > 1) | Conferir `provider_request_count`/`usage_events`; buscar causa antes de liberar usuários |
-| Orçamento da org estourado | Comportamento esperado: busca responde `PLAN_LIMIT_REACHED` (402) — não é bug |
-| BrasilAPI fora | Mensagem honesta no drawer; sem cascata — não é bug |
+| Custo acima do esperado (páginas > 1)           | Conferir `provider_request_count`/`usage_events`; buscar causa antes de liberar usuários                                |
+| Orçamento da org estourado                      | Comportamento esperado: busca responde `PLAN_LIMIT_REACHED` (402) — não é bug                                           |
+| BrasilAPI fora                                  | Mensagem honesta no drawer; sem cascata — não é bug                                                                     |
 
 ## 6. PR opcional
 

@@ -99,7 +99,7 @@ export function NavRail() {
       aria-label="Navegação principal"
       className={cn(
         "hidden lg:flex shrink-0 flex-col border-r border-border bg-surface py-3.5 transition-[width] duration-150 motion-reduce:transition-none",
-        expanded ? "w-[150px] px-2" : "w-16 items-center",
+        expanded ? "w-[190px] px-2" : "w-16 items-center",
       )}
     >
       <div

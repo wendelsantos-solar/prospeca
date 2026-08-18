@@ -20,10 +20,7 @@ import { adminClient, requireAuth } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
 import { assertRateLimit } from "../_shared/quota.ts";
 import { isEnrichmentSourceStale, type EnrichmentSourceMap } from "@leads/domain/enrichment-state";
-import {
-  enrichOnePlace,
-  ENRICHMENT_STALE_DAYS,
-} from "../_shared/enrich-company.ts";
+import { enrichOnePlace, ENRICHMENT_STALE_DAYS } from "../_shared/enrich-company.ts";
 import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
 import { recordUsage } from "../_shared/quota.ts";
 import { calculateUsageCost } from "@leads/domain/cost-model";
@@ -104,9 +101,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!search) throw new AppError("SEARCH_NOT_FOUND", "Busca não encontrada.");
 
-    const staleBefore = new Date(
-      Date.now() - ENRICHMENT_STALE_DAYS * 86400000,
-    ).toISOString();
+    const staleBefore = new Date(Date.now() - ENRICHMENT_STALE_DAYS * 86400000).toISOString();
 
     let query = admin
       .from("search_results")

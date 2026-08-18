@@ -22,8 +22,8 @@ arquitetura. O momento é de **polir, remover e priorizar**, não de reescrever.
 
 ## 2. Visão do produto (o "norte")
 
-> *"Pesquiso um nicho — ex.: barbearia — e o produto me aponta, numa região, quais
-> barbearias têm baixa presença digital e valem contato, e **por quê**."*
+> _"Pesquiso um nicho — ex.: barbearia — e o produto me aponta, numa região, quais
+> barbearias têm baixa presença digital e valem contato, e **por quê**."_
 
 A promessa: **transformar descoberta em negócio** — da busca até o primeiro
 contato (WhatsApp/e-mail), com o score explicando cada decisão.
@@ -33,9 +33,11 @@ contato (WhatsApp/e-mail), com o score explicando cada decisão.
 ## 3. Usabilidade — problemas prioritários
 
 ### 🔴 3.1 Região "travada" (você relatou)
+
 **Sintoma:** não consegue trocar a região — ela fica fixa no seu lugar/última busca.
 
 **Causas encontradas no código:**
+
 - **Só 8 cidades fixas** (`CITY_SUGGESTIONS` em `lib/constants.ts`). Fora delas, o
   usuário depende de geocodificar texto digitado, que **falha em modo demo** e
   deixa a pessoa sem opção.
@@ -51,7 +53,9 @@ por cidade/bairro/CEP (com fallback que funciona offline) e remover o estado
 inicial (0,0).
 
 ### 🟠 3.2 Superfícies de busca redundantes (confunde)
+
 Existem **três** pontos de entrada que fazem a mesma coisa:
+
 1. **Wizard de onboarding** ("Quem você quer encontrar?" → tipo de empresa → região).
 2. **Formulário lateral** (`SearchForm`): `MissionInput` (linguagem natural) + nicho + região + raio + presença.
 3. **Tela inicial** ("Começar uma busca" + sugestões prontas).
@@ -60,6 +64,7 @@ Existem **três** pontos de entrada que fazem a mesma coisa:
 preenchem o formulário único, não um caminho paralelo.
 
 ### 🟠 3.3 Dois modos de input de busca (NL vs. estruturado)
+
 `MissionInput` ("barbearias sem site em Campo Grande") e os campos estruturados
 (nicho + região) coexistem. O usuário pode não saber qual usar, e os dois
 escrevem no mesmo draft.
@@ -69,6 +74,7 @@ previsível e não depende de interpretação), e manter o NL como atalho opcion
 — não como segundo formulário no mesmo painel.
 
 ### 🟡 3.4 Heatmap (corrigido nesta sessão — validar)
+
 Corrigidos: deslocamento (coordenada), vazamento do raio (clip), "campo" uniforme
 (pontos localizados) e agora o canvas ancorado à viewport. **Ainda precisa da sua
 validação visual** (pan + zoom + clique).
@@ -78,6 +84,7 @@ validação visual** (pan + zoom + clique).
 ## 4. Engenharia — avaliação
 
 **Pontos fortes:**
+
 - Domínio puro (`packages/domain`) sem dependências de framework — testável e
   determinístico (334+ testes verdes).
 - Score v2 multi-componente, **explicável** (breakdown + sinais nomeados) — o
@@ -87,6 +94,7 @@ validação visual** (pan + zoom + clique).
 - Enriquecimento idempotente/aditivo com guarda SSRF.
 
 **Riscos / lacunas:**
+
 - **Fila sem worker**: `jobs` é observável mas o processamento é
   `functions.invoke` encadeado. Se o volume crescer, entra em BullMQ (já
   abstraído atrás de `JobQueue`). Sem pressa.
@@ -104,6 +112,7 @@ validação visual** (pan + zoom + clique).
 densidade de tabela, estados vazio/erro/loading, legenda do mapa.
 
 **O que falta pra "parecer profissional":**
+
 - **Hierarquia da busca**: o formulário lateral tem 6+ controles empilhados
   (missão, nicho, região, raio, presença, botão). Precisa de **agrupamento
   visual** (passo 1: o quê → passo 2: onde → passo 3: quão longe).
@@ -147,13 +156,13 @@ densidade de tabela, estados vazio/erro/loading, legenda do mapa.
 
 ## 9. Roteiro priorizado (etapas)
 
-| Etapa | Foco | Por quê primeiro |
-|---|---|---|
-| **P1 — Busca** | Região livre (busca real + fallback), remover (0,0), **1 fluxo de busca**, agrupar o formulário | É o coração do produto; sem isso nada do resto importa |
-| **P2 — Heatmap** | Validar visual (você), polir clique→"porquê", legenda com dados | É o diferencial visual que você pediu |
-| **P3 — Explicabilidade** | Frase didática do score + "por quê" no card e no popup | Vende o valor: "você entende cada ponto" |
-| **P4 — Acabamento** | Microcopy padronizada, empty states acionáveis, feedback de região no mapa | Transforma em "produto profissional" |
-| **P5 — Provider/Infra** | CNPJ/CNAE real, rate-limit, worker (BullMQ) se precisar | Só quando volume justificar |
+| Etapa                    | Foco                                                                                            | Por quê primeiro                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **P1 — Busca**           | Região livre (busca real + fallback), remover (0,0), **1 fluxo de busca**, agrupar o formulário | É o coração do produto; sem isso nada do resto importa |
+| **P2 — Heatmap**         | Validar visual (você), polir clique→"porquê", legenda com dados                                 | É o diferencial visual que você pediu                  |
+| **P3 — Explicabilidade** | Frase didática do score + "por quê" no card e no popup                                          | Vende o valor: "você entende cada ponto"               |
+| **P4 — Acabamento**      | Microcopy padronizada, empty states acionáveis, feedback de região no mapa                      | Transforma em "produto profissional"                   |
+| **P5 — Provider/Infra**  | CNPJ/CNAE real, rate-limit, worker (BullMQ) se precisar                                         | Só quando volume justificar                            |
 
 ---
 

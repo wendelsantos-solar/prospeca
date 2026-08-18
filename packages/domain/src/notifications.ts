@@ -84,9 +84,7 @@ export function generateNotifications(
       });
     }
 
-    const lastTs = lead.lastInteractionAt
-      ? new Date(lead.lastInteractionAt).getTime()
-      : 0;
+    const lastTs = lead.lastInteractionAt ? new Date(lead.lastInteractionAt).getTime() : 0;
     const daysSince = lastTs ? Math.floor((now - lastTs) / DAY_MS) : null;
 
     if (

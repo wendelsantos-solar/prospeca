@@ -3,7 +3,12 @@ import { deriveIntentSignals } from "./intent-signals";
 
 describe("deriveIntentSignals", () => {
   it("returns empty when nothing applies", () => {
-    const s = deriveIntentSignals({ hasWebsite: true, rating: 4.5, instagram: "@x", whatsapp: "51" });
+    const s = deriveIntentSignals({
+      hasWebsite: true,
+      rating: 4.5,
+      instagram: "@x",
+      whatsapp: "51",
+    });
     expect(s).toEqual([]);
   });
 

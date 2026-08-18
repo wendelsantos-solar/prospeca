@@ -56,9 +56,7 @@ export function deriveIntentSignals(ctx: IntentSignalContext): IntentSignalDetai
 
   if (ctx.rating != null && ctx.rating < CRITICAL_RATING_MAX) {
     const volume =
-      ctx.reviewCount != null && ctx.reviewCount > 0
-        ? ` com ${ctx.reviewCount} avaliações`
-        : "";
+      ctx.reviewCount != null && ctx.reviewCount > 0 ? ` com ${ctx.reviewCount} avaliações` : "";
     out.push({
       signal: "CRITICAL_REPUTATION",
       label: "Reputação crítica",

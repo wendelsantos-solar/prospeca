@@ -13,3 +13,6 @@ supabase/.temp
 
 # Planos/specs gerados por sessão de agente — histórico, não código-fonte.
 docs/superpowers
+
+# Scaffolding de agentes Maestri — não é código do projeto.
+.maestri

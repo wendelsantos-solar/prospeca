@@ -2,18 +2,18 @@
 
 > Spec #106. O que está pronto, o que falta de credencial, e o que é mock/Noop.
 
-| Provider | Implementação | Configurado | Credencial pendente | Status |
-|---|---|---|---|---|
-| Google Places (search) | Edge functions `execute-search` + cache 3 níveis | ✅ (real mode) | — | **Ativo** |
-| Google Geocoding | `geocode-location` + `geocode_cache` | ✅ | — | **Ativo** |
-| Website scraper (enriquecimento) | `_shared/enrich.ts` (SSRF-guard) | ✅ | — | **Ativo** |
-| Scoring (determinístico) | `score.ts` v3.0.0 + `opportunity-score.ts` v1.0.0 | ✅ | — | **Ativo** |
-| Intent parser (determinístico) | `search-intent.ts` | ✅ | — | **Ativo** (fallback) |
-| Intent parser (LLM) | — | ❌ | chave/modelo (Anthropic já parcial via `aiMessage`) | **Pendente** |
-| Business Registry (CNPJ/CNAE) | — (adapter `CompanySourceProvider.public_business_registry` previsto) | ❌ | provider/credencial | **Pendente** |
-| WhatsApp validation | `whatsapp_status` (unknown/possible/verified/invalid) + `_shared/enrich` | 🟡 | provider dedicado | **Parcial** |
-| Social (Instagram/Facebook/LinkedIn) | — | ❌ | provider | **Pendente** |
-| Reputation (sentiment/keywords) | — | ❌ | provider/IA | **Pendente** |
+| Provider                             | Implementação                                                            | Configurado    | Credencial pendente                                 | Status               |
+| ------------------------------------ | ------------------------------------------------------------------------ | -------------- | --------------------------------------------------- | -------------------- |
+| Google Places (search)               | Edge functions `execute-search` + cache 3 níveis                         | ✅ (real mode) | —                                                   | **Ativo**            |
+| Google Geocoding                     | `geocode-location` + `geocode_cache`                                     | ✅             | —                                                   | **Ativo**            |
+| Website scraper (enriquecimento)     | `_shared/enrich.ts` (SSRF-guard)                                         | ✅             | —                                                   | **Ativo**            |
+| Scoring (determinístico)             | `score.ts` v3.0.0 + `opportunity-score.ts` v1.0.0                        | ✅             | —                                                   | **Ativo**            |
+| Intent parser (determinístico)       | `search-intent.ts`                                                       | ✅             | —                                                   | **Ativo** (fallback) |
+| Intent parser (LLM)                  | —                                                                        | ❌             | chave/modelo (Anthropic já parcial via `aiMessage`) | **Pendente**         |
+| Business Registry (CNPJ/CNAE)        | — (adapter `CompanySourceProvider.public_business_registry` previsto)    | ❌             | provider/credencial                                 | **Pendente**         |
+| WhatsApp validation                  | `whatsapp_status` (unknown/possible/verified/invalid) + `_shared/enrich` | 🟡             | provider dedicado                                   | **Parcial**          |
+| Social (Instagram/Facebook/LinkedIn) | —                                                                        | ❌             | provider                                            | **Pendente**         |
+| Reputation (sentiment/keywords)      | —                                                                        | ❌             | provider/IA                                         | **Pendente**         |
 
 ## Env para V2
 

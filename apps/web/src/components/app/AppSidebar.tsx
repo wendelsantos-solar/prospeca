@@ -140,7 +140,7 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     <aside
       className={cn(
         "flex flex-col bg-sidebar",
-        mobile ? "h-full w-full" : "hidden lg:flex w-full max-w-[290px] shrink-0 border-r",
+        mobile ? "h-full w-full" : "hidden lg:flex w-full max-w-[340px] shrink-0 border-r",
       )}
     >
       {/* Header */}

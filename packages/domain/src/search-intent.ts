@@ -100,7 +100,11 @@ export function parseSearchIntent(text: string): SearchIntent {
   // 3) presence — "sem site" / "baixa presença digital" / "com site"
   let presence: SearchIntent["presence"] = "all";
   let website: boolean | null = null;
-  if (blank(/(?:com\s+)?(?:sem\s+site|baixa\s+presenca\s+digital|pouca\s+presenca\s+digital|sem\s+presenca\s+digital)/i)) {
+  if (
+    blank(
+      /(?:com\s+)?(?:sem\s+site|baixa\s+presenca\s+digital|pouca\s+presenca\s+digital|sem\s+presenca\s+digital)/i,
+    )
+  ) {
     presence = "no-website";
     website = false;
   } else if (blank(/com\s+site|com\s+presenca\s+digital/i)) {
@@ -112,7 +116,10 @@ export function parseSearchIntent(text: string): SearchIntent {
   let location = "";
   const emIdx = tt.search(/\bem\s+/i);
   if (emIdx >= 0) {
-    location = oo.slice(emIdx).replace(/^\s*em\s+/i, "").trim();
+    location = oo
+      .slice(emIdx)
+      .replace(/^\s*em\s+/i, "")
+      .trim();
     oo = oo.slice(0, emIdx);
   }
   location = location.replace(TRAILING_CONNECTORS, "").trim();

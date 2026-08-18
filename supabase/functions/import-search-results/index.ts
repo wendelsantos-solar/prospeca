@@ -246,8 +246,7 @@ Deno.serve(async (req) => {
             .order("calculated_at", { ascending: false })
             .limit(1)
             .maybeSingle();
-          const hasV2 =
-            v2Row?.score != null && v2Row?.rule_version === OPPORTUNITY_SCORE_VERSION;
+          const hasV2 = v2Row?.score != null && v2Row?.rule_version === OPPORTUNITY_SCORE_VERSION;
           const addressParts = parseAddress(
             place.formatted_address as string | null,
             place.address_components,
@@ -284,9 +283,7 @@ Deno.serve(async (req) => {
               review_count: place.user_rating_count ?? null,
               score: hasV2 ? (v2Row.score as number) : breakdown.total,
               score_breakdown: hasV2 ? (v2Row.breakdown as unknown) : breakdown,
-              score_rule_version: hasV2
-                ? (v2Row.rule_version as string)
-                : "legacy-v3.0.0",
+              score_rule_version: hasV2 ? (v2Row.rule_version as string) : "legacy-v3.0.0",
               // O v3 SEMPRE é calculado aqui (breakdown.total) e sempre vale como
               // referência de rollback — mesmo quando o V2 vence o campo `score`.
               // Antes gravava null quando havia V2, jogando fora o v3 recém-computado.

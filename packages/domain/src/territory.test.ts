@@ -13,7 +13,13 @@ import {
   type TerritoryCompany,
 } from "./territory";
 
-const c = (id: string, neighborhood: string, score: number, hasWebsite: boolean, hot = false): TerritoryCompany => ({
+const c = (
+  id: string,
+  neighborhood: string,
+  score: number,
+  hasWebsite: boolean,
+  hot = false,
+): TerritoryCompany => ({
   id,
   neighborhood,
   city: "Porto Alegre",
@@ -148,9 +154,7 @@ describe("territoryFavorabilityFor", () => {
       c("3", "Bom Fim", 50, true),
     ]);
     const insights = buildTerritoryInsights(stats);
-    expect(stats.find((s) => s.key === "Centro")!.companyCount).toBeLessThan(
-      MIN_TERRITORY_SAMPLE,
-    );
+    expect(stats.find((s) => s.key === "Centro")!.companyCount).toBeLessThan(MIN_TERRITORY_SAMPLE);
     expect(territoryFavorabilityFor(stats, insights, "Centro")).toBeNull();
   });
 
@@ -191,7 +195,11 @@ describe("territoryFavorabilityFor", () => {
     for (let i = 0; i < 8; i++) big.push(c(`x${i}`, "Centro", 80, false, i < 4));
     for (let i = 0; i < 8; i++) big.push(c(`y${i}`, "Bom Fim", 50, true));
     const bigStats = aggregateTerritories(big);
-    const bigFavor = territoryFavorabilityFor(bigStats, buildTerritoryInsights(bigStats), "Centro")!;
+    const bigFavor = territoryFavorabilityFor(
+      bigStats,
+      buildTerritoryInsights(bigStats),
+      "Centro",
+    )!;
     expect(bigFavor).toBeGreaterThan(favor);
   });
 });
@@ -223,7 +231,11 @@ describe("heatMetricWeight", () => {
       heatMetricWeight("segment_concentration", { score: 50, hasWebsite: true, segmentShare: 0.5 }),
     ).toBe(1);
     expect(
-      heatMetricWeight("segment_concentration", { score: 50, hasWebsite: true, segmentShare: 0.25 }),
+      heatMetricWeight("segment_concentration", {
+        score: 50,
+        hasWebsite: true,
+        segmentShare: 0.25,
+      }),
     ).toBe(0.5);
   });
 });

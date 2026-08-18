@@ -86,12 +86,14 @@ Deno.serve(async (req) => {
         reviewCount: l.review_count as number | null,
         instagram: l.instagram as string | null,
         whatsapp: l.whatsapp as string | null,
-        activities: ((l.lead_activities ?? []) as Array<{
-          id: string;
-          title?: string | null;
-          status?: string | null;
-          scheduled_at?: string | null;
-        }>).map((a) => ({
+        activities: (
+          (l.lead_activities ?? []) as Array<{
+            id: string;
+            title?: string | null;
+            status?: string | null;
+            scheduled_at?: string | null;
+          }>
+        ).map((a) => ({
           id: a.id,
           title: a.title ?? undefined,
           date: a.scheduled_at ?? null,
@@ -142,7 +144,9 @@ Deno.serve(async (req) => {
     // ── Leitura final ─────────────────────────────────────────────────────
     const { data: stored } = await admin
       .from("notifications")
-      .select("notification_key, kind, title, description, lead_id, read_at, dismissed_at, created_at")
+      .select(
+        "notification_key, kind, title, description, lead_id, read_at, dismissed_at, created_at",
+      )
       .eq("organization_id", org)
       .eq("user_id", user)
       .is("dismissed_at", null)

@@ -66,7 +66,11 @@ function enrichmentStep(input: MissionPipelineInput): PipelineStep {
   const running = w.running > 0 || (jobs["processing"] ?? 0) > 0 || (jobs["retrying"] ?? 0) > 0;
   const done = w.done;
   const failed = w.failed + (jobs["failed"] ?? 0);
-  const detail = [`✓${done}`, failed > 0 ? `✗${failed}` : null, running ? `⟳${w.running + (jobs["processing"] ?? 0) + (jobs["retrying"] ?? 0)}` : null]
+  const detail = [
+    `✓${done}`,
+    failed > 0 ? `✗${failed}` : null,
+    running ? `⟳${w.running + (jobs["processing"] ?? 0) + (jobs["retrying"] ?? 0)}` : null,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -85,7 +89,11 @@ function validationStep(input: MissionPipelineInput): PipelineStep {
   // CNPJ validation is ON-DEMAND (drawer lookup) — a mission with zero
   // consultations honestly shows "sob consulta", never a fake percentage.
   const r = input.sourceCounts.registry;
-  const detail = [`✓${r.done}`, r.failed > 0 ? `✗${r.failed}` : null, r.running > 0 ? `⟳${r.running}` : null]
+  const detail = [
+    `✓${r.done}`,
+    r.failed > 0 ? `✗${r.failed}` : null,
+    r.running > 0 ? `⟳${r.running}` : null,
+  ]
     .filter(Boolean)
     .join(" ");
   if (r.running > 0) return { key: "validation", label: "Validar", state: "running", detail };

@@ -29,9 +29,7 @@ describe("buildCompanyTimeline", () => {
           finishedAt: "2026-08-15T10:05:00Z",
         },
       ],
-      sources: [
-        { id: "s1", provider: "google_places", fetchedAt: "2026-08-15T09:00:00Z" },
-      ],
+      sources: [{ id: "s1", provider: "google_places", fetchedAt: "2026-08-15T09:00:00Z" }],
       scores: [
         {
           id: "sc1",
@@ -41,7 +39,9 @@ describe("buildCompanyTimeline", () => {
           ruleVersion: "v1.2.0",
         },
       ],
-      leadEvents: [{ id: "l1", type: "contacted", label: "Contato via WhatsApp", at: "2026-08-16T08:00:00Z" }],
+      leadEvents: [
+        { id: "l1", type: "contacted", label: "Contato via WhatsApp", at: "2026-08-16T08:00:00Z" },
+      ],
     });
     const times = timeline.map((e) => e.at);
     const sorted = [...times].sort((a, b) => (a < b ? 1 : -1));
@@ -60,7 +60,14 @@ describe("buildCompanyTimeline", () => {
           finishedAt: "2026-08-15T10:04:00Z",
         },
       ],
-      leadEvents: [{ id: "l1", type: "added_to_pipeline", label: "Adicionado ao funil", at: "2026-08-15T11:00:00Z" }],
+      leadEvents: [
+        {
+          id: "l1",
+          type: "added_to_pipeline",
+          label: "Adicionado ao funil",
+          at: "2026-08-15T11:00:00Z",
+        },
+      ],
     });
     const system = timeline.filter((e) => e.kind === "system");
     const commercial = timeline.filter((e) => e.kind === "commercial");

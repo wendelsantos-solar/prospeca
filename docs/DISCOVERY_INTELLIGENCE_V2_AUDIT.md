@@ -5,14 +5,14 @@
 
 ## 1. Baseline
 
-| Item | Estado |
-|---|---|
-| Branch | `feat/discovery-intelligence-v2` (nova; nada commitado) |
-| Working tree | Preservado — onda de "estado de enriquecimento" + KPIs + heatmap + missão + buscas salvas (não commitada) |
-| `bun run lint` | ✅ 0 errors (1 warning pré-existente em `SettingsTabs.tsx`) |
-| `bun run typecheck` | ✅ 4/4 pacotes |
-| `bun run test` | ✅ 131 pass / 0 fail |
-| `bun run build` | ✅ (1 warning `INEFFECTIVE_DYNAMIC_IMPORT`, pré-existente) |
+| Item                | Estado                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Branch              | `feat/discovery-intelligence-v2` (nova; nada commitado)                                                   |
+| Working tree        | Preservado — onda de "estado de enriquecimento" + KPIs + heatmap + missão + buscas salvas (não commitada) |
+| `bun run lint`      | ✅ 0 errors (1 warning pré-existente em `SettingsTabs.tsx`)                                               |
+| `bun run typecheck` | ✅ 4/4 pacotes                                                                                            |
+| `bun run test`      | ✅ 131 pass / 0 fail                                                                                      |
+| `bun run build`     | ✅ (1 warning `INEFFECTIVE_DYNAMIC_IMPORT`, pré-existente)                                                |
 
 ---
 
@@ -44,24 +44,24 @@ Monorepo **Bun + Turborepo**: `apps/web` + `packages/contracts` (tipos/zod) + `p
 
 O Prospeca **já separa Discovery × CRM**, mas com uma diferença-chave em relação ao target V2:
 
-| Conceito V2 | Entidade atual | Observação crítica |
-|---|---|---|
-| **Company (canônico)** | `places` | **É tenant-scoped**: tem `organization_id` + `unique (organization_id, provider, provider_place_id)`. Ou seja, cada org tem sua própria cópia do mesmo lugar — **não é canônico global**. |
-| **Lead** | `leads` | Tem `place_id` FK (já linka à Company) + `unique (organization_id, place_id)`. **Mas denormaliza** contato/score/temperatura (cópia dos dados da empresa). |
-| **Score por org** | `leads.score` + `leads.score_breakdown` + `leads.score_rule_version` | Score fica no **lead**, não na company, e a fórmula é **global** (v3.0.0), não por-org. |
-| **Fontes/proveniência** | `lead_sources` (lead-scoped) + `lead_enrichments` (field-level) + `lead_scores` (histórico append-only) | Proveniência é **por lead**, não por company. |
-| **Job/queue** | `searches.status` (estado) + `functions.invoke` + `idempotency_keys` + `usage_events` | Não há tabela de jobs nem abstração de fila. |
+| Conceito V2             | Entidade atual                                                                                          | Observação crítica                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Company (canônico)**  | `places`                                                                                                | **É tenant-scoped**: tem `organization_id` + `unique (organization_id, provider, provider_place_id)`. Ou seja, cada org tem sua própria cópia do mesmo lugar — **não é canônico global**. |
+| **Lead**                | `leads`                                                                                                 | Tem `place_id` FK (já linka à Company) + `unique (organization_id, place_id)`. **Mas denormaliza** contato/score/temperatura (cópia dos dados da empresa).                                |
+| **Score por org**       | `leads.score` + `leads.score_breakdown` + `leads.score_rule_version`                                    | Score fica no **lead**, não na company, e a fórmula é **global** (v3.0.0), não por-org.                                                                                                   |
+| **Fontes/proveniência** | `lead_sources` (lead-scoped) + `lead_enrichments` (field-level) + `lead_scores` (histórico append-only) | Proveniência é **por lead**, não por company.                                                                                                                                             |
+| **Job/queue**           | `searches.status` (estado) + `functions.invoke` + `idempotency_keys` + `usage_events`                   | Não há tabela de jobs nem abstração de fila.                                                                                                                                              |
 
 ### Tabelas autoritativas (verificadas)
 
-| Domínio | Tabelas |
-|---|---|
-| Tenant | `organizations`, `organization_members`, `profiles`, `platform_admins`, `organization_invitations` |
-| Busca | `searches`, `places`, `search_results`, `provider_search_cache`, `geocode_cache` |
-| CRM | `leads`, `lead_notes`, `lead_activities`, `lead_stage_history`, `message_templates` |
-| Enriquecimento/proveniência | `lead_sources`, `lead_enrichments`, `lead_scores` (+ `enrichment_state`/`enrichment_fields` em `places`, não commitados) |
-| Billing | `billing_plans`, `billing_customers`, `subscriptions`, `usage_counters`, `billing_events`, `credit_balances`, `credit_transactions` |
-| Ops/segurança | `usage_events`, `audit_logs`, `idempotency_keys`, `suppression_list`, `exports`, `rate_limit_events`, `error_events` |
+| Domínio                     | Tabelas                                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Tenant                      | `organizations`, `organization_members`, `profiles`, `platform_admins`, `organization_invitations`                                  |
+| Busca                       | `searches`, `places`, `search_results`, `provider_search_cache`, `geocode_cache`                                                    |
+| CRM                         | `leads`, `lead_notes`, `lead_activities`, `lead_stage_history`, `message_templates`                                                 |
+| Enriquecimento/proveniência | `lead_sources`, `lead_enrichments`, `lead_scores` (+ `enrichment_state`/`enrichment_fields` em `places`, não commitados)            |
+| Billing                     | `billing_plans`, `billing_customers`, `subscriptions`, `usage_counters`, `billing_events`, `credit_balances`, `credit_transactions` |
+| Ops/segurança               | `usage_events`, `audit_logs`, `idempotency_keys`, `suppression_list`, `exports`, `rate_limit_events`, `error_events`                |
 
 ### Fluxo de busca atual
 
@@ -77,37 +77,37 @@ O Prospeca **já separa Discovery × CRM**, mas com uma diferença-chave em rela
 
 Legenda: ✅ já existe · 🟡 parcial · ❌ ausente
 
-| # | Área | Estado | Nota |
-|---|---|---|---|
-| 2, 24 | Company × Lead separados | 🟡 | Existe (`places`↔`leads`), mas `places` é tenant-scoped e `leads` denormaliza |
-| 7, 8 | SearchIntentParser (NL → filtros) | ❌ | Form é discreto (nicho/local/raio/presença) |
-| 9, 10 | BusinessTaxonomy (termo→categoria→Places→CNAE) | ❌ | `NICHES` hardcoded no frontend |
-| 12–15, 17 | Pipeline assíncrono + fila visível | 🟡 | Estado em `searches` + Realtime; sem fila/jobs formal |
-| 13, 73–75 | JobQueue + observabilidade + DLQ + Admin Jobs | ❌ | Sem abstração de fila nem DLQ |
-| 19–23 | Idempotência/retry/timeout/circuit-breaker/rate-limit | 🟡 | `idempotency_keys`, rate-limit fail-closed existem; retry/backoff/CB parcial |
-| 26 | company_sources (proveniência por company) | 🟡 | `lead_sources` é por lead, não por place |
-| 27 | Deduplicação multi-sinal | 🟡 | `unique(org, place_id)` + hash de contato; sem confidence/merge |
-| 29–31 | DigitalPresenceProfile / website / social intelligence | 🟡 | Presença digital básica (site/instagram/whatsapp); sem perfil/estado strong/medium/weak |
-| 32 | WhatsApp phone_found × probable × validated | 🟡 | `whatsapp_status` (unknown/possible/verified/invalid) já existe |
-| 33 | Reputation Intelligence | ❌ | Só rating/review_count; sem sentiment/keywords |
-| 34–36, 60 | Opportunity Score + Signals + temperatura | 🟡 | Score determinístico existe; sinais implícitos (não nomeados/armazenados) |
-| 59–62 | Score por organização + versionamento | 🟡 | Versão existe (`v3.0.0`); **score global, não por-org** |
-| 37, 40, 41 | Territory Intelligence | ❌ | Ausente |
-| 38, 39 | Heatmap por métrica | 🟡 | Heatmap de oportunidade recém-adicionado (uma métrica só) |
-| 42, 46 | KPIs + cards densos | 🟡 | KPIs recém-adicionados |
-| 48–58 | Company Intelligence Panel + NBA + abordagem | 🟡 | `LeadDetailsDrawer` + `generate-contact-message`; NBA parcial |
-| 28, 107 | Dados cadastrais / CNAE / Business Registry | ❌ | Sem provider cadastral (necessário adapter + Noop/Mock) |
-| 65 | Saved Search | 🟡 | Migration + frontend recém-adicionados (não commitados) |
-| 66 | Monitorar região | ❌ | Preparar estrutura de saved search |
-| 96 | Feature flags | 🟡 | `env.ts` já tem flags (`realSearch`, `websiteEnrichment`…); faltam as V2 |
+| #          | Área                                                   | Estado | Nota                                                                                    |
+| ---------- | ------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------- |
+| 2, 24      | Company × Lead separados                               | 🟡     | Existe (`places`↔`leads`), mas `places` é tenant-scoped e `leads` denormaliza           |
+| 7, 8       | SearchIntentParser (NL → filtros)                      | ❌     | Form é discreto (nicho/local/raio/presença)                                             |
+| 9, 10      | BusinessTaxonomy (termo→categoria→Places→CNAE)         | ❌     | `NICHES` hardcoded no frontend                                                          |
+| 12–15, 17  | Pipeline assíncrono + fila visível                     | 🟡     | Estado em `searches` + Realtime; sem fila/jobs formal                                   |
+| 13, 73–75  | JobQueue + observabilidade + DLQ + Admin Jobs          | ❌     | Sem abstração de fila nem DLQ                                                           |
+| 19–23      | Idempotência/retry/timeout/circuit-breaker/rate-limit  | 🟡     | `idempotency_keys`, rate-limit fail-closed existem; retry/backoff/CB parcial            |
+| 26         | company_sources (proveniência por company)             | 🟡     | `lead_sources` é por lead, não por place                                                |
+| 27         | Deduplicação multi-sinal                               | 🟡     | `unique(org, place_id)` + hash de contato; sem confidence/merge                         |
+| 29–31      | DigitalPresenceProfile / website / social intelligence | 🟡     | Presença digital básica (site/instagram/whatsapp); sem perfil/estado strong/medium/weak |
+| 32         | WhatsApp phone_found × probable × validated            | 🟡     | `whatsapp_status` (unknown/possible/verified/invalid) já existe                         |
+| 33         | Reputation Intelligence                                | ❌     | Só rating/review_count; sem sentiment/keywords                                          |
+| 34–36, 60  | Opportunity Score + Signals + temperatura              | 🟡     | Score determinístico existe; sinais implícitos (não nomeados/armazenados)               |
+| 59–62      | Score por organização + versionamento                  | 🟡     | Versão existe (`v3.0.0`); **score global, não por-org**                                 |
+| 37, 40, 41 | Territory Intelligence                                 | ❌     | Ausente                                                                                 |
+| 38, 39     | Heatmap por métrica                                    | 🟡     | Heatmap de oportunidade recém-adicionado (uma métrica só)                               |
+| 42, 46     | KPIs + cards densos                                    | 🟡     | KPIs recém-adicionados                                                                  |
+| 48–58      | Company Intelligence Panel + NBA + abordagem           | 🟡     | `LeadDetailsDrawer` + `generate-contact-message`; NBA parcial                           |
+| 28, 107    | Dados cadastrais / CNAE / Business Registry            | ❌     | Sem provider cadastral (necessário adapter + Noop/Mock)                                 |
+| 65         | Saved Search                                           | 🟡     | Migration + frontend recém-adicionados (não commitados)                                 |
+| 66         | Monitorar região                                       | ❌     | Preparar estrutura de saved search                                                      |
+| 96         | Feature flags                                          | 🟡     | `env.ts` já tem flags (`realSearch`, `websiteEnrichment`…); faltam as V2                |
 
 ---
 
 ## 5. Decisões arquiteturais que precisam de você
 
-1. **Company global vs tenant.** Hoje `places` é por-org. O spec V2 (#24, #94) sugere Company canônico *potencialmente global* (dados públicos compartilhados entre tenants) com score/lead por-org. Mudar `places` para global mexe em RLS, dedup e licenciamento de fontes. **Recomendo**: manter `places` como a entidade Company (evoluir, não criar `companies` paralela), e tratar a decisão global-vs-tenant como evolução posterior — mas preciso do seu call.
+1. **Company global vs tenant.** Hoje `places` é por-org. O spec V2 (#24, #94) sugere Company canônico _potencialmente global_ (dados públicos compartilhados entre tenants) com score/lead por-org. Mudar `places` para global mexe em RLS, dedup e licenciamento de fontes. **Recomendo**: manter `places` como a entidade Company (evoluir, não criar `companies` paralela), e tratar a decisão global-vs-tenant como evolução posterior — mas preciso do seu call.
 
-2. **Redis/BullMQ vs fila atual.** ADR-001 (existente) diz *sem Redis/BullMQ*; o spec prefere BullMQ "se compatível". **Recomendo**: criar a abstração `JobQueue` (interface no domínio) agora, manter o transporte atual (functions.invoke + tabela de jobs) e deixar BullMQ como implementação futura quando o timeout de edge function estourar. Não acoplar domínio ao BullMQ (o spec exige isso também).
+2. **Redis/BullMQ vs fila atual.** ADR-001 (existente) diz _sem Redis/BullMQ_; o spec prefere BullMQ "se compatível". **Recomendo**: criar a abstração `JobQueue` (interface no domínio) agora, manter o transporte atual (functions.invoke + tabela de jobs) e deixar BullMQ como implementação futura quando o timeout de edge function estourar. Não acoplar domínio ao BullMQ (o spec exige isso também).
 
 3. **Score: separar `global_quality_score` × `opportunity_score` por org.** É aditivo (nova tabela `company_opportunity_scores`), não quebra o `leads.score` atual. **Recomendo**: fazer.
 

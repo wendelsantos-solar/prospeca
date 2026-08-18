@@ -122,9 +122,7 @@ export function registrationStatusFromSituacao(
  * the nuance lives in `statusDescription`. Only definitive closures map to
  * `closed`.
  */
-export function companyStatusFromRegistration(
-  status: BusinessRegistrationStatus,
-): CompanyStatus {
+export function companyStatusFromRegistration(status: BusinessRegistrationStatus): CompanyStatus {
   switch (status) {
     case "active":
     case "suspended":
@@ -142,7 +140,10 @@ const DAY_MS = 86_400_000;
 
 /** Whole years since `foundedAt` (ISO date/string) at `now`. Null when the
  * date is absent or invalid — never fabricates an age. */
-export function yearsInBusiness(foundedAt: string | null | undefined, now: Date = new Date()): number | null {
+export function yearsInBusiness(
+  foundedAt: string | null | undefined,
+  now: Date = new Date(),
+): number | null {
   if (!foundedAt) return null;
   const d = new Date(foundedAt);
   if (Number.isNaN(d.getTime())) return null;
@@ -153,7 +154,10 @@ export function yearsInBusiness(foundedAt: string | null | undefined, now: Date 
 /** Established = at least ESTABLISHED_YEARS_MIN years of operation. */
 export const ESTABLISHED_YEARS_MIN = 5;
 
-export function isEstablishedByAge(foundedAt: string | null | undefined, now: Date = new Date()): boolean {
+export function isEstablishedByAge(
+  foundedAt: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
   const years = yearsInBusiness(foundedAt, now);
   return years != null && years >= ESTABLISHED_YEARS_MIN;
 }

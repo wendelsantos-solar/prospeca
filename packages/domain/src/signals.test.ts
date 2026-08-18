@@ -61,9 +61,9 @@ describe("deriveSignals", () => {
     expect(hasSignal(deriveSignals({ ...base, instagramFollowers: 0 }), "INSTAGRAM_WEAK")).toBe(
       false,
     );
-    expect(
-      hasSignal(deriveSignals({ ...base, instagramFollowers: null }), "INSTAGRAM_WEAK"),
-    ).toBe(false);
+    expect(hasSignal(deriveSignals({ ...base, instagramFollowers: null }), "INSTAGRAM_WEAK")).toBe(
+      false,
+    );
   });
 
   test("territory context emits density/competition signals", () => {
@@ -74,9 +74,7 @@ describe("deriveSignals", () => {
 
   test("new business flag is emitted only when explicitly true", () => {
     expect(hasSignal(deriveSignals({ ...base, isNewBusiness: true }), "NEW_BUSINESS")).toBe(true);
-    expect(hasSignal(deriveSignals({ ...base, isNewBusiness: false }), "NEW_BUSINESS")).toBe(
-      false,
-    );
+    expect(hasSignal(deriveSignals({ ...base, isNewBusiness: false }), "NEW_BUSINESS")).toBe(false);
     expect(hasSignal(deriveSignals(base), "NEW_BUSINESS")).toBe(false);
   });
 });
@@ -108,12 +106,12 @@ describe("V3-C signals", () => {
   });
 
   test("V3-D: ESTABLISHED_COMPANY second trigger — real registry age", () => {
-    expect(
-      hasSignal(deriveSignals({ ...base, yearsInBusiness: 8 }), "ESTABLISHED_COMPANY"),
-    ).toBe(true);
-    expect(
-      hasSignal(deriveSignals({ ...base, yearsInBusiness: 2 }), "ESTABLISHED_COMPANY"),
-    ).toBe(false);
+    expect(hasSignal(deriveSignals({ ...base, yearsInBusiness: 8 }), "ESTABLISHED_COMPANY")).toBe(
+      true,
+    );
+    expect(hasSignal(deriveSignals({ ...base, yearsInBusiness: 2 }), "ESTABLISHED_COMPANY")).toBe(
+      false,
+    );
     expect(hasSignal(deriveSignals(base), "ESTABLISHED_COMPANY")).toBe(false); // no age data
     // Age evidence carries metadata + registry source.
     const evidence = buildSignalEvidence(deriveSignals({ ...base, yearsInBusiness: 8 }), {
@@ -132,9 +130,7 @@ describe("V3-C signals", () => {
         "WEAK_WEBSITE",
       ),
     ).toBe(true);
-    expect(
-      hasSignal(deriveSignals({ ...base, hasWebsite: true }), "WEAK_WEBSITE"),
-    ).toBe(false);
+    expect(hasSignal(deriveSignals({ ...base, hasWebsite: true }), "WEAK_WEBSITE")).toBe(false);
     expect(
       hasSignal(
         deriveSignals({ ...base, hasWebsite: false, websiteSourceFailed: true }),
@@ -145,22 +141,14 @@ describe("V3-C signals", () => {
 
   test("NO_SOCIAL_PRESENCE only from a CHECKED absence", () => {
     expect(
-      hasSignal(
-        deriveSignals({ ...base, instagramAbsentAfterCheck: true }),
-        "NO_SOCIAL_PRESENCE",
-      ),
+      hasSignal(deriveSignals({ ...base, instagramAbsentAfterCheck: true }), "NO_SOCIAL_PRESENCE"),
     ).toBe(true);
-    expect(
-      hasSignal(deriveSignals(base), "NO_SOCIAL_PRESENCE"),
-    ).toBe(false); // unchecked ≠ absent
+    expect(hasSignal(deriveSignals(base), "NO_SOCIAL_PRESENCE")).toBe(false); // unchecked ≠ absent
   });
 
   test("HIGH_LOCAL_DEMAND only with real territory favorability", () => {
     expect(
-      hasSignal(
-        deriveSignals({ ...base, territoryFavorability: 0.8 }),
-        "HIGH_LOCAL_DEMAND",
-      ),
+      hasSignal(deriveSignals({ ...base, territoryFavorability: 0.8 }), "HIGH_LOCAL_DEMAND"),
     ).toBe(true);
     expect(
       hasSignal(deriveSignals({ ...base, territoryFavorability: 0.4 }), "HIGH_LOCAL_DEMAND"),

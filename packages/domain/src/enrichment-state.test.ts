@@ -103,10 +103,7 @@ describe("multi-source state (Fase 5)", () => {
     expect(deriveSourceState(null, "website")).toBe("pending");
     expect(deriveSourceState({}, "website")).toBe("pending");
     expect(
-      deriveSourceState(
-        { website: buildSourceState("enriched", fetched, 30) },
-        "website",
-      ),
+      deriveSourceState({ website: buildSourceState("enriched", fetched, 30) }, "website"),
     ).toBe("enriched");
     expect(
       deriveSourceState(

@@ -189,9 +189,8 @@ export function recommendNextBestAction(input: NextBestActionInput): NextBestAct
       const upcoming = upcomingCadenceStep(input);
       return {
         channel: "system",
-        recommendation: input.cadenceStartedDays != null
-          ? "Aguardar resposta"
-          : "Confirmar primeiro contato",
+        recommendation:
+          input.cadenceStartedDays != null ? "Aguardar resposta" : "Confirmar primeiro contato",
         reason:
           upcoming && input.cadenceStartedDays != null
             ? `Próximo toque em ${upcoming.dueAtDay} dias (${upcoming.label.toLowerCase()}).`
@@ -269,8 +268,7 @@ export function recommendNextBestAction(input: NextBestActionInput): NextBestAct
   // never a sales-y promise — a no-website business gets a website-oriented
   // opener, a weak-reputation one gets a reputation diagnostic.
   const hasNoWebsite = !input.hasWebsite;
-  const hasWeakReputation =
-    input.rating != null && input.rating < 3.5; // SIGNAL_THRESHOLDS.weakReputationMax
+  const hasWeakReputation = input.rating != null && input.rating < 3.5; // SIGNAL_THRESHOLDS.weakReputationMax
   const recommendation = hasNoWebsite
     ? "Oferecer criação de website"
     : hasWeakReputation

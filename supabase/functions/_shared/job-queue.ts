@@ -177,10 +177,7 @@ export function createSupabaseJobQueue(admin: SupabaseClient): JobQueue {
         .maybeSingle();
       const attempt = (job?.attempt ?? 0) as number;
 
-      if (
-        isRetryableError(errorShape(error)) &&
-        attempt < DEFAULT_MAX_ATTEMPTS
-      ) {
+      if (isRetryableError(errorShape(error)) && attempt < DEFAULT_MAX_ATTEMPTS) {
         // Parked retry: sweeper flips retrying→queued when not_before passes.
         const { error: upErr } = await admin
           .from("jobs")
@@ -230,19 +227,12 @@ export function createSupabaseJobQueue(admin: SupabaseClient): JobQueue {
     },
 
     async get(jobId: string): Promise<Job | null> {
-      const { data } = await admin
-        .from("jobs")
-        .select(JOB_COLUMNS)
-        .eq("id", jobId)
-        .maybeSingle();
+      const { data } = await admin.from("jobs").select(JOB_COLUMNS).eq("id", jobId).maybeSingle();
       return data ? mapJob(data as unknown as JobRow) : null;
     },
 
     async countsByStatus(searchId: string): Promise<Record<JobStatus, number>> {
-      const { data } = await admin
-        .from("jobs")
-        .select("status")
-        .eq("search_id", searchId);
+      const { data } = await admin.from("jobs").select("status").eq("search_id", searchId);
       const counts: Record<JobStatus, number> = {
         queued: 0,
         processing: 0,
@@ -288,15 +278,9 @@ export async function stampJobMetrics(
   jobId: string,
   cost?: JobCostInput | null,
 ): Promise<void> {
-  const { data: job } = await admin
-    .from("jobs")
-    .select("started_at")
-    .eq("id", jobId)
-    .maybeSingle();
+  const { data: job } = await admin.from("jobs").select("started_at").eq("id", jobId).maybeSingle();
   const startedAt = (job?.started_at as string | null) ?? null;
-  const durationMs = startedAt
-    ? Math.max(0, Date.now() - new Date(startedAt).getTime())
-    : null;
+  const durationMs = startedAt ? Math.max(0, Date.now() - new Date(startedAt).getTime()) : null;
   const { error } = await admin
     .from("jobs")
     .update({

@@ -116,17 +116,17 @@
 
 ## 5. Checklist final
 
-| Item | Esperado | OK / Falha |
-|---|---|---|
-| Estimativa no progresso (antes/durante a busca) | linha "Estimativa: ~X–Y · US$ A–B" | |
-| Mapa/Lista: score + badge de confiança | badge média/alta ao lado de "provisório" | |
-| Drawer: card de inteligência | 7 componentes, versão v1.1.0, confiança % | |
-| Drawer: sinais com severidade + tooltip | chips coloridos; tooltip evidência·confiança·origem | |
-| Regiões: agregados do servidor | contagens, score médio, % sem site, insights | |
-| CNPJ inexistente (válido) | mensagem honesta "sem cadastro… é normal" | |
-| CNPJ real | razão social/CNAE/situação preenchidos | |
-| Sininho: sinal de intenção | badge "SINAL" para lead quente com sinal | |
-| Admin: jobs + métricas (se admin) | duração, custo, métricas por tipo | |
+| Item                                            | Esperado                                            | OK / Falha |
+| ----------------------------------------------- | --------------------------------------------------- | ---------- |
+| Estimativa no progresso (antes/durante a busca) | linha "Estimativa: ~X–Y · US$ A–B"                  |            |
+| Mapa/Lista: score + badge de confiança          | badge média/alta ao lado de "provisório"            |            |
+| Drawer: card de inteligência                    | 7 componentes, versão v1.1.0, confiança %           |            |
+| Drawer: sinais com severidade + tooltip         | chips coloridos; tooltip evidência·confiança·origem |            |
+| Regiões: agregados do servidor                  | contagens, score médio, % sem site, insights        |            |
+| CNPJ inexistente (válido)                       | mensagem honesta "sem cadastro… é normal"           |            |
+| CNPJ real                                       | razão social/CNAE/situação preenchidos              |            |
+| Sininho: sinal de intenção                      | badge "SINAL" para lead quente com sinal            |            |
+| Admin: jobs + métricas (se admin)               | duração, custo, métricas por tipo                   |            |
 
 ## 6. Troubleshooting curto
 

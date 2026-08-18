@@ -135,7 +135,10 @@ Deno.serve(async (req) => {
         metadata: metadata ?? null,
       };
       if (existing) {
-        await admin.from("company_sources").update(row).eq("id", existing.id as string);
+        await admin
+          .from("company_sources")
+          .update(row)
+          .eq("id", existing.id as string);
       } else {
         await admin.from("company_sources").insert(row).select("id").maybeSingle();
       }
@@ -162,7 +165,10 @@ Deno.serve(async (req) => {
         metadata: { lastErrorAt: new Date().toISOString() },
       };
       if (existing) {
-        await admin.from("company_sources").update(row).eq("id", existing.id as string);
+        await admin
+          .from("company_sources")
+          .update(row)
+          .eq("id", existing.id as string);
       } else {
         await admin.from("company_sources").insert(row).select("id").maybeSingle();
       }
@@ -188,7 +194,9 @@ Deno.serve(async (req) => {
       registration = await businessRegistryProvider().lookupByCnpj(taxId);
     } catch (providerErr) {
       await stampSource("failed");
-      await markSourceError(providerErr instanceof Error ? providerErr.message : String(providerErr));
+      await markSourceError(
+        providerErr instanceof Error ? providerErr.message : String(providerErr),
+      );
       logEvent({
         requestId,
         organizationId,
@@ -196,12 +204,7 @@ Deno.serve(async (req) => {
         status: "provider_error",
         error: providerErr instanceof Error ? providerErr.message : String(providerErr),
       });
-      return json(
-        { found: false, reason: "provider_unavailable" },
-        200,
-        {},
-        req,
-      );
+      return json({ found: false, reason: "provider_unavailable" }, 200, {}, req);
     }
 
     if (!registration) {
@@ -250,7 +253,10 @@ Deno.serve(async (req) => {
 
     await admin.from("places").update(patch).eq("id", placeId);
     await stampSource("enriched");
-    await upsertSourceRow(1, registration.taxId, { result: "found", foundAt: registration.fetchedAt });
+    await upsertSourceRow(1, registration.taxId, {
+      result: "found",
+      foundAt: registration.fetchedAt,
+    });
 
     logEvent({
       requestId,

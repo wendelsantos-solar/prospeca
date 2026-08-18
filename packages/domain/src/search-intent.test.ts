@@ -11,9 +11,7 @@ describe("parseSearchIntent", () => {
   });
 
   test("clínicas odontológicas em Niterói sem site e com boas avaliações", () => {
-    const r = parseSearchIntent(
-      "clínicas odontológicas em Niterói sem site e com boas avaliações",
-    );
+    const r = parseSearchIntent("clínicas odontológicas em Niterói sem site e com boas avaliações");
     expect(r.businessIntent).toBe("clínicas odontológicas");
     expect(r.location).toBe("niterói");
     expect(r.presence).toBe("no-website");

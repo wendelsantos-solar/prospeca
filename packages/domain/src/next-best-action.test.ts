@@ -42,7 +42,12 @@ describe("recommendNextBestAction", () => {
   });
 
   test("reason lists opportunity signals", () => {
-    const r = recommendNextBestAction({ ...base, rating: 4.6, reviewCount: 5, whatsappStatus: "verified" });
+    const r = recommendNextBestAction({
+      ...base,
+      rating: 4.6,
+      reviewCount: 5,
+      whatsappStatus: "verified",
+    });
     expect(r.messageSignals).toContain("não possui site");
     expect(r.messageSignals).toContain("boa avaliação");
     expect(r.messageSignals).toContain("poucas avaliações");

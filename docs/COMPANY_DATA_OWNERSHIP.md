@@ -24,13 +24,13 @@ forma segura de respeitar os termos.
 
 ## TENANT-SPECIFIC (nunca na Company)
 
-| Conceito | Onde fica |
-|---|---|
-| Score de oportunidade por org | `company_opportunity_scores` |
-| Lead / pipeline / stage | `leads` |
-| Notas / atividades / timeline | `lead_notes`, `lead_activities` |
-| Next-best-action | derivado (domínio), não persistido na Company |
-| Sinais org-specific | derivados do score |
+| Conceito                      | Onde fica                                     |
+| ----------------------------- | --------------------------------------------- |
+| Score de oportunidade por org | `company_opportunity_scores`                  |
+| Lead / pipeline / stage       | `leads`                                       |
+| Notas / atividades / timeline | `lead_notes`, `lead_activities`               |
+| Next-best-action              | derivado (domínio), não persistido na Company |
+| Sinais org-specific           | derivados do score                            |
 
 ## Caminho para "Company global" (futuro)
 

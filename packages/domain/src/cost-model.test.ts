@@ -3,12 +3,7 @@
 // zero (cache hit / gratuito). Nunca 0 mentindo "sem custo".
 
 import { describe, expect, test } from "bun:test";
-import {
-  calculateUsageCost,
-  costEntryFor,
-  COST_TABLE,
-  COST_TABLE_VERSION,
-} from "./cost-model";
+import { calculateUsageCost, costEntryFor, COST_TABLE, COST_TABLE_VERSION } from "./cost-model";
 
 describe("cost table (versão e unicidade)", () => {
   test("tabela tem versão explícita (auditável no tempo)", () => {

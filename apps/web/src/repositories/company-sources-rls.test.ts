@@ -1,8 +1,9 @@
-// RLS test for company_sources (Fase 3) — PRONTO, ainda não ativável.
+// RLS test for company_sources (Fase 3).
 //
-// Gate: roda SOMENTE quando a infra local existir e o runner for invocado com
-// REQUIRE_RLS_DB=true (mesma convenção do verify:pilot). Hoje o repo não tem
-// Supabase local no CI, então o teste fica skipIf até lá.
+// Gate: roda SOMENTE contra o Supabase LOCAL (127.0.0.1), nunca contra o projeto
+// de .env.local — o cenário 1 faz INSERT. Sem banco local acessível a suíte é
+// pulada; com REQUIRE_RLS_DB=true a ausência do banco é erro (mesma convenção de
+// supabase/tests/rls-isolation.test.ts).
 //
 // Cenário de isolamento (spec #92–93):
 //   1. INSERT por client ANON → deve falhar (não há policy de INSERT —
@@ -11,27 +12,25 @@
 //      (policy company_sources_org_read usa is_organization_member).
 //   3. SELECT por usuário da org A → 1 linha.
 //
-// Setup manual (uma vez, SQL editor / migration runner):
-//   - 2 orgs (A, B) + 1 membership cada + 1 place em A.
-//   - INSERT service-role: company_sources(org A, place A, provider
-//     'google_places', source_type 'discovery').
-//   - VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY
-//     apontando para o projeto local.
+// Para rodar: supabase start && supabase migration up --local && bun test
 
 import { describe, expect, test } from "bun:test";
+import { API_URL, ANON_KEY, isReachable } from "./__rls-local";
 
-const enabled = process.env.REQUIRE_RLS_DB === "true";
+const available = await isReachable();
 
-describe.skipIf(!enabled)("company_sources RLS (REQUIRE_RLS_DB=true)", () => {
+if (!available && process.env.REQUIRE_RLS_DB === "true") {
+  throw new Error(
+    `[company-sources-rls] Supabase local obrigatório no gate, mas não está acessível em ${API_URL}.`,
+  );
+}
+
+const describeIfDb = available ? describe : describe.skip;
+
+describeIfDb("company_sources RLS", () => {
   test("anon cannot INSERT into company_sources", async () => {
-    const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-    const anon = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-    expect(url).toBeDefined();
-    expect(anon).toBeDefined();
-    if (!url || !anon) return;
-
     const { createClient } = await import("@supabase/supabase-js");
-    const client = createClient(url, anon);
+    const client = createClient(API_URL, ANON_KEY, { auth: { persistSession: false } });
     const { error } = await client.from("company_sources").insert({
       organization_id: "00000000-0000-0000-0000-000000000000",
       place_id: "00000000-0000-0000-0000-000000000000",

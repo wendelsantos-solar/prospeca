@@ -1,7 +1,10 @@
-// RLS test for territory_stats (Fase 4) — PRONTO, ainda não ativável.
+// RLS test for territory_stats (Fase 4).
 //
-// Gate: roda SOMENTE com REQUIRE_RLS_DB=true + Supabase local (mesma convenção
-// do company-sources-rls.test.ts). Cenário de isolamento (spec #92–93):
+// Gate: roda SOMENTE contra o Supabase LOCAL (127.0.0.1), nunca contra o projeto
+// de .env.local — o cenário 1 faz INSERT. Mesma convenção do
+// company-sources-rls.test.ts.
+//
+// Cenário de isolamento (spec #92–93):
 //   1. INSERT por client ANON → deve falhar (sem policy de escrita — a
 //      territory-analysis usa a service-role key).
 //   2. SELECT por usuário da org B sobre stats da busca da org A → 0 linhas
@@ -12,19 +15,22 @@
 // service role (ou rode a territory-analysis para a busca de A).
 
 import { describe, expect, test } from "bun:test";
+import { API_URL, ANON_KEY, isReachable } from "./__rls-local";
 
-const enabled = process.env.REQUIRE_RLS_DB === "true";
+const available = await isReachable();
 
-describe.skipIf(!enabled)("territory_stats RLS (REQUIRE_RLS_DB=true)", () => {
+if (!available && process.env.REQUIRE_RLS_DB === "true") {
+  throw new Error(
+    `[territory-stats-rls] Supabase local obrigatório no gate, mas não está acessível em ${API_URL}.`,
+  );
+}
+
+const describeIfDb = available ? describe : describe.skip;
+
+describeIfDb("territory_stats RLS", () => {
   test("anon cannot INSERT into territory_stats", async () => {
-    const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-    const anon = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-    expect(url).toBeDefined();
-    expect(anon).toBeDefined();
-    if (!url || !anon) return;
-
     const { createClient } = await import("@supabase/supabase-js");
-    const client = createClient(url, anon);
+    const client = createClient(API_URL, ANON_KEY, { auth: { persistSession: false } });
     const { error } = await client.from("territory_stats").insert({
       organization_id: "00000000-0000-0000-0000-000000000000",
       search_id: "00000000-0000-0000-0000-000000000000",

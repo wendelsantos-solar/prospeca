@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  companyStatusFromBusinessStatus,
-  isSourceStale,
-  type CompanySource,
-} from "./company";
+import { companyStatusFromBusinessStatus, isSourceStale, type CompanySource } from "./company";
 
 describe("companyStatusFromBusinessStatus", () => {
   test("maps OPERATIONAL → operational", () => {

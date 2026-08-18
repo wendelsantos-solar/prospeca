@@ -39,9 +39,7 @@
   },
   "lint": {
     "rules": {
-      "exclude": [
-        "no-import-prefix"
-      ]
+      "exclude": ["no-import-prefix"]
     }
   }
 }

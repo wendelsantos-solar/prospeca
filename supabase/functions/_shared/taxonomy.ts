@@ -85,7 +85,7 @@ export async function resolveSearchTaxonomy(
   return {
     canonicalCategory: entry.name,
     placesTypes: entry.placesTypes,
-    taxonomyId: source === "db" ? idBySlug.get(entry.slug) ?? null : null,
+    taxonomyId: source === "db" ? (idBySlug.get(entry.slug) ?? null) : null,
     resolved: true,
     source,
   };

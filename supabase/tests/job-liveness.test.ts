@@ -139,7 +139,10 @@ async function claimPrimitive(jobId: string, workerId: string) {
     .maybeSingle();
 }
 
-async function waitForTerminal(jobId: string, deadlineMs = 30_000): Promise<Record<string, unknown>> {
+async function waitForTerminal(
+  jobId: string,
+  deadlineMs = 30_000,
+): Promise<Record<string, unknown>> {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     const { data, error } = await admin

@@ -231,13 +231,17 @@ export function calculateOpportunityScore(input: OpportunityScoreInput): Opportu
       "territory",
       "Território",
       territoryScore(input),
-      input.territoryFavorability == null ? "Território não avaliado" : "Favorabilidade territorial",
+      input.territoryFavorability == null
+        ? "Território não avaliado"
+        : "Favorabilidade territorial",
     ),
     buildComponent(
       "freshness",
       "Atualidade",
       freshnessScore(input),
-      input.freshnessDays == null ? "Atualidade desconhecida" : `Dados de há ${input.freshnessDays}d`,
+      input.freshnessDays == null
+        ? "Atualidade desconhecida"
+        : `Dados de há ${input.freshnessDays}d`,
     ),
   ];
 

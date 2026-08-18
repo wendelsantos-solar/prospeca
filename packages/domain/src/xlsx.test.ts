@@ -5,7 +5,15 @@ const decoder = new TextDecoder();
 
 describe("buildXlsx (minimal generator)", () => {
   test("produces a ZIP (PK magic) with the sheet entry", () => {
-    const bytes = buildXlsx([{ name: "Leads", rows: [["a", "b"], [1, 2]] }]);
+    const bytes = buildXlsx([
+      {
+        name: "Leads",
+        rows: [
+          ["a", "b"],
+          [1, 2],
+        ],
+      },
+    ]);
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
     const text = decoder.decode(bytes);
@@ -14,17 +22,13 @@ describe("buildXlsx (minimal generator)", () => {
   });
 
   test("sheet XML contains escaped cell values", () => {
-    const bytes = buildXlsx([
-      { name: "Leads", rows: [["Empresa <A&B>", "x"]] },
-    ]);
+    const bytes = buildXlsx([{ name: "Leads", rows: [["Empresa <A&B>", "x"]] }]);
     const text = decoder.decode(bytes);
     expect(text).toContain("Empresa &lt;A&amp;B&gt;");
   });
 
   test("numbers stay numeric, strings with formula chars get the injection guard", () => {
-    const bytes = buildXlsx([
-      { name: "S", rows: [[42, "=cmd()", "+1", "-x", "@ref", "\tx"]] },
-    ]);
+    const bytes = buildXlsx([{ name: "S", rows: [[42, "=cmd()", "+1", "-x", "@ref", "\tx"]] }]);
     const text = decoder.decode(bytes);
     expect(text).toContain("<v>42</v>");
     expect(text).toContain("'=cmd()");

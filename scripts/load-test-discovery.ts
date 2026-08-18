@@ -2,11 +2,7 @@
 // Measures throughput of opportunity scoring, territory aggregation and heat
 // weighting over synthetic companies so O(n) vs O(n²) regressions surface
 // before they reach prod. Run: `bun run scripts/load-test-discovery.ts`.
-import {
-  calculateOpportunityScore,
-  aggregateTerritories,
-  heatMetricWeight,
-} from "@leads/domain";
+import { calculateOpportunityScore, aggregateTerritories, heatMetricWeight } from "@leads/domain";
 import type { CompanySignal, TerritoryCompany } from "@leads/domain";
 
 const BASE_SIGNALS: CompanySignal[] = [
@@ -73,7 +69,10 @@ function main(): void {
 
   bench("heatMetricWeight (opportunity)", N, () => {
     for (const c of companies) {
-      heatMetricWeight("opportunity", { score: c.territory.score, hasWebsite: c.territory.hasWebsite });
+      heatMetricWeight("opportunity", {
+        score: c.territory.score,
+        hasWebsite: c.territory.hasWebsite,
+      });
     }
   });
 

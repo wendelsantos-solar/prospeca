@@ -150,7 +150,9 @@ export function buildXlsx(sheets: XlsxSheet[]): Uint8Array {
       (_, i) =>
         `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
     )
-    .join("")}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+    .join(
+      "",
+    )}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
 
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
@@ -166,7 +168,10 @@ export function buildXlsx(sheets: XlsxSheet[]): Uint8Array {
     { name: "xl/styles.xml", bytes: encoder.encode(styles) },
   ];
   sheets.forEach((sheet, i) => {
-    entries.push({ name: `xl/worksheets/sheet${i + 1}.xml`, bytes: encoder.encode(sheetXml(sheet)) });
+    entries.push({
+      name: `xl/worksheets/sheet${i + 1}.xml`,
+      bytes: encoder.encode(sheetXml(sheet)),
+    });
   });
 
   const locals: Uint8Array[] = [];

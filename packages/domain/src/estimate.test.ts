@@ -11,7 +11,9 @@ describe("estimateSearchCost", () => {
     const small = estimateSearchCost({ maxResults: 20, cacheHit: false });
     expect(small.requestsMin).toBe(1);
     expect(small.requestsMax).toBe(1);
-    expect(small.costUsdMin).toBe(Math.round((GOOGLE_TEXT_SEARCH_COST_PER_1000 / 1000) * 10000) / 10000);
+    expect(small.costUsdMin).toBe(
+      Math.round((GOOGLE_TEXT_SEARCH_COST_PER_1000 / 1000) * 10000) / 10000,
+    );
     expect(small.resultsMax).toBe(TEXT_SEARCH_PAGE_SIZE);
 
     const big = estimateSearchCost({ maxResults: 60, cacheHit: false });

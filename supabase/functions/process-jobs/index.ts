@@ -33,7 +33,11 @@ const HANDLERS: Record<string, HandlerDispatch> = {
   OPPORTUNITY_SCORING: {
     fn: "score-company",
     body: (job) => {
-      const payload = (job.payload ?? {}) as { searchId?: string; placeId?: string; placeIds?: string[] };
+      const payload = (job.payload ?? {}) as {
+        searchId?: string;
+        placeId?: string;
+        placeIds?: string[];
+      };
       const placeIds = payload.placeIds ?? (payload.placeId ? [payload.placeId] : undefined);
       return {
         searchId: job.searchId ?? payload.searchId,

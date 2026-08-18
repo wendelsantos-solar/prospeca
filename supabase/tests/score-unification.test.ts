@@ -172,7 +172,9 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
       breakdown: {
         total: 72,
         confidence: 0.85,
-        components: [{ key: "digital_gap", label: "Presença digital", score: 40, reason: "Sem site" }],
+        components: [
+          { key: "digital_gap", label: "Presença digital", score: 40, reason: "Sem site" },
+        ],
         scoreState: "FINALIZADO",
         version: "v1.2.0",
       },

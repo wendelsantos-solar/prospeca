@@ -138,9 +138,7 @@ Deno.serve(async (req) => {
     if (parsed.data.searchId) {
       const { data: search } = await admin
         .from("searches")
-        .select(
-          "id, query, canonical_category, places_types, presence_filter, radius_meters",
-        )
+        .select("id, query, canonical_category, places_types, presence_filter, radius_meters")
         .eq("id", parsed.data.searchId)
         .eq("organization_id", organizationId)
         .maybeSingle();
@@ -220,12 +218,12 @@ Deno.serve(async (req) => {
       // Nothing to score — the worker's job is still satisfied (honest no-op).
       if (jobId) {
         await stampJobMetrics(admin, jobId, {
-        // Scoring é computação local sobre dados já persistidos — nenhuma
-        // chamada paga de provider: zero COMPROVADO ('measured').
-        realCostUsd: 0,
-        estimatedCostUsd: 0,
-        costSource: "measured",
-      });
+          // Scoring é computação local sobre dados já persistidos — nenhuma
+          // chamada paga de provider: zero COMPROVADO ('measured').
+          realCostUsd: 0,
+          estimatedCostUsd: 0,
+          costSource: "measured",
+        });
         await jobQueue.complete(jobId, { updated: 0, reason: "no places" });
       }
       return json({ updated: 0, ruleVersion: OPPORTUNITY_SCORE_VERSION }, 200, {}, req);
@@ -289,11 +287,7 @@ Deno.serve(async (req) => {
         const parts = parseAddress(row.formatted_address ?? null, row.address_components);
         const key = territoryKeyForCompany(parts.neighborhood, parts.city, territoryGroupBy);
         if (key) {
-          territoryFavorability = territoryFavorabilityFor(
-            territoryStats,
-            territoryInsights,
-            key,
-          );
+          territoryFavorability = territoryFavorabilityFor(territoryStats, territoryInsights, key);
         }
       }
 
@@ -328,7 +322,7 @@ Deno.serve(async (req) => {
       const signals = deriveSignals(signalCtx);
       const signalEvidence = buildSignalEvidence(signals, signalCtx);
 
-      const placeMission = mission ?? (missionByPlace.get(row.id) ?? null);
+      const placeMission = mission ?? missionByPlace.get(row.id) ?? null;
       const intentMatch = intentMatchForCompany(placeMission, {
         primaryType: row.primary_type ?? null,
         types: row.types ?? [],
@@ -410,18 +404,16 @@ Deno.serve(async (req) => {
       // Discovery contract: search_results carries the V2 result so the RPC
       // get_search_discovery (unchanged) serves the single display source.
       if (parsed.data.searchId) {
-        await admin
-          .from("search_results")
-          .upsert(
-            {
-              search_id: parsed.data.searchId,
-              place_id: row.id,
-              score: opp.total,
-              temperature: opportunityTemperatureFromScore(opp.total),
-              score_breakdown: opp,
-            },
-            { onConflict: "search_id,place_id" },
-          );
+        await admin.from("search_results").upsert(
+          {
+            search_id: parsed.data.searchId,
+            place_id: row.id,
+            score: opp.total,
+            temperature: opportunityTemperatureFromScore(opp.total),
+            score_breakdown: opp,
+          },
+          { onConflict: "search_id,place_id" },
+        );
       }
     }
 
@@ -458,9 +450,7 @@ Deno.serve(async (req) => {
       await jobQueue
         .fail(
           jobId,
-          err instanceof AppError
-            ? { status: 422, message: err.message, name: err.code }
-            : err,
+          err instanceof AppError ? { status: 422, message: err.message, name: err.code } : err,
         )
         .catch(() => {}); // never let job-closing mask the original error
     }

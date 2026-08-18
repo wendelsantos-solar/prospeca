@@ -99,170 +99,173 @@ async function createActor(label: string): Promise<Actor> {
   return { userId, organizationId, client: userClient };
 }
 
-describeIfDb("purge_stale_discovery_pii cobre PII de registro (QSA/registry) por grupo temporal", () => {
-  let org: Actor;
-  let placeOldBoth: string; // contato vencido + registro vencido, não convertido
-  let placeRegistryOnly: string; // SÓ registro vencido (ponto cego), não convertido
-  let placeRegistryFresh: string; // registro fresco + contato vencido (por-grupo)
-  let placeContactFresh: string; // contato fresco + registro vencido (por-grupo)
-  let placeRecent: string; // tudo fresco — fora da política
-  let placeConverted: string; // convertido — intocável
+describeIfDb(
+  "purge_stale_discovery_pii cobre PII de registro (QSA/registry) por grupo temporal",
+  () => {
+    let org: Actor;
+    let placeOldBoth: string; // contato vencido + registro vencido, não convertido
+    let placeRegistryOnly: string; // SÓ registro vencido (ponto cego), não convertido
+    let placeRegistryFresh: string; // registro fresco + contato vencido (por-grupo)
+    let placeContactFresh: string; // contato fresco + registro vencido (por-grupo)
+    let placeRecent: string; // tudo fresco — fora da política
+    let placeConverted: string; // convertido — intocável
 
-  beforeAll(async () => {
-    org = await createActor("org");
+    beforeAll(async () => {
+      org = await createActor("org");
 
-    const base = {
-      organization_id: org.organizationId,
-      provider: "google_places",
-      provider_place_id: `p-${RUN}-`,
-      name: `Purge Target ${RUN}`,
-    };
+      const base = {
+        organization_id: org.organizationId,
+        provider: "google_places",
+        provider_place_id: `p-${RUN}-`,
+        name: `Purge Target ${RUN}`,
+      };
 
-    async function insertPlace(marker: string, extra: Record<string, unknown>): Promise<string> {
+      async function insertPlace(marker: string, extra: Record<string, unknown>): Promise<string> {
+        const { data, error } = await admin
+          .from("places")
+          .insert({ ...base, provider_place_id: `${base.provider_place_id}${marker}`, ...extra })
+          .select("id")
+          .single();
+        if (error) throw new Error(`insert place ${marker}: ${error.message}`);
+        return data.id;
+      }
+
+      placeOldBoth = await insertPlace("oldboth", {
+        enriched_at: OLD,
+        email: `email-${RUN}@example.com`,
+        whatsapp: "+5551999999999",
+        registration_fetched_at: OLD,
+        qsa: [{ name: `Sócio Velho ${RUN}`, qualification: "49" }],
+        registry_email: `socio-${RUN}@example.com`,
+        registry_phone: "+5551888888888",
+      });
+
+      placeRegistryOnly = await insertPlace("regonly", {
+        // SEM enriched_at — nunca passou por enrichment de contato.
+        registration_fetched_at: OLD,
+        qsa: [{ name: `Sócio Só Registro ${RUN}`, qualification: "22" }],
+        registry_email: `regonly-${RUN}@example.com`,
+        registry_phone: "+5551777777777",
+      });
+
+      placeRegistryFresh = await insertPlace("regfresh", {
+        enriched_at: OLD,
+        email: `contato-velho-${RUN}@example.com`,
+        whatsapp: "+5551666666666",
+        registration_fetched_at: FRESH,
+        qsa: [{ name: `Sócio Registro Fresco ${RUN}`, qualification: "49" }],
+        registry_email: `fresco-${RUN}@example.com`,
+      });
+
+      placeContactFresh = await insertPlace("contactfresh", {
+        enriched_at: FRESH,
+        email: `contato-fresco-${RUN}@example.com`,
+        whatsapp: "+5551555555555",
+        registration_fetched_at: OLD,
+        qsa: [{ name: `Sócio Registro Velho ${RUN}`, qualification: "49" }],
+        registry_email: `velho-${RUN}@example.com`,
+      });
+
+      placeRecent = await insertPlace("recent", {
+        enriched_at: FRESH,
+        email: `recente-${RUN}@example.com`,
+        registration_fetched_at: FRESH,
+        qsa: [{ name: `Sócio Recente ${RUN}`, qualification: "49" }],
+        registry_email: `recente-${RUN}@example.com`,
+      });
+
+      placeConverted = await insertPlace("converted", {
+        enriched_at: OLD,
+        email: `convertido-${RUN}@example.com`,
+        whatsapp: "+5551444444444",
+        registration_fetched_at: OLD,
+        qsa: [{ name: `Sócio Convertido ${RUN}`, qualification: "49" }],
+        registry_email: `convertido-${RUN}@example.com`,
+      });
+
+      // Place CONVERTIDO = tem lead no funil (base legal de relacionamento).
+      const { error: leadError } = await admin.from("leads").insert({
+        organization_id: org.organizationId,
+        created_by: org.userId,
+        company_name: `Converted ${RUN}`,
+        city: "Porto Alegre",
+        place_id: placeConverted,
+      });
+      if (leadError) throw new Error(`insert lead: ${leadError.message}`);
+    });
+
+    afterAll(async () => {
+      if (!org?.userId) return;
+      try {
+        // Cascade: organizações → places/leads.
+        await admin.from("organizations").delete().eq("owner_user_id", org.userId);
+      } catch {
+        /* melhor esforço */
+      }
+      try {
+        await admin.auth.admin.deleteUser(org.userId);
+      } catch {
+        /* melhor esforço */
+      }
+    });
+
+    async function placeRow(id: string) {
       const { data, error } = await admin
         .from("places")
-        .insert({ ...base, provider_place_id: `${base.provider_place_id}${marker}`, ...extra })
-        .select("id")
+        .select("email, whatsapp, qsa, registry_email, registry_phone, enriched_at")
+        .eq("id", id)
         .single();
-      if (error) throw new Error(`insert place ${marker}: ${error.message}`);
-      return data.id;
+      if (error) throw new Error(`select place: ${error.message}`);
+      return data;
     }
 
-    placeOldBoth = await insertPlace("oldboth", {
-      enriched_at: OLD,
-      email: `email-${RUN}@example.com`,
-      whatsapp: "+5551999999999",
-      registration_fetched_at: OLD,
-      qsa: [{ name: `Sócio Velho ${RUN}`, qualification: "49" }],
-      registry_email: `socio-${RUN}@example.com`,
-      registry_phone: "+5551888888888",
+    test("purga os DOIS grupos quando ambos vencem (não convertido)", async () => {
+      const { data, error } = await admin.rpc("purge_stale_discovery_pii");
+      if (error) throw new Error(`purge: ${error.message}`);
+      expect(typeof data).toBe("number");
+
+      const row = await placeRow(placeOldBoth);
+      expect(row.email).toBeNull();
+      expect(row.whatsapp).toBeNull();
+      expect(row.qsa).toBeNull();
+      expect(row.registry_email).toBeNull();
+      expect(row.registry_phone).toBeNull();
+      expect(row.enriched_at).toBeNull();
     });
 
-    placeRegistryOnly = await insertPlace("regonly", {
-      // SEM enriched_at — nunca passou por enrichment de contato.
-      registration_fetched_at: OLD,
-      qsa: [{ name: `Sócio Só Registro ${RUN}`, qualification: "22" }],
-      registry_email: `regonly-${RUN}@example.com`,
-      registry_phone: "+5551777777777",
+    test("purga registro MESMO sem enriched_at (ponto cego fechado)", async () => {
+      const row = await placeRow(placeRegistryOnly);
+      expect(row.qsa).toBeNull();
+      expect(row.registry_email).toBeNull();
+      expect(row.registry_phone).toBeNull();
     });
 
-    placeRegistryFresh = await insertPlace("regfresh", {
-      enriched_at: OLD,
-      email: `contato-velho-${RUN}@example.com`,
-      whatsapp: "+5551666666666",
-      registration_fetched_at: FRESH,
-      qsa: [{ name: `Sócio Registro Fresco ${RUN}`, qualification: "49" }],
-      registry_email: `fresco-${RUN}@example.com`,
+    test("regra por grupo: contato vencido + registro fresco → purga SÓ contato", async () => {
+      const row = await placeRow(placeRegistryFresh);
+      expect(row.email).toBeNull();
+      expect(row.qsa).not.toBeNull();
+      expect(row.registry_email).not.toBeNull();
     });
 
-    placeContactFresh = await insertPlace("contactfresh", {
-      enriched_at: FRESH,
-      email: `contato-fresco-${RUN}@example.com`,
-      whatsapp: "+5551555555555",
-      registration_fetched_at: OLD,
-      qsa: [{ name: `Sócio Registro Velho ${RUN}`, qualification: "49" }],
-      registry_email: `velho-${RUN}@example.com`,
+    test("regra por grupo: contato fresco + registro vencido → purga SÓ registro", async () => {
+      const row = await placeRow(placeContactFresh);
+      expect(row.email).not.toBeNull();
+      expect(row.qsa).toBeNull();
+      expect(row.registry_email).toBeNull();
     });
 
-    placeRecent = await insertPlace("recent", {
-      enriched_at: FRESH,
-      email: `recente-${RUN}@example.com`,
-      registration_fetched_at: FRESH,
-      qsa: [{ name: `Sócio Recente ${RUN}`, qualification: "49" }],
-      registry_email: `recente-${RUN}@example.com`,
+    test("place recente (fora da política) permanece intacto", async () => {
+      const row = await placeRow(placeRecent);
+      expect(row.email).not.toBeNull();
+      expect(row.qsa).not.toBeNull();
     });
 
-    placeConverted = await insertPlace("converted", {
-      enriched_at: OLD,
-      email: `convertido-${RUN}@example.com`,
-      whatsapp: "+5551444444444",
-      registration_fetched_at: OLD,
-      qsa: [{ name: `Sócio Convertido ${RUN}`, qualification: "49" }],
-      registry_email: `convertido-${RUN}@example.com`,
+    test("place CONVERTIDO permanece intacto (base legal de relacionamento)", async () => {
+      const row = await placeRow(placeConverted);
+      expect(row.email).not.toBeNull();
+      expect(row.whatsapp).not.toBeNull();
+      expect(row.qsa).not.toBeNull();
+      expect(row.registry_email).not.toBeNull();
     });
-
-    // Place CONVERTIDO = tem lead no funil (base legal de relacionamento).
-    const { error: leadError } = await admin.from("leads").insert({
-      organization_id: org.organizationId,
-      created_by: org.userId,
-      company_name: `Converted ${RUN}`,
-      city: "Porto Alegre",
-      place_id: placeConverted,
-    });
-    if (leadError) throw new Error(`insert lead: ${leadError.message}`);
-  });
-
-  afterAll(async () => {
-    if (!org?.userId) return;
-    try {
-      // Cascade: organizações → places/leads.
-      await admin.from("organizations").delete().eq("owner_user_id", org.userId);
-    } catch {
-      /* melhor esforço */
-    }
-    try {
-      await admin.auth.admin.deleteUser(org.userId);
-    } catch {
-      /* melhor esforço */
-    }
-  });
-
-  async function placeRow(id: string) {
-    const { data, error } = await admin
-      .from("places")
-      .select("email, whatsapp, qsa, registry_email, registry_phone, enriched_at")
-      .eq("id", id)
-      .single();
-    if (error) throw new Error(`select place: ${error.message}`);
-    return data;
-  }
-
-  test("purga os DOIS grupos quando ambos vencem (não convertido)", async () => {
-    const { data, error } = await admin.rpc("purge_stale_discovery_pii");
-    if (error) throw new Error(`purge: ${error.message}`);
-    expect(typeof data).toBe("number");
-
-    const row = await placeRow(placeOldBoth);
-    expect(row.email).toBeNull();
-    expect(row.whatsapp).toBeNull();
-    expect(row.qsa).toBeNull();
-    expect(row.registry_email).toBeNull();
-    expect(row.registry_phone).toBeNull();
-    expect(row.enriched_at).toBeNull();
-  });
-
-  test("purga registro MESMO sem enriched_at (ponto cego fechado)", async () => {
-    const row = await placeRow(placeRegistryOnly);
-    expect(row.qsa).toBeNull();
-    expect(row.registry_email).toBeNull();
-    expect(row.registry_phone).toBeNull();
-  });
-
-  test("regra por grupo: contato vencido + registro fresco → purga SÓ contato", async () => {
-    const row = await placeRow(placeRegistryFresh);
-    expect(row.email).toBeNull();
-    expect(row.qsa).not.toBeNull();
-    expect(row.registry_email).not.toBeNull();
-  });
-
-  test("regra por grupo: contato fresco + registro vencido → purga SÓ registro", async () => {
-    const row = await placeRow(placeContactFresh);
-    expect(row.email).not.toBeNull();
-    expect(row.qsa).toBeNull();
-    expect(row.registry_email).toBeNull();
-  });
-
-  test("place recente (fora da política) permanece intacto", async () => {
-    const row = await placeRow(placeRecent);
-    expect(row.email).not.toBeNull();
-    expect(row.qsa).not.toBeNull();
-  });
-
-  test("place CONVERTIDO permanece intacto (base legal de relacionamento)", async () => {
-    const row = await placeRow(placeConverted);
-    expect(row.email).not.toBeNull();
-    expect(row.whatsapp).not.toBeNull();
-    expect(row.qsa).not.toBeNull();
-    expect(row.registry_email).not.toBeNull();
-  });
-});
+  },
+);

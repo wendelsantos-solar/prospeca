@@ -86,7 +86,10 @@ export async function upsertWebsiteSource(
   };
 
   if (existing) {
-    await admin.from("company_sources").update(row).eq("id", existing.id as string);
+    await admin
+      .from("company_sources")
+      .update(row)
+      .eq("id", existing.id as string);
   } else {
     await admin.from("company_sources").insert(row).select("id").maybeSingle();
   }
@@ -212,9 +215,10 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     // Multi-source (Fase 5): the website source gets its own status + TTL on
     // top of the global field map (retrocompat intact).
     const priorSources = (place.enrichment_sources as EnrichmentSourceMap | null) ?? {};
-    const websiteSourceStatus = outcome.status === "error" || outcome.status === "blocked"
-      ? ("failed" as const)
-      : ("enriched" as const);
+    const websiteSourceStatus =
+      outcome.status === "error" || outcome.status === "blocked"
+        ? ("failed" as const)
+        : ("enriched" as const);
     const patch: Record<string, unknown> = {
       enriched_at: new Date().toISOString(),
       enrichment_status: outcome.status, // legacy free-text column, kept in sync

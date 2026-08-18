@@ -97,7 +97,9 @@ Deno.serve(async (req) => {
 
     const { data: rows } = await admin
       .from("search_results")
-      .select("place_id, distance_meters, score, temperature, places(id, formatted_address, address_components, website_uri)")
+      .select(
+        "place_id, distance_meters, score, temperature, places(id, formatted_address, address_components, website_uri)",
+      )
       .eq("search_id", searchId)
       .limit(1000);
 
@@ -126,11 +128,7 @@ Deno.serve(async (req) => {
 
     // Persist: one series per search — remove rows grouped differently (the
     // effective groupBy can change as new places land).
-    await admin
-      .from("territory_stats")
-      .delete()
-      .eq("search_id", searchId)
-      .neq("group_by", groupBy);
+    await admin.from("territory_stats").delete().eq("search_id", searchId).neq("group_by", groupBy);
 
     for (const t of stats) {
       await admin.from("territory_stats").upsert(
@@ -220,9 +218,7 @@ Deno.serve(async (req) => {
       await queue
         .fail(
           jobId,
-          err instanceof AppError
-            ? { status: 422, message: err.message, name: err.code }
-            : err,
+          err instanceof AppError ? { status: 422, message: err.message, name: err.code } : err,
         )
         .catch(() => {});
     }

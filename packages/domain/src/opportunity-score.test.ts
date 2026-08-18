@@ -130,9 +130,9 @@ describe("deriveOpportunityScoreState (V3-C)", () => {
     expect(deriveOpportunityScoreState({ websiteState: "failed" })).toBe("PARCIAL");
   });
   test("website fine but registry failed → PARCIAL (consulted source errored)", () => {
-    expect(
-      deriveOpportunityScoreState({ websiteState: "enriched", registryState: "failed" }),
-    ).toBe("PARCIAL");
+    expect(deriveOpportunityScoreState({ websiteState: "enriched", registryState: "failed" })).toBe(
+      "PARCIAL",
+    );
   });
   test("breakdown persists scoreState (v1.2.0)", () => {
     const analyzing = calculateOpportunityScore(input({}));
