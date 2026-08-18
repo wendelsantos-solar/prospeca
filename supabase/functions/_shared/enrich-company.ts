@@ -233,7 +233,13 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     if (found.instagram && !place.instagram) patch.instagram = found.instagram;
     if (found.whatsapp && !place.whatsapp) {
       patch.whatsapp = found.whatsapp;
-      patch.whatsapp_status = "verified";
+      // 'possible', NÃO 'verified': o número foi RASPADO do site da empresa.
+      // Ninguém confirmou que existe conta de WhatsApp ativa nele. 'verified'
+      // fica reservado para validação por provider externo (job type
+      // WHATSAPP_VALIDATION) — hoje sem provider configurado. Marcar scrape
+      // como verificado é apresentar inferência como fato: o vendedor confia,
+      // manda mensagem e ela não chega.
+      patch.whatsapp_status = "possible";
     }
     await admin.from("places").update(patch).eq("id", placeId);
 

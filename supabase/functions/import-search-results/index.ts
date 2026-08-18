@@ -272,11 +272,11 @@ Deno.serve(async (req) => {
               whatsapp:
                 (place.whatsapp as string | null) ??
                 (meta.phone?.type === "mobile" ? meta.phone.e164 : null),
-              whatsapp_status: place.whatsapp
-                ? "verified"
-                : meta.phone?.type === "mobile"
-                  ? "possible"
-                  : "unknown",
+              // Tanto o número raspado quanto o móvel inferido são CANDIDATOS
+              // ('possible'). 'verified' exige confirmação por provider externo
+              // (WHATSAPP_VALIDATION), que ainda não está configurado.
+              whatsapp_status:
+                place.whatsapp || meta.phone?.type === "mobile" ? "possible" : "unknown",
               website: meta.website,
               website_domain: meta.domain,
               has_website: meta.websiteReal,

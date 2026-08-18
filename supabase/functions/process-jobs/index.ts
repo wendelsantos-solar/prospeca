@@ -96,6 +96,24 @@ Deno.serve(async (req) => {
         claimedInBatch++;
         processed++;
 
+        // WHATSAPP_VALIDATION (Fase 6): a fronteira existe — job type, timeline
+        // e estados de UI — mas NÃO há provider de validação configurado. Falha
+        // com motivo ESPECÍFICO em vez de 'handler not implemented', para que o
+        // painel admin distingua "ninguém implementou" de "falta credencial
+        // externa". Quando houver provider, este bloco vira um dispatch normal
+        // em HANDLERS e o número passa de 'possible' para 'verified'/'invalid'.
+        if (job.type === "WHATSAPP_VALIDATION") {
+          await stampJobMetrics(admin, job.id, null);
+          await queue.fail(job.id, {
+            status: 422,
+            message:
+              "WHATSAPP_VALIDATION: nenhum provider de validação configurado " +
+              "(BLOCKED_EXTERNAL_CONFIGURATION). O número permanece 'possible'.",
+          });
+          failedNoHandler++;
+          continue;
+        }
+
         const handler = HANDLERS[job.type];
         if (!handler) {
           // Honest failure: unknown types land in the DLQ (visible in the admin

@@ -799,9 +799,11 @@ function ContactCard({
               className="truncate hover:text-primary hover:underline"
             >
               {wa.value}
-              {wa.probable && (
-                <span className="ml-1 text-[10px] text-muted-foreground">(provável)</span>
-              )}
+              {/* Fase 6: NENHUMA origem é verificada — as duas são qualificadas.
+               * Antes o número raspado saía sem rótulo e lia-se como confirmado. */}
+              <span className="ml-1 text-[10px] text-muted-foreground">
+                {wa.source === "site" ? "(do site)" : "(provável)"}
+              </span>
             </button>
           ) : undefined}
         </MiniField>
@@ -954,7 +956,7 @@ function PresenceCard({ lead }: { lead: Lead }) {
             {wa && (
               <span className="text-muted-foreground">
                 {" "}
-                · WhatsApp{wa.probable ? " (provável)" : ""}
+                · WhatsApp{wa.source === "site" ? " (do site)" : " (provável)"}
               </span>
             )}
           </p>
