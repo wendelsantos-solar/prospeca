@@ -32,7 +32,6 @@ import { MapIcon, Sunrise, Kanban, BarChart3, Search, ShieldCheck } from "lucide
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
-import { ActivationChecklist } from "@/components/app/ActivationChecklist";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
@@ -117,7 +116,7 @@ function MobileNav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const isPlatformAdmin = useIsPlatformAdmin();
   const tabs = [
-    { to: "/app/mapa", icon: MapIcon, label: "Mapa" },
+    { to: "/app/mapa", icon: MapIcon, label: "Descobrir" },
     { to: "/app/hoje", icon: Sunrise, label: "Hoje" },
     { to: "/app/kanban", icon: Kanban, label: "Pipeline" },
     { to: "/app/painel", icon: BarChart3, label: "Painel" },
@@ -278,7 +277,6 @@ function AppLayout() {
               <AppSidebar />
               <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 lg:pb-0">
                 <TopNav />
-                <ActivationChecklist />
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <Outlet />
                 </div>

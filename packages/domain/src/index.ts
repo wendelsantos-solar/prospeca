@@ -29,3 +29,4 @@ export * from "./xlsx.ts";
 export * from "./business-registry.ts";
 export * from "./notifications.ts";
 export * from "./intent-signals.ts";
+export * from "./cost-model.ts";

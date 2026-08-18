@@ -14,20 +14,25 @@ import type {
 import { MOCK_LEADS } from "@/mocks/leads";
 import { applyFilters } from "@/lib/filters";
 import type {
+  BulkResolvedLead,
   CompanyTimelineData,
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
   DiscoveryResult,
+  ExportPipelineFilters,
   LeadRepository,
+  LeadStageCounts,
   ListLeadsInput,
   MissionJobRow,
   MissionSourceRow,
   MoveLeadInput,
+  OrganizationMember,
   PaginatedResult,
   PersistedOpportunityScore,
   SearchRepository,
   SearchStatusSnapshot,
+  TodayCounts,
   UpdateLeadInput,
 } from "./types";
 import type { TerritoryStats } from "@leads/domain";
@@ -36,11 +41,101 @@ import type { SearchEstimate } from "@leads/domain";
 let demoLeads: Lead[] = [...MOCK_LEADS];
 const demoSearches: Search[] = [];
 
+/**
+ * Seed do repositório demo a partir do store. MERGE POR ID (upsert), não
+ * substituição: com a paginação da Fase 4 o store passou a conter UMA PÁGINA
+ * (50 de 82) e a substituição apagava leads fora da página + revertia mutações
+ * locais (P2 da 4d). Existentes são PRESERVADOS (mutação local vence);
+ * entradas novas são adicionadas. Reset explícito: resetDemoLeads.
+ */
 export function seedDemoLeads(leads: Lead[]) {
-  demoLeads = [...leads];
+  const byId = new Map(demoLeads.map((l) => [l.id, l]));
+  for (const incoming of leads) {
+    if (!byId.has(incoming.id)) byId.set(incoming.id, incoming);
+  }
+  demoLeads = [...byId.values()];
+}
+
+/** Caminho legítimo e EXPLÍCITO para descartar mutações locais (reset demo). */
+export function resetDemoLeads(next: Lead[]) {
+  demoLeads = [...next];
 }
 
 export class DemoLeadRepository implements LeadRepository {
+  async stageCounts(): Promise<LeadStageCounts> {
+    const byStage: Record<string, number> = {};
+    for (const l of demoLeads) byStage[l.stage] = (byStage[l.stage] ?? 0) + 1;
+    return { total: demoLeads.length, byStage };
+  }
+
+  async todayCounts(): Promise<TodayCounts> {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    let today = 0;
+    let overdue = 0;
+    let firstReach = 0;
+    for (const l of demoLeads) {
+      if (l.stage === "won" || l.stage === "discarded") continue;
+      const open = l.activities.filter((a) => a.date && !a.done);
+      let hasScheduled = false;
+      for (const a of open) {
+        hasScheduled = true;
+        const due = new Date(a.date!);
+        if (due < todayStart) overdue++;
+        else if (due <= todayEnd) today++;
+      }
+      if (!hasScheduled && l.stage === "new" && !l.lastInteractionAt) firstReach++;
+    }
+    return { today, overdue, firstReach };
+  }
+
+  async exportPipeline(format: "csv" | "xlsx", _filters: ExportPipelineFilters): Promise<Blob> {
+    // Demo coerente: CSV client-side (sem backend), como o resto do modo demo.
+    const header = "Empresa;Cidade;Estágio";
+    const lines = demoLeads.map((l) => `${l.companyName};${l.city};${l.stage}`);
+    return new Blob(["﻿" + [header, ...lines].join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+  }
+
+  async members(): Promise<OrganizationMember[]> {
+    return [];
+  }
+
+  async assignLead(leadId: string, userId: string | null): Promise<void> {
+    demoLeads = demoLeads.map((l) =>
+      l.id === leadId ? { ...l, assignedTo: userId ?? undefined } : l,
+    );
+  }
+
+  async getLeadsByIds(ids: string[]): Promise<BulkResolvedLead[]> {
+    return demoLeads
+      .filter((l) => ids.includes(l.id))
+      .map((l) => ({
+        id: l.id,
+        companyName: l.companyName,
+        category: l.category,
+        address: l.address,
+        neighborhood: l.neighborhood ?? null,
+        city: l.city,
+        state: l.state,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        phone: l.phone ?? null,
+        whatsapp: l.whatsapp ?? null,
+        email: l.email ?? null,
+        instagram: l.instagram ?? null,
+        hasWebsite: l.hasWebsite,
+        rating: l.rating ?? null,
+        reviewCount: l.reviewCount ?? null,
+        temperature: l.temperature,
+        stage: l.stage,
+      }));
+  }
+
   async list(input: ListLeadsInput): Promise<PaginatedResult<Lead>> {
     const filtered = applyFilters(demoLeads, input.filters);
     const page = input.page ?? 1;
@@ -446,16 +541,37 @@ export class DemoDashboardRepository implements DashboardRepository {
     return {
       totalLeads: inPeriod.length,
       byStage: count((l) => l.stage),
+      byStageValue: Object.fromEntries(
+        Object.entries(count((l) => l.stage)).map(([stage]) => [
+          stage,
+          inPeriod
+            .filter((l) => l.stage === stage)
+            .reduce(
+              (s, l) => s + (stage === "won" ? (l.closedValue ?? 0) : (l.estimatedValue ?? 0)),
+              0,
+            ),
+        ]),
+      ),
       byTemperature: count((l) => l.temperature),
       byCity: Object.entries(count((l) => l.city)).map(([city, c]) => ({
         city,
         count: c,
         won: won.filter((l) => l.city === city).length,
+        qualified: inPeriod.filter((l) => l.city === city && l.stage === "qualified").length,
+        contacted: inPeriod.filter((l) => l.city === city && l.stage === "contacted").length,
+        revenue: won.filter((l) => l.city === city).reduce((s, l) => s + (l.closedValue ?? 0), 0),
       })),
       byCategory: Object.entries(count((l) => l.category)).map(([category, c]) => ({
         category,
         count: c,
         won: won.filter((l) => l.category === category).length,
+        qualified: inPeriod.filter((l) => l.category === category && l.stage === "qualified")
+          .length,
+        contacted: inPeriod.filter((l) => l.category === category && l.stage === "contacted")
+          .length,
+        revenue: won
+          .filter((l) => l.category === category)
+          .reduce((s, l) => s + (l.closedValue ?? 0), 0),
       })),
       contacted: inPeriod.filter((l) => ["contacted", "won"].includes(l.stage)).length,
       wonCount: won.length,
@@ -468,6 +584,38 @@ export class DemoDashboardRepository implements DashboardRepository {
       conversionRate: inPeriod.length ? (won.length / inPeriod.length) * 100 : 0,
       searchCount: demoSearches.length,
       importedCount: 0,
+      // ── Fase 4 (espelho da extensão da RPC no modo demo) ──
+      enrichedCount: inPeriod.filter((l) => l.phone || l.whatsapp || l.email).length,
+      respondedCount: inPeriod.filter((l) => l.respondedAt).length,
+      meetingCount: inPeriod.filter((l) => l.meetingAt).length,
+      proposalCount: inPeriod.filter((l) => l.proposalAt).length,
+      discardedCount: inPeriod.filter((l) => l.stage === "discarded").length,
+      pipelineCount: inPeriod.filter((l) => !["discarded", "won"].includes(l.stage)).length,
+      pipelineValueWindowed: inPeriod
+        .filter((l) => !["discarded", "won"].includes(l.stage))
+        .reduce((s, l) => s + (l.estimatedValue ?? 0), 0),
+      channels: {
+        whatsapp: inPeriod.filter((l) => l.whatsapp).length,
+        phone: inPeriod.filter((l) => l.phone).length,
+        instagram: inPeriod.filter((l) => l.instagram).length,
+        email: inPeriod.filter((l) => l.email).length,
+        site: inPeriod.filter((l) => l.hasWebsite).length,
+      },
+      dailySeries: [],
+      allTime: {
+        totalFound: demoLeads.length,
+        withoutWebsite: demoLeads.filter((l) => !l.hasWebsite).length,
+        noReviews: demoLeads.filter((l) => l.reviewCount === 0).length,
+        lowRating: demoLeads.filter((l) => l.rating != null && l.rating < 4).length,
+        hot: demoLeads.filter((l) => l.temperature === "hot").length,
+        contacted: demoLeads.filter((l) => l.lastInteractionAt != null).length,
+        responded: demoLeads.filter((l) => l.respondedAt != null).length,
+        meetings: demoLeads.filter((l) => l.meetingAt != null).length,
+        proposals: demoLeads.filter((l) => l.proposalAt != null).length,
+        won: demoLeads.filter((l) => l.stage === "won").length,
+        revenue: demoLeads.reduce((s, l) => s + (l.closedValue ?? 0), 0),
+        cities: [...new Set(demoLeads.map((l) => l.city).filter(Boolean))].sort(),
+      },
     };
   }
 }

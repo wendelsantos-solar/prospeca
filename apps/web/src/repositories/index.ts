@@ -66,4 +66,4 @@ export function getDashboardRepository(): DashboardRepository {
 }
 
 export * from "./types";
-export { seedDemoLeads } from "./demo";
+export { seedDemoLeads, resetDemoLeads } from "./demo";

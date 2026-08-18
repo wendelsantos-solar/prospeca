@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { Flame, Bookmark, Layers } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore, useSearchDraftStore, useLeadsStore } from "@/stores";
 import { NotificationsPopover } from "./NotificationsPopover";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 /** Page titles for the header context when there is no active search to show. */
 const PAGE_TITLES: Record<string, string> = {
-  "/app/mapa": "Mapa",
+  "/app/mapa": "Descobrir",
   "/app/hoje": "Hoje",
   "/app/kanban": "Pipeline",
   "/app/agenda": "Agenda",
@@ -30,10 +30,6 @@ export function TopNav() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
-  const discoveryView = useUIStore((s) => s.discoveryView);
-  const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
-  const heatMetric = useUIStore((s) => s.heatMetric);
-  const setHeatMetric = useUIStore((s) => s.setHeatMetric);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
 
@@ -60,6 +56,11 @@ export function TopNav() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Fase remoção: o mockup NÃO tem barra superior na descoberta — a primeira
+  // linha são os KPIs. O TopNav permanece GLOBAL (Hoje/Pipeline/Análises/…);
+  // só é oculto NA rota /app/mapa. (Early return APÓS os hooks.)
+  if (onMapa) return null;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
@@ -138,72 +139,6 @@ export function TopNav() {
       >
         <AppIcon icon={icons.actions.search} size="lg" tone="inherit" decorative />
       </button>
-
-      {/* Map / List view toggle (discovery workspace only) */}
-      {onMapa && (
-        <div
-          className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
-          role="group"
-          aria-label="Alternar visualização"
-        >
-          {(
-            [
-              { v: "map", label: "Mapa", icon: icons.navigation.map },
-              { v: "list", label: "Lista", icon: icons.layout.list },
-              { v: "heatmap", label: "Heatmap", flame: true },
-              { v: "territories", label: "Regiões", layers: true },
-            ] as const
-          ).map((o) => {
-            const active = discoveryView === o.v;
-            return (
-              <button
-                key={o.v}
-                onClick={() => setDiscoveryView(o.v)}
-                aria-pressed={active}
-                aria-label={o.label}
-                title={o.label}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
-                  active
-                    ? "bg-surface text-foreground shadow-card"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {o.v === "heatmap" ? (
-                  <Flame className="h-3.5 w-3.5" />
-                ) : o.v === "territories" ? (
-                  <Layers className="h-3.5 w-3.5" />
-                ) : (
-                  <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
-                )}
-                <span className="hidden lg:inline">{o.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {onMapa && discoveryView === "heatmap" && (
-        <select
-          value={heatMetric}
-          onChange={(e) =>
-            setHeatMetric(
-              e.target.value as
-                | "opportunity"
-                | "density"
-                | "weak_digital"
-                | "segment_concentration",
-            )
-          }
-          className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
-          aria-label="Métrica do heatmap"
-        >
-          <option value="opportunity">Oportunidade</option>
-          <option value="density">Densidade</option>
-          <option value="weak_digital">Presença digital fraca</option>
-          <option value="segment_concentration">Concentração de segmento</option>
-        </select>
-      )}
 
       <div className="flex items-center gap-1">
         <button

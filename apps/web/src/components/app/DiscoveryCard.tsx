@@ -1,9 +1,9 @@
 import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, Globe, GlobeLock, Phone, Star, Plus, Eye, Flame } from "lucide-react";
+import { MessageCircle, Phone, Star, Flame, Instagram, Share2 } from "lucide-react";
 import { useLeadsStore } from "@/stores";
-import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
+import { useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
 import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
@@ -11,142 +11,40 @@ import { categoryLabel } from "@/lib/category";
 import { track } from "@/lib/analytics";
 import { resolveEnrichmentStatus } from "@/lib/enrichment";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import { ConfidenceBadge } from "@/components/shared/Badges";
+import { ConfidenceBadge, ScoreRing, TEMP_META } from "@/components/shared/Badges";
 import { EnrichmentStatusBadge } from "@/components/app/EnrichmentStatusBadge";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useActivationStore } from "@/stores/activation";
 
 type Temperature = DiscoveryResult["temperature"];
 
-const TEMP_META: Record<Temperature, { label: string; ring: string; badge: string }> = {
-  hot: { label: "Quente", ring: "var(--color-hot)", badge: "bg-hot-soft text-hot" },
-  warm: { label: "Morno", ring: "var(--color-warm)", badge: "bg-warm-soft text-warm" },
-  cold: { label: "Frio", ring: "var(--color-cold)", badge: "bg-cold-soft text-cold" },
+/** Cor da chama por temperatura — Quente laranja (mockup), Morno âmbar,
+ * Frio azul-acinzentado. Nunca cor sozinha: o rótulo acompanha. */
+const FLAME_COLOR: Record<Temperature, string> = {
+  hot: "text-orange-500",
+  warm: "text-amber-500",
+  cold: "text-slate-500",
 };
 
-/** Score dial: a conic ring filled to `score`%, tinted by lead temperature.
- * Temperature is never carried by color alone — the TemperatureBadge repeats it
- * as text + dot, and the number is always legible in the center. */
-function ScoreRing({
-  score,
-  temperature,
-  compact,
-}: {
-  score: number;
-  temperature: Temperature;
-  compact?: boolean;
-}) {
-  const color = TEMP_META[temperature].ring;
-  return (
-    <div
-      className={cn(
-        "relative grid shrink-0 place-items-center rounded-full",
-        compact ? "h-9 w-9" : "h-11 w-11",
-      )}
-      style={{
-        background: `conic-gradient(${color} ${Math.max(0, Math.min(100, score))}%, var(--color-border) 0)`,
-      }}
-      aria-hidden
-    >
-      <div className="absolute inset-[3px] rounded-full bg-surface" />
-      <span
-        className={cn(
-          "relative z-10 font-mono font-bold tabular-nums text-foreground",
-          compact ? "text-[11px]" : "text-[13px]",
-        )}
-      >
-        {score}
-      </span>
-    </div>
-  );
-}
-
-function TemperatureBadge({ temperature }: { temperature: Temperature }) {
-  const meta = TEMP_META[temperature];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-        meta.badge,
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {meta.label}
-    </span>
-  );
-}
-
-function ChannelChip({
-  has,
-  title,
-  children,
-}: {
-  has: boolean;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      title={has ? title : `${title} — indisponível`}
-      className={cn(
-        "grid h-[22px] w-[22px] place-items-center rounded-md border",
-        has
-          ? "border-transparent bg-primary-subtle text-primary"
-          : "border-border bg-surface-2 text-muted-foreground opacity-45",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-function MiniBtn({
-  children,
-  onClick,
-  tone,
-}: {
-  children: React.ReactNode;
-  onClick: (e: React.MouseEvent) => void;
-  tone?: "primary";
-}) {
-  return (
-    <span
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) =>
-        (e.key === "Enter" || e.key === " ") && onClick(e as unknown as React.MouseEvent)
-      }
-      className={cn(
-        "inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
-        tone === "primary"
-          ? "bg-primary text-primary-foreground hover:bg-primary-hover"
-          : "border border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-/** Card for a discovered business (not yet a lead). Actions materialize it into
- * the funnel: WhatsApp → 'contacted', +Funil → 'new'. */
+/**
+ * Card do resultado — anatomia do mockup (Fase 90, ~74px de base):
+ * score em anel ~40px à esquerda | nome + rating na MESMA linha | linha cinza
+ * 'Bairro, Cidade • distância' | chips pequenos (Quente com chama / Redes
+ * fracas verde). SÓ o card SELECIONADO ganha a linha de 3 ícones circulares de
+ * contato (WhatsApp/Ligar/Instagram) + borda verde + fundo verde-claro.
+ * 'Adicionar' vive no header do detalhe (decisão).
+ */
 export const DiscoveryCard = memo(function DiscoveryCard({
   result,
   searchId,
-  density = "comfortable",
 }: {
   result: DiscoveryResult;
   searchId: string;
-  density?: "compact" | "comfortable";
 }) {
-  const compact = density === "compact";
   const setFocused = useLeadsStore((s) => s.setFocused);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const setDetails = useLeadsStore((s) => s.setDetails);
   const setPreview = useLeadsStore((s) => s.setPreview);
-  const addToFunnel = useAddToFunnelMutation();
   const enrichDiscovery = useEnrichDiscoveryMutation();
   const { openWhatsApp } = useOutbound();
   const markMilestone = useActivationStore((state) => state.mark);
@@ -180,56 +78,97 @@ export const DiscoveryCard = memo(function DiscoveryCard({
     }
   };
 
-  const addFunnel = () =>
-    addToFunnel.mutate(
-      { searchId, placeId: result.placeId, stage: "new" },
-      {
-        onSuccess: () => {
-          toast.success("Adicionado ao funil");
-          track("lead_added_to_pipeline", { source: "discovery", score: result.score });
-          markMilestone("firstLeadAdded", { source: "discovery", score: result.score });
-        },
-      },
-    );
-
   // Only offer WhatsApp when one can actually be resolved (landline → no button).
   const hasContact = hasWhatsAppTarget(result);
 
+  // Força da presença social (derivada dos canais de fato mapeados).
+  const socialStrength =
+    !result.instagram && !result.whatsapp
+      ? ("none" as const)
+      : !!result.instagram !== !!result.whatsapp
+        ? ("weak" as const)
+        : ("ok" as const);
+
+  const locationText =
+    [result.neighborhood, result.city].filter(Boolean).join(", ") || categoryLabel(result.category);
+
   return (
     <Card
-      onClick={() => setFocused(result.placeId)}
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-xl border-border shadow-none transition-all hover:border-border-strong hover:shadow-card",
-        compact ? "p-2" : "p-3",
-        isFocused && "border-sel bg-sel-soft/40 ring-2 ring-sel/25",
+        "relative cursor-pointer rounded-xl p-2.5 shadow-none transition-colors",
+        isFocused
+          ? "border-sel bg-sel-soft/40"
+          : "border-border hover:border-border-strong hover:shadow-card",
       )}
     >
-      {isFocused && (
-        <span className="absolute inset-y-3 left-0 w-[3px] rounded-r-full bg-sel" aria-hidden />
-      )}
+      {/* Alvo de seleção acessível (P2): botão REAL cobrindo o card, sob o
+       * conteúdo — sem aninhamento inválido de interativos. Tab alcança,
+       * Enter/Espaço seleciona, aria-pressed expõe o estado, foco visível.
+       * Os ícones de ação vivem ACIMA (z-20) e continuam clicáveis. */}
+      <button
+        type="button"
+        onClick={() => {
+          setFocused(result.placeId);
+          openDetails();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setFocused(result.placeId);
+            openDetails();
+          }
+        }}
+        aria-label={`Selecionar ${result.name}`}
+        aria-pressed={isFocused}
+        className="absolute inset-0 z-0 h-full w-full cursor-pointer rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
+      />
 
-      <div className={cn("flex items-start", compact ? "gap-2" : "gap-3")}>
-        <ScoreRing score={result.score} temperature={result.temperature} compact={compact} />
+      <div className="pointer-events-none relative z-10 flex items-start gap-2.5">
+        <ScoreRing score={result.score} temperature={result.temperature} size="md" />
 
         <div className="min-w-0 flex-1">
-          <h3
-            className={cn(
-              "truncate font-semibold tracking-tight text-foreground",
-              compact ? "text-[12.5px]" : "text-[13.5px]",
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="truncate text-[13px] font-semibold leading-tight text-foreground">
+              {result.name}
+            </h3>
+            {result.rating != null && (
+              <span className="flex shrink-0 items-center gap-0.5 text-[11.5px] text-secondary-foreground">
+                <Star className="h-3 w-3 fill-warning text-warning" />
+                <span className="font-mono font-semibold tabular-nums">
+                  {result.rating.toFixed(1)}
+                </span>
+                <span className="text-subtle-foreground">({result.reviewCount ?? 0})</span>
+              </span>
             )}
-          >
-            {result.name}
-          </h3>
-          <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-            <span className="truncate">{categoryLabel(result.category)}</span>
-            <span className="text-muted-foreground/40">·</span>
-            <span className="shrink-0 font-mono tabular-nums text-subtle-foreground">
+          </div>
+
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {locationText}
+            <span className="text-muted-foreground/40"> · </span>
+            <span className="font-mono tabular-nums text-subtle-foreground">
               {formatDistance(result.distanceKm)}
             </span>
           </p>
 
-          <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1.5" : "mt-2")}>
-            <TemperatureBadge temperature={result.temperature} />
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                TEMP_META[result.temperature].badge,
+              )}
+            >
+              <Flame className={cn("h-3 w-3", FLAME_COLOR[result.temperature])} aria-hidden />
+              {TEMP_META[result.temperature].label}
+            </span>
+            {socialStrength !== "ok" && (
+              <span
+                title="Instagram fraco — presença social mapeada parcial ou inexistente"
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2 py-0.5 text-[10.5px] font-medium text-primary"
+              >
+                <Share2 className="h-3 w-3" aria-hidden />
+                {socialStrength === "none" ? "Sem redes" : "Redes fracas"}
+              </span>
+            )}
             {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
               <ConfidenceBadge confidence={result.opportunityConfidence} />
             )}
@@ -237,69 +176,84 @@ export const DiscoveryCard = memo(function DiscoveryCard({
               (enrichmentStatus !== "failed" || isFeatureEnabled("v2ScoringInDiscovery")) && (
                 <EnrichmentStatusBadge state={enrichmentStatus} />
               )}
-            <ChannelChip has={!!result.phone} title="Telefone">
-              <Phone className="h-3 w-3" />
-            </ChannelChip>
-            <ChannelChip has={result.hasWebsite} title="Site">
-              {result.hasWebsite ? (
-                <Globe className="h-3 w-3" />
-              ) : (
-                <GlobeLock className="h-3 w-3" />
-              )}
-            </ChannelChip>
-            <ChannelChip has={!!result.whatsapp} title="WhatsApp">
-              <MessageCircle className="h-3 w-3" />
-            </ChannelChip>
-            {result.rating != null && (
-              <span className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-secondary-foreground">
-                <Star className="h-3 w-3 fill-warning text-warning" />
-                <span className="font-mono tabular-nums">{result.rating.toFixed(1)}</span>
-                <span className="text-subtle-foreground">({result.reviewCount ?? 0})</span>
-              </span>
-            )}
           </div>
-        </div>
-      </div>
 
-      {/* actions */}
-      <div className={cn("flex items-center gap-1", compact ? "mt-1.5" : "mt-2.5")}>
-        {hasContact && (
-          <MiniBtn
-            tone="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              void openWhats();
-            }}
-          >
-            <MessageCircle className="h-3 w-3" /> WhatsApp
-          </MiniBtn>
-        )}
-        <MiniBtn
-          onClick={(e) => {
-            e.stopPropagation();
-            openDetails();
-          }}
-        >
-          <Eye className="h-3 w-3" /> Detalhes
-        </MiniBtn>
-        <div className="ml-auto">
-          {inFunnel ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-2 py-1 text-[11px] font-semibold text-primary">
-              <Flame className="h-3 w-3" /> No pipeline
-            </span>
-          ) : (
-            <MiniBtn
-              tone="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                addFunnel();
-              }}
-            >
-              <Plus className="h-3 w-3" /> Adicionar
-            </MiniBtn>
+          {/* SÓ o card selecionado ganha a linha de ações — ícones circulares
+           * (mockup). A11y: cada círculo tem aria-label próprio; pointer-events
+           * reativado para não ficarem sob o botão de seleção do card. */}
+          {isFocused && (
+            <div className="pointer-events-auto mt-2 flex items-center gap-1.5">
+              <CircleBtn
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void openWhats();
+                }}
+                disabled={!hasContact}
+                ariaLabel="Enviar WhatsApp"
+                title={hasContact ? "WhatsApp" : "Sem celular para WhatsApp"}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+              </CircleBtn>
+              <CircleBtn
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (result.phone) window.open(`tel:${result.phone}`);
+                }}
+                disabled={!result.phone}
+                ariaLabel="Ligar"
+                title={result.phone ? "Ligar" : "Sem telefone"}
+              >
+                <Phone className="h-3.5 w-3.5" />
+              </CircleBtn>
+              {result.instagram ? (
+                <a
+                  href={`https://instagram.com/${result.instagram.replace("@", "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Abrir Instagram"
+                  title="Instagram"
+                  className="grid h-8 w-8 place-items-center rounded-full border border-border bg-surface text-foreground transition-colors hover:border-border-strong"
+                >
+                  <Instagram className="h-3.5 w-3.5" />
+                </a>
+              ) : (
+                <CircleBtn disabled ariaLabel="Instagram indisponível" title="Sem Instagram">
+                  <Instagram className="h-3.5 w-3.5" />
+                </CircleBtn>
+              )}
+            </div>
           )}
         </div>
       </div>
     </Card>
   );
 });
+
+/** Botão circular de ação (h-8 w-8) — só existe no card SELECIONADO. */
+function CircleBtn({
+  children,
+  onClick,
+  disabled,
+  ariaLabel,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      title={title}
+      className="grid h-8 w-8 place-items-center rounded-full border border-border bg-surface text-foreground transition-colors hover:border-border-strong disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}

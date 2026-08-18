@@ -1,4 +1,4 @@
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Check } from "lucide-react";
 import { deriveIntentSignals } from "@leads/domain";
 import type { Lead } from "@/types";
 
@@ -28,7 +28,7 @@ export function IntentSignals({ lead }: { lead: Lead }) {
       <ul className="space-y-1.5">
         {signals.map((s) => (
           <li key={s.signal} className="flex items-start gap-2 text-[12.5px]">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
             <span className="text-foreground">
               <span className="font-semibold">{s.label}.</span>{" "}
               <span className="text-muted-foreground">

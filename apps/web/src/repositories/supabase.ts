@@ -21,22 +21,28 @@ import {
   type SearchEstimate,
   type TerritoryStats,
 } from "@leads/domain";
+import { EXPORTABLE_LEAD_FIELDS } from "@leads/contracts/schemas";
 import { readPoint } from "@leads/geo";
 import type {
+  BulkResolvedLead,
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
   DiscoveryResult,
+  ExportPipelineFilters,
   LeadRepository,
+  LeadStageCounts,
   ListLeadsInput,
   CompanyTimelineData,
   MissionJobRow,
   MissionSourceRow,
   MoveLeadInput,
+  OrganizationMember,
   PaginatedResult,
   PersistedOpportunityScore,
   SearchRepository,
   SearchStatusSnapshot,
+  TodayCounts,
   UpdateLeadInput,
 } from "./types";
 import { STAGE_LABELS, type SortValue } from "@/lib/constants";
@@ -79,6 +85,7 @@ interface LeadRow {
   responded_at: string | null;
   meeting_at: string | null;
   proposal_at: string | null;
+  assigned_to: string | null;
   created_at: string;
   lead_notes?: NoteRow[];
   lead_activities?: ActivityRow[];
@@ -262,6 +269,7 @@ function mapLead(row: LeadRow): Lead {
     respondedAt: row.responded_at ?? undefined,
     meetingAt: row.meeting_at ?? undefined,
     proposalAt: row.proposal_at ?? undefined,
+    assignedTo: row.assigned_to ?? undefined,
     discoveredAt: row.created_at,
     notes: (row.lead_notes ?? []).map(mapNote),
     activities: (row.lead_activities ?? []).map(mapActivity),
@@ -277,7 +285,7 @@ function mapLead(row: LeadRow): Lead {
 // lead_activities so the Hoje/Agenda views can show scheduled calls,
 // follow-ups etc. without a separate query per lead.
 const LEAD_LIST_SELECT =
-  "id, place_id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, created_at, lead_activities(*, activity_external_events(html_url, meeting_url, status))";
+  "id, place_id, company_name, category, description, address, neighborhood, city, state, latitude, longitude, phone, whatsapp, email, instagram, website, has_website, rating, review_count, score, score_breakdown, temperature, stage, estimated_value, closed_value, closed_service, closed_at, discard_reason, last_interaction_at, cadence_started_at, cadence_step, cadence_completed_at, last_outcome, responded_at, meeting_at, proposal_at, assigned_to, created_at, lead_activities(*, activity_external_events(html_url, meeting_url, status))";
 
 const LEAD_DETAIL_SELECT =
   "*, lead_notes(*), lead_activities(*, activity_external_events(html_url, meeting_url, status)), lead_stage_history(id, from_stage, to_stage, created_at, metadata)";
@@ -369,6 +377,118 @@ export class SupabaseLeadRepository implements LeadRepository {
       .maybeSingle();
     if (error) throw new Error(error.message);
     return data ? mapLead(data as unknown as LeadRow) : null;
+  }
+
+  async stageCounts(): Promise<LeadStageCounts> {
+    const organizationId = await resolveActiveOrganizationId();
+    const { data, error } = await getSupabase().rpc("get_lead_stage_counts", {
+      p_organization_id: organizationId,
+    });
+    if (error) throw new Error(error.message);
+    return data as unknown as LeadStageCounts;
+  }
+
+  async todayCounts(): Promise<TodayCounts> {
+    const organizationId = await resolveActiveOrganizationId();
+    const { data, error } = await getSupabase().rpc("get_today_counts", {
+      p_organization_id: organizationId,
+    });
+    if (error) throw new Error(error.message);
+    return data as unknown as TodayCounts;
+  }
+
+  async exportPipeline(format: "csv" | "xlsx", filters: ExportPipelineFilters): Promise<Blob> {
+    // P1-b: última milha do export no CLIENTE. O servidor (create-export) está
+    // correto (sanitização, rate limit, entitlement, auditoria). Aqui a única
+    // responsabilidade é chamar e TRADUZIR o erro para mensagem de usuário —
+    // nunca vazar mensagem técnica do SDK no toast.
+    try {
+      const { data, error } = await getSupabase().functions.invoke("create-export", {
+        body: { format, fields: [...EXPORTABLE_LEAD_FIELDS], filters },
+      });
+      // supabase-js LANÇA FunctionsHttpError para não-2xx (o branch de erro
+      // retornado é código morto para 4xx) — o catch abaixo faz o mapeamento.
+      if (error) throw error;
+      // P1-c: servidor agora devolve application/octet-stream → o SDK entrega
+      // Blob nos DOIS formatos. Defensivo: se um servidor antigo devolver
+      // string (text/*), empacotamos no Blob com o mime correto.
+      if (typeof data === "string") {
+        return new Blob([data], {
+          type:
+            format === "csv"
+              ? "text/csv;charset=utf-8"
+              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+      }
+      if (!(data instanceof Blob)) {
+        throw new Error("A exportação retornou uma resposta inesperada.");
+      }
+      return data;
+    } catch (err) {
+      const status = (err as { context?: { status?: number } })?.context?.status;
+      if (status === 401) {
+        throw new Error("Sessão expirada — entre novamente para exportar.");
+      }
+      if (status === 429) {
+        throw new Error("Muitas exportações seguidas — aguarde um pouco e tente de novo.");
+      }
+      if (status === 402 || status === 403) {
+        throw new Error("Seu plano não inclui este formato de exportação.");
+      }
+      throw new Error("Não foi possível exportar agora — tente novamente em instantes.");
+    }
+  }
+
+  async members(): Promise<OrganizationMember[]> {
+    const organizationId = await resolveActiveOrganizationId();
+    const { data, error } = await getSupabase().rpc("list_organization_members", {
+      p_organization_id: organizationId,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((m: Record<string, unknown>) => ({
+      userId: m.user_id as string,
+      fullName: (m.full_name as string | null) ?? null,
+      role: m.role as string,
+      email: m.email as string,
+    }));
+  }
+
+  async assignLead(leadId: string, userId: string | null): Promise<void> {
+    const { error } = await getSupabase().rpc("assign_lead", {
+      p_lead_id: leadId,
+      p_assigned_to: userId,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async getLeadsByIds(ids: string[]): Promise<BulkResolvedLead[]> {
+    if (ids.length === 0) return [];
+    const organizationId = await resolveActiveOrganizationId();
+    const { data, error } = await getSupabase().rpc("resolve_lead_batch", {
+      p_organization_id: organizationId,
+      p_ids: ids,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      companyName: row.company_name as string,
+      category: (row.category as string) ?? "",
+      address: (row.address as string) ?? "",
+      neighborhood: (row.neighborhood as string | null) ?? null,
+      city: (row.city as string) ?? "",
+      state: (row.state as string) ?? "",
+      latitude: Number(row.latitude ?? 0),
+      longitude: Number(row.longitude ?? 0),
+      phone: (row.phone as string | null) ?? null,
+      whatsapp: (row.whatsapp as string | null) ?? null,
+      email: (row.email as string | null) ?? null,
+      instagram: (row.instagram as string | null) ?? null,
+      hasWebsite: Boolean(row.has_website),
+      rating: row.rating != null ? Number(row.rating) : null,
+      reviewCount: row.review_count != null ? Number(row.review_count) : null,
+      temperature: row.temperature as string,
+      stage: row.stage as string,
+    }));
   }
 
   async update(id: string, input: UpdateLeadInput): Promise<Lead> {

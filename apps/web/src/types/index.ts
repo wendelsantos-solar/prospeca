@@ -116,6 +116,8 @@ export interface Lead {
   respondedAt?: string;
   meetingAt?: string;
   proposalAt?: string;
+  /** Responsável pelo lead (uuid de auth.users; null = sem responsável). */
+  assignedTo?: string;
   discoveredAt: string;
   openingHours?: string[];
   nextActivity?: LeadActivity;

@@ -8,7 +8,7 @@ import type {
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
-import { RadarPill } from "./RadarPill";
+import { MapLegend } from "./MapLegend";
 import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
@@ -87,6 +87,31 @@ type HeatPoint = { lat: number; lng: number; weight: number };
  * read as *localized positions*, not a broad painted "field" — smaller radius +
  * steep alpha falloff means only genuinely hot, dense areas light up. */
 const HEAT_RADIUS_PX = 30;
+
+/** Cor do círculo de raio (Fase 90): verde primário do tema, tracejado. */
+const RADIUS_CIRCLE_COLOR = "oklch(0.58 0.15 152)";
+
+/** Caminho circular aproximado (128 pontos) para a Polyline tracejada do raio. */
+function radiusCirclePath(
+  center: { lat: number; lng: number },
+  radiusMeters: number,
+): google.maps.LatLng[] {
+  const pts: google.maps.LatLng[] = [];
+  const N = 128;
+  const latRad = (center.lat * Math.PI) / 180;
+  const metersPerDegLat = 111320;
+  const metersPerDegLng = 111320 * Math.cos(latRad);
+  for (let i = 0; i <= N; i++) {
+    const a = (i / N) * 2 * Math.PI;
+    pts.push(
+      new google.maps.LatLng(
+        center.lat + (radiusMeters / metersPerDegLat) * Math.sin(a),
+        center.lng + (radiusMeters / metersPerDegLng) * Math.cos(a),
+      ),
+    );
+  }
+  return pts;
+}
 
 /** Custom opportunity-density heatmap overlay. Google removed the built-in
  * HeatmapLayer in Maps JS v3.65, so we draw the heat ourselves on an
@@ -262,7 +287,9 @@ export function GoogleMapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const clusterRef = useRef<MarkerClustererInstance | null>(null);
-  const circleRef = useRef<google.maps.Circle | null>(null);
+  // Fase 90: círculo de raio verde TRACEJADO — o Circle API não tem dash,
+  // então é uma Polyline circular com símbolo de traço (mesma geometria).
+  const circleRef = useRef<google.maps.Polyline | null>(null);
   const centerRef = useRef<google.maps.Marker | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
   const heatRef = useRef<OpportunityHeatOverlay | null>(null);
@@ -284,6 +311,7 @@ export function GoogleMapView({
   const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
   const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
   const heatMetric = useUIStore((s) => s.heatMetric);
+  const setMapViewport = useUIStore((s) => s.setMapViewport);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -408,6 +436,10 @@ export function GoogleMapView({
 
         const setDraft = useSearchDraftStore.getState().setDraft;
         map.addListener("idle", () => {
+          const c = map.getCenter();
+          // Alimenta o 'Buscar nesta área' da BARRA (store transitório) —
+          // o pan só ATUALIZA o estado; busca mesmo, só no clique.
+          if (c) setMapViewport({ lat: c.lat(), lng: c.lng() });
           const bounds = map.getBounds();
           if (bounds) {
             let count = 0;
@@ -421,8 +453,8 @@ export function GoogleMapView({
           // Leaflet view for the full rationale.
           const { currentSearch: cs, previewLocation: pl } = useLeadsStore.getState();
           if (cs || pl) return;
-          const c = map.getCenter();
-          if (c) setDraft({ coords: { lat: c.lat(), lng: c.lng() } });
+          const c2 = map.getCenter();
+          if (c2) setDraft({ coords: { lat: c2.lat(), lng: c2.lng() } });
         });
         setMapReady(true);
         setMapError(false);
@@ -495,19 +527,26 @@ export function GoogleMapView({
       circleRef.current?.setMap(null);
       circleRef.current = null;
     } else if (circleRef.current) {
-      circleRef.current.setCenter(anchor);
-      circleRef.current.setRadius(effectiveRadiusKm * 1000);
+      circleRef.current.setPath(radiusCirclePath(anchor, effectiveRadiusKm * 1000));
     } else {
-      circleRef.current = new google.maps.Circle({
+      circleRef.current = new google.maps.Polyline({
         map,
-        center: anchor,
-        radius: effectiveRadiusKm * 1000,
-        strokeColor: "#2563eb",
-        strokeOpacity: 0.95,
-        strokeWeight: 3,
-        fillColor: "#2563eb",
-        fillOpacity: 0.08,
+        path: radiusCirclePath(anchor, effectiveRadiusKm * 1000),
+        strokeOpacity: 0,
         clickable: false,
+        icons: [
+          {
+            icon: {
+              path: "M 0,-1 0,1",
+              strokeColor: RADIUS_CIRCLE_COLOR,
+              strokeOpacity: 0.9,
+              strokeWeight: 2.5,
+              scale: 6,
+            },
+            offset: "0",
+            repeat: "26px",
+          },
+        ],
       });
     }
     centerRef.current?.setMap(null);
@@ -565,6 +604,8 @@ export function GoogleMapView({
         setFocused(r.placeId);
         window.dispatchEvent(new CustomEvent("lead-focused-from-map", { detail: r.placeId }));
         openInfo(m, r);
+        // Regra transversal: clique no marker seleciona o card E abre o detalhe.
+        actionRef.current("details", r.placeId);
       });
       markers.push(m);
       markersRef.current.set(r.placeId, m);
@@ -670,16 +711,8 @@ export function GoogleMapView({
     if (map && mapReady) map.setOptions({ styles: mapDark ? DARK_STYLE : CLEAN_STYLE });
   }, [mapDark, mapReady]);
 
-  const legend = useMemo(
-    () => [
-      { label: "Quente", color: MARKER_HEX.hot },
-      { label: "Morno", color: MARKER_HEX.warm },
-      { label: "Frio", color: MARKER_HEX.cold },
-      { label: "No funil", color: MARKER_HEX.funnel },
-      { label: "Selecionado", color: MARKER_HEX.selected },
-    ],
-    [],
-  );
+  // Raio para a legenda compartilhada (Fase 90).
+  const legendRadiusKm = currentSearch?.radiusKm ?? draft.radiusKm;
 
   return (
     <div className="relative isolate h-full w-full">
@@ -689,8 +722,6 @@ export function GoogleMapView({
         role="application"
         aria-label="Mapa de leads"
       />
-
-      <RadarPill onSearch={() => useSearchSession.getState().radarSearch()} />
 
       {(searching || !mapReady) && !mapError && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-background/60 backdrop-blur-sm">
@@ -772,45 +803,8 @@ export function GoogleMapView({
           <Moon className="h-4 w-4" />
         </Button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-border bg-surface/95 shadow-elevated backdrop-blur">
-        <button
-          type="button"
-          onClick={() => setMapLegendCollapsed(!mapLegendCollapsed)}
-          aria-expanded={!mapLegendCollapsed}
-          aria-label={mapLegendCollapsed ? "Expandir legenda" : "Recolher legenda"}
-          className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Info className="h-3.5 w-3.5" />
-          Legenda
-          {mapLegendCollapsed ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-        {!mapLegendCollapsed &&
-          (mode === "heatmap" ? (
-            <div className="flex items-center gap-2 border-t border-border px-3 py-2">
-              <span className="text-[11px] font-medium text-muted-foreground">Baixa</span>
-              <span className="h-2 flex-1 rounded-full" style={{ background: HEAT_GRADIENT_CSS }} />
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Alta oportunidade
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
-              {legend.map((l) => (
-                <div
-                  key={l.label}
-                  className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-                >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-                  {l.label}
-                </div>
-              ))}
-            </div>
-          ))}
-      </div>
+      <MapLegend mode={mode} results={results} radiusKm={legendRadiusKm} />
+
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>
       </div>

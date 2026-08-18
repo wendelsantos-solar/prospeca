@@ -7,6 +7,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
+import { leadKeys } from "./useLeadsQuery";
 import { getSupabase } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
 import type { Lead, Search } from "@/types";
@@ -217,7 +218,7 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
       setProgress(null);
 
       // Refresh discovery + CRM list views.
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
 
       // Phase 2: discovery contact enrichment (top-N by score, best-effort).

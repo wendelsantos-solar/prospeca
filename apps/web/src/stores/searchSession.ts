@@ -43,6 +43,9 @@ interface SearchSessionState {
   retrySearch: () => void;
   /** Run a radar-area search. */
   radarSearch: () => void;
+  /** Busca centrada num ponto explícito do mapa ("Buscar nesta área" após pan).
+   * NÃO dispara sozinha — só no clique, com custo real de busca. */
+  radarSearchAt: (lat: number, lng: number, location: string) => void;
   /** Re-run the current search bypassing cache. */
   refreshSearch: () => void;
 }
@@ -87,6 +90,9 @@ export const useSearchSession = create<SearchSessionState>()((set, get) => ({
   retrySearch: () => get()._runSearch?.(),
 
   radarSearch: () => get()._runSearch?.(),
+
+  radarSearchAt: (lat, lng, location) =>
+    get()._runSearch?.({ latitude: lat, longitude: lng, location }),
 
   refreshSearch: () => get()._runSearch?.({ forceRefresh: true }),
 }));

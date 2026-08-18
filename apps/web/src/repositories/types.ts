@@ -111,9 +111,24 @@ export interface PersistedOpportunityScore {
 export interface DashboardOverview {
   totalLeads: number;
   byStage: Record<string, number>;
+  byStageValue: Record<string, number>;
   byTemperature: Record<string, number>;
-  byCity: Array<{ city: string; count: number; won: number }>;
-  byCategory: Array<{ category: string; count: number; won: number }>;
+  byCity: Array<{
+    city: string;
+    count: number;
+    won: number;
+    qualified: number;
+    contacted: number;
+    revenue: number;
+  }>;
+  byCategory: Array<{
+    category: string;
+    count: number;
+    won: number;
+    qualified: number;
+    contacted: number;
+    revenue: number;
+  }>;
   contacted: number;
   wonCount: number;
   wonValue: number;
@@ -123,10 +138,106 @@ export interface DashboardOverview {
   conversionRate: number;
   searchCount: number;
   importedCount: number;
+  // ── Fase 4 (extensão da RPC — servidor, nunca array truncado) ──
+  enrichedCount: number;
+  respondedCount: number;
+  meetingCount: number;
+  proposalCount: number;
+  discardedCount: number;
+  pipelineCount: number;
+  pipelineValueWindowed: number;
+  channels: { whatsapp: number; phone: number; instagram: number; email: number; site: number };
+  dailySeries: Array<{ date: string; leads: number; won: number; revenue: number }>;
+  allTime: ValueProofAllTime;
+}
+
+export interface ValueProofAllTime {
+  totalFound: number;
+  withoutWebsite: number;
+  noReviews: number;
+  lowRating: number;
+  hot: number;
+  contacted: number;
+  responded: number;
+  meetings: number;
+  proposals: number;
+  won: number;
+  revenue: number;
+  cities: string[];
+}
+
+export interface OrganizationMember {
+  userId: string;
+  fullName: string | null;
+  role: string;
+  email: string;
+}
+
+/** Lead resolvido no servidor para ação em lote (subconjunto do Lead). */
+export interface BulkResolvedLead {
+  id: string;
+  companyName: string;
+  category: string;
+  address: string;
+  neighborhood: string | null;
+  city: string;
+  state: string;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  instagram: string | null;
+  hasWebsite: boolean;
+  rating: number | null;
+  reviewCount: number | null;
+  temperature: string;
+  stage: string;
+}
+
+export interface LeadStageCounts {
+  total: number;
+  byStage: Record<string, number>;
+}
+
+export interface TodayCounts {
+  today: number;
+  overdue: number;
+  firstReach: number;
+}
+
+/** Filtros que o export server-side aceita (espelho do contrato create-export). */
+export interface ExportPipelineFilters {
+  stages?: string[];
+  temperatures?: string[];
+  cities?: string[];
+  categories?: string[];
+  minScore?: number;
+  maxScore?: number;
+  minRating?: number;
+  minReviews?: number;
+  hasWebsite?: boolean;
+  hasPhone?: boolean;
+  hasWhatsapp?: boolean;
+  hasEmail?: boolean;
+  hasInstagram?: boolean;
+  assignee?: string;
+  discoveredAfter?: string;
+  lastInteractionAfter?: string;
+  valueMin?: number;
+  valueMax?: number;
+  search?: string;
 }
 
 export interface LeadRepository {
   list(input: ListLeadsInput): Promise<PaginatedResult<Lead>>;
+  stageCounts(): Promise<LeadStageCounts>;
+  todayCounts(): Promise<TodayCounts>;
+  members(): Promise<OrganizationMember[]>;
+  assignLead(leadId: string, userId: string | null): Promise<void>;
+  /** Resolve IDs de leads no SERVIDOR (seleção em lote além das páginas em cache). */
+  getLeadsByIds(ids: string[]): Promise<BulkResolvedLead[]>;
+  exportPipeline(format: "csv" | "xlsx", filters: ExportPipelineFilters): Promise<Blob>;
   getById(id: string): Promise<Lead | null>;
   update(id: string, input: UpdateLeadInput): Promise<Lead>;
   moveStage(id: string, input: MoveLeadInput): Promise<Lead>;

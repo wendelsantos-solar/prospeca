@@ -124,13 +124,45 @@ export interface AdvancedDiscoveryFilters {
   enrichmentStatus?: "pending" | "processing" | "enriched" | "partial" | "failed";
   /** Presence of specific contact signals. */
   signal?: "no_website" | "has_whatsapp" | "has_phone" | "has_email" | "has_website";
+  /** Filtros rápidos (F3) — ids de DISCOVERY_QUICK_FILTERS. Client-side. */
+  quick?: string[];
+  /** Presença digital LOCAL (F3): sem instagram E sem whatsapp. Filtra os
+   * resultados já carregados — nunca é parâmetro de busca. */
+  noNetworks?: boolean;
+  /** Presença digital LOCAL: exatamente UM dos dois canais sociais mapeados
+   * (instagram/whatsapp) — presença parcial/fraca. */
+  weakNetworks?: boolean;
+  /** Presença digital LOCAL: zero avaliações persistidas. */
+  noReviews?: boolean;
 }
+
+/** Filtros rápidos aplicáveis a resultados de descoberta — os mesmos ids dos
+ * QUICK_FILTERS de CRM, com predicados sobre campos que DiscoveryResult DE FATO
+ * carrega (stage/valor estimado são lead-only e ficam de fora). */
+export const DISCOVERY_QUICK_FILTERS = [
+  { id: "whatsapp", label: "WhatsApp", predicate: (r: DiscoveryResult) => !!r.whatsapp },
+  { id: "phone", label: "Telefone", predicate: (r: DiscoveryResult) => !!r.phone },
+  { id: "instagram", label: "Instagram", predicate: (r: DiscoveryResult) => !!r.instagram },
+  { id: "email", label: "E-mail", predicate: (r: DiscoveryResult) => !!r.email },
+  { id: "no-site", label: "Sem site", predicate: (r: DiscoveryResult) => !r.hasWebsite },
+  { id: "rating-4", label: "Nota > 4", predicate: (r: DiscoveryResult) => (r.rating ?? 0) > 4 },
+  { id: "hot", label: "Quente", predicate: (r: DiscoveryResult) => r.temperature === "hot" },
+] as const;
 
 export const EMPTY_ADVANCED_FILTERS: AdvancedDiscoveryFilters = {};
 
+function isEmpty(v: unknown): boolean {
+  return v == null || v === "" || v === false || (Array.isArray(v) && v.length === 0);
+}
+
 /** True when any advanced filter is active. */
 export function hasAdvancedFilters(f: AdvancedDiscoveryFilters): boolean {
-  return Object.values(f).some((v) => v != null && v !== "");
+  return Object.values(f).some((v) => !isEmpty(v));
+}
+
+/** Quantos filtros avançados/locais estão ativos (badge numérico do botão). */
+export function countActiveAdvancedFilters(f: AdvancedDiscoveryFilters): number {
+  return Object.values(f).filter((v) => !isEmpty(v)).length;
 }
 
 function matchesSegment(r: DiscoveryResult, segment: string): boolean {
@@ -178,6 +210,18 @@ export function applyAdvancedDiscoveryFilters(
     if (filters.signal === "has_whatsapp" && !r.whatsapp) return false;
     if (filters.signal === "has_phone" && !r.phone) return false;
     if (filters.signal === "has_email" && !r.email) return false;
+    // Filtros rápidos (F3) — ids de DISCOVERY_QUICK_FILTERS.
+    if (filters.quick?.length) {
+      for (const id of filters.quick) {
+        const q = DISCOVERY_QUICK_FILTERS.find((f) => f.id === id);
+        if (q && !q.predicate(r)) return false;
+      }
+    }
+    // Presença digital local (F3) — sobre o resultado carregado, nunca
+    // parâmetro de busca. Sem redes = zero canais sociais; fracas = um só.
+    if (filters.noNetworks && (r.instagram || r.whatsapp)) return false;
+    if (filters.weakNetworks && !!r.instagram === !!r.whatsapp) return false;
+    if (filters.noReviews && (r.reviewCount ?? 0) > 0) return false;
     return true;
   });
 }

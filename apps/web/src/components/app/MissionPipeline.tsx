@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Check, Circle, Loader2, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, Circle, Loader2, X } from "lucide-react";
 import {
   derivePipeline,
   type MissionPipelineInput as DomainPipelineInput,
@@ -97,6 +97,10 @@ export function MissionPipeline({ searchId }: { searchId: string }) {
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const { data: pipelineData } = useMissionPipeline(searchId);
   const { data: discovery } = useDiscoveryResults(searchId);
+  // P3 do Ateliê: a faixa COLAPSA quando a missão está concluída (todos os
+  // passos done) — libera altura para o mapa. O usuário expande se quiser;
+  // enquanto há algo rodando/falhando ela fica aberta por padrão.
+  const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
 
   const steps = useMemo(() => {
     const input: DomainPipelineInput = {
@@ -130,35 +134,71 @@ export function MissionPipeline({ searchId }: { searchId: string }) {
     [pipelineData],
   );
 
+  const allDone = steps.length > 0 && steps.every((s) => s.state === "done");
+  const collapsed = userCollapsed ?? allDone;
+
   return (
     <div className="rounded-lg border border-border bg-surface/60 px-3 py-2">
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-        {steps.map((step) => (
-          <div key={step.key} className="flex items-center gap-1.5">
-            <span className="grid h-4 w-4 shrink-0 place-items-center">
-              {STATE_ICON[step.state]}
+      <button
+        type="button"
+        onClick={() => setUserCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expandir detalhes da missão" : "Recolher detalhes da missão"}
+        className="flex w-full items-center justify-between gap-2"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          {steps.map((step) => (
+            <span
+              key={step.key}
+              className="flex items-center gap-1 text-[11px] font-medium text-foreground"
+            >
+              <span className="grid h-4 w-4 shrink-0 place-items-center">
+                {STATE_ICON[step.state]}
+              </span>
+              <span className={cn("truncate", collapsed && "hidden sm:inline")}>{step.label}</span>
             </span>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-medium text-foreground">{step.label}</p>
-              <p
-                className={cn(
-                  "truncate text-[10px]",
-                  step.state === "failed" ? "text-destructive" : "text-muted-foreground",
-                )}
-              >
-                {step.detail}
-              </p>
-            </div>
+          ))}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+            !collapsed && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {!collapsed && (
+        <>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
+            {steps.map((step) => (
+              <div key={step.key} className="flex items-center gap-1.5">
+                <span className="grid h-4 w-4 shrink-0 place-items-center">
+                  {STATE_ICON[step.state]}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[11px] font-medium text-foreground">{step.label}</p>
+                  <p
+                    className={cn(
+                      "truncate text-[10px]",
+                      step.state === "failed" ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {step.detail}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 pt-1.5">
-        {lines.map((l) => (
-          <span key={l.label} className="text-[10.5px] tabular-nums text-muted-foreground">
-            <span className="font-medium text-foreground">{l.label}</span> {l.text}
-          </span>
-        ))}
-      </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 pt-1.5">
+            {lines.map((l) => (
+              <span key={l.label} className="text-[10.5px] tabular-nums text-muted-foreground">
+                <span className="font-medium text-foreground">{l.label}</span> {l.text}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

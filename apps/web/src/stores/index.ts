@@ -61,6 +61,17 @@ interface UIState {
   heatMetric: "opportunity" | "density" | "weak_digital" | "segment_concentration";
   /** Advanced discovery filters (V3-A progressive disclosure). */
   advancedFilters: AdvancedDiscoveryFilters;
+  /** NavRail: 'auto' = default responsivo (>=1536 expandida, <1536 colapsada).
+   * DECISÃO (P3-4 do gate): o default responsivo vale enquanto o usuário NUNCA
+   * tocou no toggle — 'auto' persiste como 'auto' (sem preferência). O
+   * PRIMEIRO clique no toggle grava 'expanded'/'collapsed' EXPLÍCITO, e a
+   * partir daí a escolha do usuário MANDA em qualquer viewport. */
+  navMode: "auto" | "expanded" | "collapsed";
+  /** Centro atual do viewport do mapa — alimenta o 'Buscar nesta área' da
+   * barra (Fase final). TRANSITÓRIO: nunca persistido. */
+  mapViewport: { lat: number; lng: number } | null;
+  setMapViewport: (v: { lat: number; lng: number } | null) => void;
+  setNavMode: (v: "auto" | "expanded" | "collapsed") => void;
   toggleTheme: () => void;
   setDensity: (d: "compact" | "comfortable") => void;
   setSidebarCollapsed: (v: boolean) => void;
@@ -71,6 +82,8 @@ interface UIState {
   setDiscoveryView: (v: "map" | "list" | "heatmap" | "territories") => void;
   setHeatMetric: (v: "opportunity" | "density" | "weak_digital" | "segment_concentration") => void;
   setAdvancedFilters: (patch: Partial<AdvancedDiscoveryFilters>) => void;
+  /** Limpa TODOS os filtros avançados/locais (merge com {} não limpa nada). */
+  resetAdvancedFilters: () => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -85,6 +98,8 @@ export const useUIStore = create<UIState>()(
       discoveryView: "map",
       heatMetric: "opportunity",
       advancedFilters: {},
+      navMode: "auto",
+      mapViewport: null,
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -98,11 +113,42 @@ export const useUIStore = create<UIState>()(
       setMapDark: (mapDark) => set({ mapDark }),
       setMapLegendCollapsed: (mapLegendCollapsed) => set({ mapLegendCollapsed }),
       setDiscoveryView: (discoveryView) => set({ discoveryView }),
+      setNavMode: (navMode) => set({ navMode }),
+      setMapViewport: (mapViewport) => set({ mapViewport }),
       setHeatMetric: (heatMetric) => set({ heatMetric }),
       setAdvancedFilters: (patch) =>
         set((s) => ({ advancedFilters: { ...s.advancedFilters, ...patch } })),
+      resetAdvancedFilters: () => set({ advancedFilters: {} }),
     }),
-    { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },
+    {
+      name: `${STORAGE_KEY}:ui`,
+      version: 2,
+      storage: createJSONStorage(() => safeStorage()),
+      // Persiste SÓ o que faz sentido entre sessões (Fase 6b): estado de
+      // apresentação e preferências explícitas. advancedFilters fica de fora —
+      // filtros velhos de uma sessão antiga filtram silenciosamente uma busca
+      // nova (mesma classe de bug de estado preso do navMode).
+      partialize: (s) => ({
+        theme: s.theme,
+        density: s.density,
+        sidebarCollapsed: s.sidebarCollapsed,
+        mapShowCircle: s.mapShowCircle,
+        mapDark: s.mapDark,
+        mapLegendCollapsed: s.mapLegendCollapsed,
+        discoveryView: s.discoveryView,
+        heatMetric: s.heatMetric,
+        navMode: s.navMode,
+      }),
+      // Hidratação de blob antigo/corrompido NUNCA pode travar a UI: qualquer
+      // navMode ausente ou fora do contrato cai em 'auto' (default seguro).
+      migrate: (persisted) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        if (p.navMode !== "expanded" && p.navMode !== "collapsed" && p.navMode !== "auto") {
+          p.navMode = "auto";
+        }
+        return p as never;
+      },
+    },
   ),
 );
 
@@ -539,6 +585,8 @@ interface SearchDraftState {
   draft: SearchDraft;
   setDraft: (patch: Partial<SearchDraft>) => void;
   resetDraftTo: (search: Search) => void;
+  /** Zera o rascunho (chip de intenção "limpar") — volta aos defaults iniciais. */
+  reset: () => void;
 }
 const initialDraft: SearchDraft = {
   niche: "",
@@ -561,6 +609,7 @@ export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
         presence: search.presence,
       },
     }),
+  reset: () => set({ draft: { ...initialDraft } }),
 }));
 
 export function applyPresenceFilter(presence: PresenceFilter, leads: Lead[]) {

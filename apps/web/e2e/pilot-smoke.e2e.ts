@@ -35,7 +35,7 @@ test("preços publica somente a oferta disponível no piloto", async ({ page }) 
 
 test("demonstração abre mapa, pipeline e configurações sem estado de erro", async ({ page }) => {
   await enterApp(page, "/app/mapa");
-  await expect(page.getByText("Buscar empresas")).toBeVisible();
+  await expect(page.getByText("Descobrir oportunidades")).toBeVisible();
 
   await page.goto("/app/kanban");
   await expect(page.getByLabel("Buscar leads por nome")).toBeVisible();

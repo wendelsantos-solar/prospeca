@@ -207,6 +207,23 @@ export const CreateExportSchema = z
         cities: z.array(z.string()).optional(),
         categories: z.array(z.string()).optional(),
         minScore: z.number().optional(),
+        // Fase 4.4 (retrocompat — tudo opcional): exportar "o que estou vendo"
+        // com os filtros ativos da carteira.
+        neighborhoods: z.array(z.string()).optional(),
+        maxScore: z.number().optional(),
+        minRating: z.number().optional(),
+        minReviews: z.number().optional(),
+        hasWebsite: z.boolean().optional(),
+        hasPhone: z.boolean().optional(),
+        hasWhatsapp: z.boolean().optional(),
+        hasEmail: z.boolean().optional(),
+        hasInstagram: z.boolean().optional(),
+        assignee: z.string().uuid().nullable().optional(),
+        discoveredAfter: z.string().optional(),
+        lastInteractionAfter: z.string().optional(),
+        valueMin: z.number().optional(),
+        valueMax: z.number().optional(),
+        search: z.string().max(200).optional(),
       })
       .default({}),
   })

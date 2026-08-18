@@ -25,6 +25,8 @@ import {
   ENRICHMENT_STALE_DAYS,
 } from "../_shared/enrich-company.ts";
 import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
+import { recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 
 const InputSchema = z
   .object({
@@ -77,6 +79,7 @@ Deno.serve(async (req) => {
 
     const internal = await isInternalCall(req);
     let organizationId: string;
+    let actorUserId: string | undefined;
     if (internal) {
       organizationId = parsed.data.organizationId ?? "";
       if (!organizationId) {
@@ -85,6 +88,7 @@ Deno.serve(async (req) => {
     } else {
       const ctx = await requireAuth(req);
       organizationId = ctx.organizationId;
+      actorUserId = ctx.userId;
       await assertRateLimit(ctx.adminClient, ctx.organizationId, "enrich_request", 20);
     }
 
@@ -162,6 +166,23 @@ Deno.serve(async (req) => {
           distanceMeters: r.distance_meters,
         }),
     );
+
+    // Fase 7: o contador do rate limit (assertRateLimit acima) só existe se
+    // alguém GRAVA o mesmo event_type — recordUsage aqui fecha o ciclo
+    // (referência: create-export). Custo: scrape de site próprio = infra
+    // própria, zero COMPROVADO ('measured').
+    const cost = calculateUsageCost("website_scraper", "enrich_request", results.length);
+    await recordUsage(admin, {
+      organizationId,
+      userId: actorUserId,
+      eventType: "enrich_request",
+      provider: "website_scraper",
+      quantity: Math.max(1, results.length),
+      estimatedCostUsd: cost.estimatedCostUsd,
+      realCostUsd: cost.realCostUsd,
+      costSource: cost.source,
+      metadata: { searchId, internal },
+    });
 
     logEvent({
       requestId,

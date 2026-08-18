@@ -1,47 +1,50 @@
 import { useMemo, useEffect, useRef, useState } from "react";
-import { Virtuoso } from "react-virtuoso";
-import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Download } from "lucide-react";
+import { Search } from "lucide-react";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { RADIUS_OPTIONS } from "@/lib/constants";
+import { hasAdvancedFilters } from "@/lib/filters";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
-import { HistoryDrawer } from "./HistoryDrawer";
+import { useFilteredResults } from "./AdvancedFiltersPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { LeadListSkeleton, SummarySkeleton } from "@/components/shared/Skeletons";
+import { LeadListSkeleton } from "@/components/shared/Skeletons";
 import { filterByRadius } from "@/lib/filters";
-import {
-  exportDiscoveryFile,
-  DISCOVERY_EXPORT_FIELDS,
-  DEFAULT_DISCOVERY_EXPORT_KEYS,
-  type DiscoveryExportFormat,
-} from "@/lib/export";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type SortBy = "score" | "distance" | "rating";
+type SortBy = "score" | "distance" | "rating" | "reviews";
+
+/** Ordenações reais sobre DiscoveryResult — espelham sortLeads (lib/filters):
+ * "Melhor oportunidade" = score-desc; as demais correspondem a
+ * distance-asc / rating-desc / reviews-desc. */
+const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
+  { value: "score", label: "Melhor oportunidade" },
+  { value: "distance", label: "Mais próximo" },
+  { value: "rating", label: "Melhor avaliação" },
+  { value: "reviews", label: "Mais avaliações" },
+];
+
+/** "Ver mais resultados" sobe o teto de maxResults e re-roda a MESMA busca
+ * (cache hit no provider real). Google Text Search limita ~60 por busca. */
+const RESULT_COUNTS = [10, 25, 50, 100] as const;
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const density = useUIStore((s) => s.density);
+  const advancedFilters = useUIStore((s) => s.advancedFilters);
+  const filtersActive = hasAdvancedFilters(advancedFilters);
 
   const searching = useLeadsStore((s) => s.searching);
   const searchError = useLeadsStore((s) => s.searchError);
   const setSearchError = useLeadsStore((s) => s.setSearchError);
   const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
+  const maxResults = useSearchDraftStore((s) => s.draft.maxResults) ?? 25;
   const draftCoords = useSearchDraftStore((s) => s.draft.coords);
   const setDraft = useSearchDraftStore((s) => s.setDraft);
   const isAreaTooLargeError = !!searchError?.toLowerCase().includes("raio");
@@ -53,7 +56,6 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const radiusCenter = currentSearch
     ? { lat: currentSearch.latitude, lng: currentSearch.longitude }
     : draftCoords;
-  const bulkMode = useLeadsStore((s) => s.bulkMode);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -86,85 +88,71 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     [results, radiusCenter.lat, radiusCenter.lng, radiusKm],
   );
 
+  // Filtros locais + avançados (F3) — a MESMA função que o mapa usa, para que
+  // lista e mapa sempre concordem sobre o conjunto visível.
+  const filteredResults = useFilteredResults(resultsInRadius);
+
   const sortedResults = useMemo(() => {
-    const arr = [...resultsInRadius];
+    const arr = [...filteredResults];
     if (sortBy === "score") arr.sort((a, b) => b.score - a.score);
     if (sortBy === "distance") arr.sort((a, b) => a.distanceKm - b.distanceKm);
     if (sortBy === "rating") arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    if (sortBy === "reviews") arr.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
     return arr;
-  }, [resultsInRadius, sortBy]);
+  }, [filteredResults, sortBy]);
 
-  const summary = useMemo(() => {
-    if (!resultsInRadius.length) return null;
-    let noSite = 0;
-    let phones = 0;
-    let whats = 0;
-    let inFunnel = 0;
-    for (const r of resultsInRadius) {
-      if (!r.hasWebsite) noSite++;
-      if (r.phone) phones++;
-      if (r.whatsapp) whats++;
-      if (r.importedLeadId != null) inFunnel++;
-    }
-    return {
-      noSite,
-      phones,
-      whats,
-      inFunnel,
-      // Denominador = o que existe de fato na lista/mapa (dentro do raio real),
-      // não o found_count bruto do provider (inclui cantos da bbox fora do
-      // círculo, que foram descartados no execute-search e não são navegáveis).
-      // Mapa, lista e este contador têm que concordar. found_count segue no
-      // Histórico, onde é métrica de auditoria da busca.
-      total: resultsInRadius.length,
-    };
-  }, [resultsInRadius]);
+  // "Ver mais resultados": só aparece quando o retorno ALCANÇOU o teto pedido
+  // (pode haver mais) e ainda existe um teto maior.
+  const nextTier = RESULT_COUNTS.find((n) => n > maxResults);
+  const canLoadMore = nextTier != null && discovery != null && discovery.length >= maxResults;
 
-  // V3-F: export com formato + seleção de campos (progressive disclosure).
-  const [exportFormat, setExportFormat] = useState<DiscoveryExportFormat>("csv");
-  const [exportFields, setExportFields] = useState<string[]>(DEFAULT_DISCOVERY_EXPORT_KEYS);
-  const [exportOpen, setExportOpen] = useState(false);
-
-  const handleExport = () => {
-    try {
-      exportDiscoveryFile(resultsInRadius, { format: exportFormat, fields: exportFields });
-      toast.success(`${exportFormat.toUpperCase()} exportado (${resultsInRadius.length} empresas)`);
-      setExportOpen(false);
-    } catch {
-      toast.error("Falha ao exportar");
-    }
+  const loadMore = () => {
+    if (!nextTier) return;
+    setDraft({ maxResults: nextTier });
+    useSearchSession.getState().retrySearch();
   };
 
-  const toggleExportField = (key: string) => {
-    setExportFields((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+  // Colapsada = tira de ~48px com o botão de expandir SEMPRE visível (REGRA
+  // DURA: nunca esconder sem forma óbvia de restaurar). O mesmo toggle vive
+  // no TopNav (PanelLeftOpen); a tira garante affordance mesmo que o header
+  // mude. Em mobile o painel vive num Sheet e nunca colapsa.
+  if (collapsed && !mobile) {
+    return (
+      <aside
+        aria-label="Painel de descoberta recolhido"
+        className="hidden w-12 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-3 lg:flex"
+      >
+        <button
+          onClick={() => setSidebarCollapsed(false)}
+          className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Mostrar painel de descoberta"
+          title="Mostrar painel de descoberta"
+          aria-expanded="false"
+        >
+          <AppIcon icon={icons.layout.expandSidebar} size="md" tone="inherit" decorative />
+        </button>
+        <Search className="mt-2 h-4 w-4 text-muted-foreground/60" aria-hidden />
+      </aside>
     );
-  };
-
-  // Colapsada = some por completo (igual ao reference). O botão de expandir
-  // vive no TopNav (PanelLeftOpen) quando sidebarCollapsed.
-  if (collapsed && !mobile) return null;
+  }
 
   return (
     <aside
       className={cn(
         "flex flex-col bg-sidebar",
-        mobile
-          ? "h-full w-full"
-          : "hidden lg:flex w-full max-w-[360px] xl:max-w-[400px] shrink-0 border-r",
+        mobile ? "h-full w-full" : "hidden lg:flex w-full max-w-[290px] shrink-0 border-r",
       )}
     >
       {/* Header */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
         <div className="min-w-0">
           <div className="truncate text-[15px] font-semibold leading-tight tracking-tight">
-            Buscar empresas
+            Descobrir oportunidades
           </div>
           <div className="truncate text-[11.5px] text-muted-foreground">
-            Encontre quem tem pouca presença digital
+            Encontre empresas locais com baixa presença digital
           </div>
         </div>
-        <HistoryDrawer />
       </div>
 
       <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -173,126 +161,30 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
           <SearchForm />
         </div>
 
-        {/* Summary */}
-        {searching ? (
-          <SummarySkeleton />
-        ) : summary ? (
-          <div className="border-b border-sidebar-border px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Resumo da pesquisa
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-1">
-              <SummaryPill label="Encontradas" value={summary.total} />
-              <SummaryPill label="Sem site" value={summary.noSite} icon={Globe} />
-              <SummaryPill label="Telefones" value={summary.phones} icon={Phone} />
-              <SummaryPill label="WhatsApp" value={summary.whats} icon={MessageCircle} />
-              <SummaryPill label="Pipeline" value={summary.inFunnel} tone="primary" />
-            </div>
-          </div>
-        ) : null}
-
-        {/* Toolbar */}
-        {!!summary && (
-          <div className="flex shrink-0 items-center gap-1 border-b border-sidebar-border px-3 py-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
-                <ArrowUpDown className="h-3 w-3" />
-                Ordenar
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setSortBy("score")}>
-                  Score (maior)
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortBy("distance")}>
-                  Distância (menor)
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortBy("rating")}>
-                  Avaliação (maior)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  disabled={resultsInRadius.length === 0}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                >
-                  <Download className="h-3 w-3" />
-                  Exportar
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <Popover open={exportOpen} onOpenChange={setExportOpen}>
-                    <PopoverTrigger asChild>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setExportOpen(true);
-                        }}
-                      >
-                        Exportar…
-                      </DropdownMenuItem>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-72 p-3">
-                      <div className="space-y-2.5">
-                        <div className="flex gap-1.5">
-                          {(["csv", "xlsx"] as const).map((f) => (
-                            <button
-                              key={f}
-                              type="button"
-                              onClick={() => setExportFormat(f)}
-                              aria-pressed={exportFormat === f}
-                              className={cn(
-                                "rounded-md border px-2.5 py-1 text-[12px] font-medium",
-                                exportFormat === f
-                                  ? "border-primary bg-primary-soft text-primary"
-                                  : "border-border text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {f.toUpperCase()}
-                            </button>
-                          ))}
-                        </div>
-                        {(["básicos", "contato", "score"] as const).map((group) => (
-                          <div key={group}>
-                            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {group}
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {DISCOVERY_EXPORT_FIELDS.filter((f) => f.group === group).map((f) => (
-                                <label
-                                  key={f.key}
-                                  className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={exportFields.includes(f.key)}
-                                    onChange={() => toggleExportField(f.key)}
-                                  />
-                                  {f.label}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={handleExport}
-                          disabled={exportFields.length === 0}
-                          className="w-full rounded-md bg-primary px-2.5 py-1.5 text-[12px] font-semibold text-primary-foreground disabled:opacity-50"
-                        >
-                          Exportar {exportFormat.toUpperCase()}
-                        </button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        {/* Contagem + ordenação + export — uma linha, como o mockup */}
+        {!searching && !searchError && resultsInRadius.length > 0 && (
+          <div className="flex items-center gap-2 border-b border-sidebar-border px-4 py-2">
+            <span className="min-w-0 truncate text-[12px] font-medium text-foreground">
+              {sortedResults.length} empresas encontradas
+              {filtersActive && (
+                <span className="text-muted-foreground"> de {resultsInRadius.length}</span>
+              )}
+            </span>
+            <label className="ml-auto flex items-center gap-1 text-[11.5px] text-muted-foreground">
+              <span className="hidden sm:inline">Ordenar:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                aria-label="Ordenar resultados"
+                className="h-7 max-w-[140px] rounded-md border border-border bg-surface px-1.5 text-[11.5px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
 
@@ -324,60 +216,38 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
               title="Nenhuma empresa"
               description="Faça uma busca ou aumente o raio."
             />
-          ) : (
-            <Virtuoso
-              totalCount={sortedResults.length}
-              useWindowScroll={false}
-              itemContent={(index) => {
-                const r = sortedResults[index];
-                return (
-                  <div className="px-0.5 py-0.5" data-place-id={r.placeId}>
-                    <DiscoveryCard
-                      result={r}
-                      searchId={currentSearch?.id ?? ""}
-                      density={density}
-                    />
-                  </div>
-                );
-              }}
-              style={{ height: `${Math.max(sortedResults.length * 120, 200)}px` }}
+          ) : sortedResults.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="Filtros removeram tudo"
+              description="Nenhuma empresa do resultado carregado passa pelos filtros locais."
             />
+          ) : (
+            <>
+              {/* Lista simples mapeada — SEM virtualização: o provider limita
+               * ~60 resultados por busca, e um Virtuoso com altura fixa
+               * (todos os itens renderizados) além de não virtualizar nada,
+               * quebrava em branco quando totalCount ia 2→0→2 numa re-busca
+               * (P2-1 do gate: contador renderizava e a lista não). */}
+              {sortedResults.map((r) => (
+                <div key={r.placeId} className="px-0.5 py-0.5" data-place-id={r.placeId}>
+                  <DiscoveryCard result={r} searchId={currentSearch?.id ?? ""} />
+                </div>
+              ))}
+              {canLoadMore && (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="mx-auto mt-2 block text-[12px] font-medium text-primary hover:underline"
+                >
+                  Ver mais resultados (~{nextTier})
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
       {/* fecha o scroll wrapper */}
     </aside>
-  );
-}
-
-function SummaryPill({
-  label,
-  value,
-  tone,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  tone?: "primary";
-  icon?: typeof Globe;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-md px-1.5 py-1.5 text-center",
-        tone === "primary" ? "bg-primary-soft" : "bg-muted",
-      )}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-center gap-0.5 text-[15px] font-semibold",
-          tone === "primary" ? "text-primary" : "text-foreground",
-        )}
-      >
-        {Icon && <Icon className="h-3 w-3 opacity-60" />}
-        {value}
-      </div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
   );
 }

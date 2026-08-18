@@ -4,6 +4,7 @@ import { useUIStore } from "@/stores";
 import {
   applyAdvancedDiscoveryFilters,
   hasAdvancedFilters,
+  countActiveAdvancedFilters,
   type AdvancedDiscoveryFilters,
 } from "@/lib/filters";
 import type { DiscoveryResult } from "@/repositories/types";
@@ -38,11 +39,13 @@ const BAND_OPTIONS = [
  * neighborhood/city, confidence band, enrichment status, contact signals).
  * Honest: no filter invents data — absent fields simply don't match.
  */
-export function AdvancedFiltersPanel() {
+export function AdvancedFiltersPanel({ variant = "toolbar" }: { variant?: "toolbar" | "chip" }) {
   const filters = useUIStore((s) => s.advancedFilters);
   const setFilters = useUIStore((s) => s.setAdvancedFilters);
+  const resetFilters = useUIStore((s) => s.resetAdvancedFilters);
   const [open, setOpen] = useState(false);
   const active = hasAdvancedFilters(filters);
+  const activeCount = countActiveAdvancedFilters(filters);
 
   const patch = (p: Partial<AdvancedDiscoveryFilters>) => setFilters(p);
 
@@ -56,16 +59,32 @@ export function AdvancedFiltersPanel() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors",
+          "inline-flex items-center gap-1.5 rounded-md transition-colors",
+          variant === "chip"
+            ? "rounded-full border border-dashed px-2 py-0.5 text-[11px] font-medium"
+            : "h-8 border px-2.5 text-[12px] font-medium",
           active
-            ? "border-primary/40 bg-primary-soft text-primary"
-            : "border-border bg-surface text-foreground hover:bg-surface-hover",
+            ? "border-primary/50 bg-primary-soft text-primary"
+            : variant === "chip"
+              ? "border-border text-muted-foreground hover:text-foreground"
+              : "border-border bg-surface text-foreground hover:bg-surface-hover",
         )}
       >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
-        Filtros
-        {active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-        <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
+        {variant === "toolbar" && <SlidersHorizontal className="h-3.5 w-3.5" />}
+        {variant === "chip" ? "Mais filtros" : "Filtros"}
+        {/* Badge de contagem SEMPRE visível (mockup '[2]') — cinza em zero. */}
+        <span
+          className={cn(
+            "grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums",
+            active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+          )}
+          aria-label={`${activeCount} filtros ativos`}
+        >
+          {activeCount}
+        </span>
+        {variant === "toolbar" && (
+          <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
+        )}
       </button>
 
       {open && (
@@ -156,7 +175,7 @@ export function AdvancedFiltersPanel() {
             {active && (
               <button
                 type="button"
-                onClick={() => setFilters({})}
+                onClick={resetFilters}
                 className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3 w-3" /> Limpar filtros

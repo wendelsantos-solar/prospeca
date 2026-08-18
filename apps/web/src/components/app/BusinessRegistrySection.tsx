@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BadgeCheck, FileSearch, Landmark, Loader2 } from "lucide-react";
+import { BadgeCheck, FileSearch, Landmark, Loader2, Users } from "lucide-react";
 import { isValidCnpj, normalizeCnpj } from "@leads/domain";
 import { useBusinessRegistration, useCnpjLookupMutation } from "@/hooks/useLeadsQuery";
 import { formatBRL } from "@/lib/format";
@@ -160,6 +160,41 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
           )}
         </div>
       )}
+
+      {/* Decisores (QSA — quadro de sócios e administradores). Estados
+       * HONESTOS: sem consulta → "ainda não consultado"; consulta sem QSA na
+       * resposta → "não informado". Dado público de registro, sem fonte nova. */}
+      <div className="mt-3 border-t border-border/60 pt-2">
+        <p className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Users className="h-3 w-3" />
+          Decisores
+        </p>
+        {!isLoading && registration?.registration_fetched_at == null ? (
+          <p className="mt-1 text-[11.5px] text-muted-foreground">
+            Ainda não consultado — consulte o CNPJ acima.
+          </p>
+        ) : registration?.qsa == null || registration.qsa.length === 0 ? (
+          <p className="mt-1 text-[11.5px] text-muted-foreground">
+            Não informado pelo cadastro público.
+          </p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {registration.qsa.map((s, i) => (
+              <li
+                key={`${s.name}-${i}`}
+                className="flex items-start justify-between gap-2 text-[12px]"
+              >
+                <span className="min-w-0 truncate font-medium text-foreground">{s.name}</span>
+                {s.qualification && (
+                  <span className="shrink-0 text-right text-[11px] text-muted-foreground">
+                    {s.qualification}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Consulta manual — validada no cliente (isValidCnpj) antes de enviar. */}
       <div className="mt-3 flex gap-2">

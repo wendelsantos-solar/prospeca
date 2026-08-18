@@ -1,24 +1,12 @@
-import { useMemo } from "react";
 import { Sparkles } from "lucide-react";
-import {
-  buildSignalEvidence,
-  calculateOpportunityScore,
-  deriveOpportunityScoreState,
-  deriveSignals,
-  OPPORTUNITY_SCORE_VERSION,
-  opportunityTemperatureFromScore,
-  recommendNextBestAction,
-  signalSeverity,
-  type OpportunityScoreBreakdown,
-  type SignalEvidence,
-  type SignalSeverity,
-} from "@leads/domain";
+import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain";
 import type { Lead } from "@/types";
-import { useOpportunityScore } from "@/hooks/useLeadsQuery";
+import { useCompanyIntelligence, type CompanyIntelligence } from "@/hooks/useCompanyIntelligence";
 import { ScorePill } from "@/components/shared/Badges";
 import { cn } from "@/lib/utils";
+import type { SignalSeverity } from "@leads/domain";
 
-const SIGNAL_LABELS: Record<string, string> = {
+export const SIGNAL_LABELS: Record<string, string> = {
   NO_WEBSITE: "Sem site",
   LOW_REVIEW_COUNT: "Poucas avaliações",
   HIGH_RATING: "Bem avaliada",
@@ -46,117 +34,81 @@ const SEVERITY_STYLES: Record<SignalSeverity, string> = {
   low: "bg-muted text-muted-foreground",
 };
 
-/** Normalize a persisted evidence array into the typed domain shape. Honest:
- * only well-formed entries are kept — malformed rows fall back to client calc. */
-function asSignalEvidence(raw: unknown): SignalEvidence[] | null {
-  if (!Array.isArray(raw)) return null;
-  const out: SignalEvidence[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const e = item as Partial<SignalEvidence>;
-    if (typeof e.signal !== "string" || typeof e.evidence !== "string") continue;
-    out.push({
-      signal: e.signal as SignalEvidence["signal"],
-      severity:
-        e.severity === "high" || e.severity === "medium" || e.severity === "low"
-          ? e.severity
-          : signalSeverity(e.signal as SignalEvidence["signal"]),
-      evidence: e.evidence,
-      confidence: typeof e.confidence === "number" ? e.confidence : 0.5,
-      source: e.source ?? "derived",
-      derivedAt: e.derivedAt ?? "",
-    });
-  }
-  return out;
+export { SEVERITY_STYLES };
+
+/** Evidence chips com severidade/confiança/fonte — compartilhado com o card
+ * Reputação (Visão geral) para nunca duplicar a formatação honesta. */
+export function SignalEvidenceChips({
+  evidence,
+  filter,
+}: {
+  evidence: CompanyIntelligence["evidence"];
+  /** Restringe a um subconjunto de sinais (ex: só reputação). */
+  filter?: (signal: string) => boolean;
+}) {
+  const items = filter ? evidence.filter((e) => filter(e.signal)) : evidence;
+  if (items.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((e) => (
+        <span
+          key={e.signal}
+          className={cn(
+            "cursor-default rounded-full px-2 py-0.5 text-[10px] font-medium",
+            SEVERITY_STYLES[e.severity],
+          )}
+          title={`${e.evidence} · confiança ${Math.round(e.confidence * 100)}% · ${e.source}`}
+        >
+          {SIGNAL_LABELS[e.signal] ?? e.signal}
+        </span>
+      ))}
+    </div>
+  );
 }
 
-/** Normalize a persisted breakdown row into the typed domain shape. Honest:
- * only fields actually present in the stored JSON are used. */
-function asBreakdown(raw: unknown): OpportunityScoreBreakdown | null {
-  if (!raw || typeof raw !== "object") return null;
-  const b = raw as Partial<OpportunityScoreBreakdown>;
-  if (
-    typeof b.total !== "number" ||
-    typeof b.confidence !== "number" ||
-    !Array.isArray(b.components)
-  ) {
-    return null;
-  }
-  return b as OpportunityScoreBreakdown;
+/** O estado do score em texto + chip (analisando/parcial/finalizado) — único
+ * lugar que traduz o scoreState para UI. */
+export function ScoreStateChip({ scoreState }: { scoreState: CompanyIntelligence["scoreState"] }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+        scoreState === "FINALIZADO"
+          ? "border-primary/30 bg-primary-soft text-primary"
+          : scoreState === "PARCIAL"
+            ? "border-warning/40 bg-warning-soft text-warning-foreground"
+            : "border-dashed border-border text-muted-foreground",
+      )}
+      title={
+        scoreState === "FINALIZADO"
+          ? "Fontes automáticas concluídas"
+          : scoreState === "PARCIAL"
+            ? "Uma fonte consultada falhou — score parcial"
+            : "Análise em andamento — o score pode mudar"
+      }
+    >
+      {scoreState === "FINALIZADO"
+        ? "finalizado"
+        : scoreState === "PARCIAL"
+          ? "parcial"
+          : "analisando"}
+    </span>
+  );
 }
 
 /**
  * Company Intelligence Card — the V2 explainable opportunity score (7 weighted
- * components), the named signals behind it, and the next-best-action.
- *
- * The score comes from the server when `company_opportunity_scores` has one
- * (computed by score-company, read via RLS) — same deterministic domain engine,
- * so the breakdown stays explainable. Until then it is computed client-side
- * from the shared domain, which is always in sync with the server's scoring.
+ * components), the named signals behind it, and (opcional) the next-best-action.
+ * Responde "POR QUE 84": cada componente tem barra, pontos e razão.
  */
-export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
-  // The persisted per-org score for the lead's canonical place (RLS). Funnel
-  // leads carry place_id; discovery previews set id == placeId.
-  const { data: persisted } = useOpportunityScore(lead.placeId);
-
-  const intelligence = useMemo(() => {
-    const whatsappStatus = lead.whatsapp ? "verified" : "unknown";
-    const ctx = {
-      hasWebsite: lead.hasWebsite,
-      hasValidPhone: !!lead.phone,
-      whatsappStatus,
-      hasEmail: !!lead.email,
-      rating: lead.rating ?? null,
-      reviewCount: lead.reviewCount ?? null,
-      businessStatus: null,
-    } as const;
-    const signals = deriveSignals(ctx);
-    // Client-side fallback evidence — same pure rule the server persists, so
-    // demo mode and legacy rows still render severity/evidence honestly.
-    const evidence = buildSignalEvidence(signals, ctx);
-    const score = calculateOpportunityScore({
-      signals,
-      rating: lead.rating ?? null,
-      reviewCount: lead.reviewCount ?? null,
-      hasWebsite: lead.hasWebsite,
-      whatsappStatus,
-    });
-    const nba = recommendNextBestAction({
-      hasWebsite: lead.hasWebsite,
-      hasEmail: !!lead.email,
-      hasPhone: !!lead.phone,
-      whatsappStatus,
-      rating: lead.rating ?? null,
-      reviewCount: lead.reviewCount ?? null,
-      temperature: lead.temperature,
-      score: score.total,
-    });
-    return { evidence, score, nba };
-  }, [lead]);
-
-  const { evidence: clientEvidence, score: clientScore, nba } = intelligence;
-
-  // Persisted V2 score wins when available; otherwise the client calc (demo
-  // fallback). Both come from the same deterministic domain engine.
-  const persistedBreakdown = persisted ? asBreakdown(persisted.breakdown) : null;
-  const score = persistedBreakdown ?? clientScore;
-  const temperature = persisted
-    ? persisted.temperature
-    : opportunityTemperatureFromScore(score.total);
-
-  // Named score progression (V3-C): persisted state wins; the client fallback
-  // approximates it from the lead's global enrichment lifecycle.
-  const scoreState =
-    (persistedBreakdown?.scoreState as "ANALISANDO" | "PARCIAL" | "FINALIZADO" | undefined) ??
-    deriveOpportunityScoreState({
-      websiteState: lead.enrichmentState ?? null,
-    });
-
-  // Persisted signal evidence wins (server-derived, with provenance); the
-  // client-side derivation covers demo/legacy rows with the same shape.
-  const evidence = persisted
-    ? (asSignalEvidence(persisted.signals) ?? clientEvidence)
-    : clientEvidence;
+export function CompanyIntelligenceCard({
+  lead,
+  showNba = true,
+}: {
+  lead: Lead;
+  showNba?: boolean;
+}) {
+  const { score, temperature, scoreState, evidence, nba, version } = useCompanyIntelligence(lead);
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-surface p-4">
@@ -168,7 +120,7 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
           </span>
         </div>
         <span className="text-[10px] text-muted-foreground">
-          {persistedBreakdown?.version ?? OPPORTUNITY_SCORE_VERSION}
+          {version ?? OPPORTUNITY_SCORE_VERSION}
         </span>
       </div>
 
@@ -177,29 +129,7 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
         <span className="text-caption text-muted-foreground">
           confiança {Math.round(score.confidence * 100)}%
         </span>
-        <span
-          className={cn(
-            "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-            scoreState === "FINALIZADO"
-              ? "border-primary/30 bg-primary-soft text-primary"
-              : scoreState === "PARCIAL"
-                ? "border-warning/40 bg-warning-soft text-warning-foreground"
-                : "border-dashed border-border text-muted-foreground",
-          )}
-          title={
-            scoreState === "FINALIZADO"
-              ? "Fontes automáticas concluídas"
-              : scoreState === "PARCIAL"
-                ? "Uma fonte consultada falhou — score parcial"
-                : "Análise em andamento — o score pode mudar"
-          }
-        >
-          {scoreState === "FINALIZADO"
-            ? "finalizado"
-            : scoreState === "PARCIAL"
-              ? "parcial"
-              : "analisando"}
-        </span>
+        <ScoreStateChip scoreState={scoreState} />
       </div>
 
       <div className="mt-3 space-y-1.5">
@@ -216,35 +146,24 @@ export function CompanyIntelligenceCard({ lead }: { lead: Lead }) {
         ))}
       </div>
 
-      {evidence.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {evidence.map((e) => (
-            <span
-              key={e.signal}
-              className={cn(
-                "cursor-default rounded-full px-2 py-0.5 text-[10px] font-medium",
-                SEVERITY_STYLES[e.severity],
-              )}
-              title={`${e.evidence} · confiança ${Math.round(e.confidence * 100)}% · ${e.source}`}
-            >
-              {SIGNAL_LABELS[e.signal] ?? e.signal}
+      <div className="mt-3">
+        <SignalEvidenceChips evidence={evidence} />
+      </div>
+
+      {showNba && (
+        <div className="mt-3 rounded-lg border border-primary/15 bg-primary-subtle p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-micro font-semibold uppercase tracking-wide text-primary">
+              Próxima melhor ação
+            </p>
+            <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+              urgência {URGENCY_LABEL[nba.urgency]}
             </span>
-          ))}
+          </div>
+          <p className="mt-1 text-caption font-medium text-foreground">{nba.recommendation}</p>
+          <p className="mt-0.5 text-micro text-muted-foreground">{nba.reason}</p>
         </div>
       )}
-
-      <div className="mt-3 rounded-lg border border-primary/15 bg-primary-subtle p-3">
-        <div className="flex items-center justify-between">
-          <p className="text-micro font-semibold uppercase tracking-wide text-primary">
-            Próxima melhor ação
-          </p>
-          <span className="text-[10px] font-semibold uppercase text-muted-foreground">
-            urgência {URGENCY_LABEL[nba.urgency]}
-          </span>
-        </div>
-        <p className="mt-1 text-caption font-medium text-foreground">{nba.recommendation}</p>
-        <p className="mt-0.5 text-micro text-muted-foreground">{nba.reason}</p>
-      </div>
     </div>
   );
 }

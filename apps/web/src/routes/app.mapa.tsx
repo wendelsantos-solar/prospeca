@@ -19,9 +19,14 @@ import { useSearchSession } from "@/stores/searchSession";
 import { ResultsList } from "@/components/app/ResultsList";
 import { DiscoveryKpis } from "@/components/app/DiscoveryKpis";
 import { computeDiscoveryKpis } from "@/lib/discovery-kpis";
-import { TerritoriesView } from "@/components/app/TerritoriesView";
 import { AdvancedFiltersPanel, useFilteredResults } from "@/components/app/AdvancedFiltersPanel";
-import { MissionPipeline } from "@/components/app/MissionPipeline";
+import { CompanyDetailPanel } from "@/components/app/CompanyDetailPanel";
+import { AppIcon } from "@/design-system/icons/AppIcon";
+import { icons } from "@/design-system/icons/icon-registry";
+import { Flame } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useIsDirty } from "@/hooks/useIsDirty";
+import { searchHereAt, isSignificantPan } from "@/hooks/useSearchHere";
 
 const MapView = lazy(() =>
   import("@/components/app/MapView").then((m) => ({ default: m.MapView })),
@@ -113,7 +118,135 @@ function HomeState() {
   );
 }
 
+/**
+ * Grid da descoberta (Fase 2): | Nav | Descoberta | Mapa | Detalhe |.
+ * O mapa é o protagonista (flex-1, min-w-0); o painel de detalhe só existe
+ * quando há empresa selecionada — fechado, o mapa recupera o espaço.
+ */
 function MapaPage() {
+  return (
+    <div className="flex h-full min-h-0">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        <MapaWorkspace />
+      </div>
+      <CompanyDetailPanel />
+    </div>
+  );
+}
+
+/** Barra do topo do mapa (Fase 90): DUAS linhas distintas como o mockup —
+ * linha 1 = KPI bar; linha 2 = tabs pill segmentado + métrica do heatmap +
+ * filtros com badge. (Na F4 juntamos; o mockup separa — decisão do Maestro.) */
+function MapToolbar({
+  kpis,
+  estimate,
+}: {
+  kpis: ReturnType<typeof computeDiscoveryKpis>;
+  estimate: { costUsdMax: number; resultsMax: number } | null;
+}) {
+  const discoveryView = useUIStore((s) => s.discoveryView);
+  const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
+  const heatMetric = useUIStore((s) => s.heatMetric);
+  const setHeatMetric = useUIStore((s) => s.setHeatMetric);
+  // 'Buscar nesta área' na BARRA (mockup) — a regra dura não mudou: o pan só
+  // atualiza o centro no store; a busca roda SÓ no clique deste botão.
+  const mapViewport = useUIStore((s) => s.mapViewport);
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const searching = useLeadsStore((s) => s.searching);
+  const draft = useSearchDraftStore((s) => s.draft);
+  const { dirty, reason } = useIsDirty();
+  const significant = isSignificantPan(mapViewport);
+  const dirtyOk = dirty && !(reason === "niche" && draft.niche.trim().length < 2);
+  const showSearchHere = !!currentSearch && !searching && (significant || dirtyOk);
+  return (
+    <div className="border-b border-border bg-background px-4 py-2">
+      {/* Linha 1 — KPI bar */}
+      <DiscoveryKpis kpis={kpis} estimate={estimate} />
+
+      {/* Linha 2 — tabs + métrica + filtros */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div
+          className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+          role="group"
+          aria-label="Alternar visualização"
+        >
+          {(
+            [
+              { v: "map", label: "Mapa", icon: icons.navigation.map },
+              { v: "list", label: "Lista", icon: icons.layout.list },
+              { v: "heatmap", label: "Heatmap", flame: true },
+            ] as const
+          ).map((o) => {
+            const active = discoveryView === o.v;
+            return (
+              <button
+                key={o.v}
+                onClick={() => setDiscoveryView(o.v)}
+                aria-pressed={active}
+                aria-label={o.label}
+                title={o.label}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                  active
+                    ? "bg-surface text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.v === "heatmap" ? (
+                  <Flame className="h-3.5 w-3.5 text-orange-500" />
+                ) : (
+                  <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
+                )}
+                <span className="hidden md:inline">{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {discoveryView === "heatmap" && (
+          <select
+            value={heatMetric}
+            onChange={(e) =>
+              setHeatMetric(
+                e.target.value as
+                  | "opportunity"
+                  | "density"
+                  | "weak_digital"
+                  | "segment_concentration",
+              )
+            }
+            className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+            aria-label="Métrica do heatmap"
+          >
+            <option value="opportunity">Oportunidade</option>
+            <option value="density">Densidade</option>
+            <option value="weak_digital">Presença digital fraca</option>
+            <option value="segment_concentration">Concentração de segmento</option>
+          </select>
+        )}
+        <AdvancedFiltersPanel />
+        {showSearchHere && (
+          <button
+            type="button"
+            onClick={() => {
+              if (significant && mapViewport) void searchHereAt(mapViewport);
+              else useSearchSession.getState().radarSearch();
+            }}
+            title="Busca no Google sob demanda (paga) — nunca dispara sozinha ao mover o mapa"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-border-strong"
+          >
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            Buscar nesta área
+            <span className="text-[10.5px] text-muted-foreground">
+              {significant ? "área movida" : "atualizar"}
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MapaWorkspace() {
   const filters = useLeadsStore((s) => s.filters);
   const sort = useLeadsStore((s) => s.sort);
   const loaded = useLeadsStore((s) => s.loaded);
@@ -234,67 +367,7 @@ function MapaPage() {
     return (
       <div className="flex h-full flex-col">
         <h1 className="sr-only">Mapa de oportunidades</h1>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
-          <DiscoveryKpis
-            kpis={kpis}
-            estimate={
-              currentSearch?.estimatedCostUsd != null
-                ? {
-                    costUsdMax: currentSearch.estimatedCostUsd,
-                    resultsMax: currentSearch.estimatedResults ?? 0,
-                  }
-                : null
-            }
-          />
-          <AdvancedFiltersPanel />
-        </div>
-        {currentSearch && (
-          <div className="border-b border-border bg-background px-4 py-2">
-            <MissionPipeline searchId={currentSearch.id} />
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          <ResultsList results={filteredResults} searchId={currentSearch.id} />
-        </div>
-      </div>
-    );
-  }
-
-  if (discoveryView === "territories" && currentSearch) {
-    return (
-      <div className="flex h-full flex-col">
-        <h1 className="sr-only">Mapa de oportunidades</h1>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
-          <DiscoveryKpis
-            kpis={kpis}
-            estimate={
-              currentSearch?.estimatedCostUsd != null
-                ? {
-                    costUsdMax: currentSearch.estimatedCostUsd,
-                    resultsMax: currentSearch.estimatedResults ?? 0,
-                  }
-                : null
-            }
-          />
-          <AdvancedFiltersPanel />
-        </div>
-        {currentSearch && (
-          <div className="border-b border-border bg-background px-4 py-2">
-            <MissionPipeline searchId={currentSearch.id} />
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          <TerritoriesView results={filteredResults} searchId={currentSearch.id} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col">
-      <h1 className="sr-only">Mapa de oportunidades</h1>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
-        <DiscoveryKpis
+        <MapToolbar
           kpis={kpis}
           estimate={
             currentSearch?.estimatedCostUsd != null
@@ -305,13 +378,27 @@ function MapaPage() {
               : null
           }
         />
-        <AdvancedFiltersPanel />
-      </div>
-      {currentSearch && (
-        <div className="border-b border-border bg-background px-4 py-2">
-          <MissionPipeline searchId={currentSearch.id} />
+        <div className="min-h-0 flex-1">
+          <ResultsList results={filteredResults} searchId={currentSearch.id} />
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <h1 className="sr-only">Mapa de oportunidades</h1>
+      <MapToolbar
+        kpis={kpis}
+        estimate={
+          currentSearch?.estimatedCostUsd != null
+            ? {
+                costUsdMax: currentSearch.estimatedCostUsd,
+                resultsMax: currentSearch.estimatedResults ?? 0,
+              }
+            : null
+        }
+      />
       <div className="min-h-0 flex-1">
         <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
           <MapView
