@@ -397,6 +397,42 @@ verify_jwt = false
 [functions.google-calendar]
 verify_jwt = false
 
+# Import map para funções cujo grafo de imports toca @leads/* (pacotes do
+# monorepo fora de supabase/functions). A CLI 2.111.0 removeu a chave global
+# [edge_runtime].import_map_path; a chave POR FUNÇÃO `import_map` continua
+# válida e faz o `supabase start` montar os arquivos-alvo do mapa dentro do
+# container do edge runtime (a CLI caminha o grafo de imports a partir do
+# entrypoint e monta cada módulo). Lista gerada por varredura do grafo de
+# imports (index.ts + closure de _shared) — não editar à mão sem re-rodar.
+[functions.calculate-lead-score]
+import_map = "./import_map.json"
+[functions.create-export]
+import_map = "./import_map.json"
+[functions.create-search]
+import_map = "./import_map.json"
+[functions.enrich-discovery]
+import_map = "./import_map.json"
+[functions.enrich-lead]
+import_map = "./import_map.json"
+[functions.execute-search]
+import_map = "./import_map.json"
+[functions.get-notifications]
+import_map = "./import_map.json"
+[functions.import-search-results]
+import_map = "./import_map.json"
+[functions.interpret-search-intent]
+import_map = "./import_map.json"
+[functions.lookup-cnpj]
+import_map = "./import_map.json"
+[functions.process-jobs]
+import_map = "./import_map.json"
+[functions.score-company]
+import_map = "./import_map.json"
+[functions.stripe-billing]
+import_map = "./import_map.json"
+[functions.territory-analysis]
+import_map = "./import_map.json"
+
 [analytics]
 enabled = true
 port = 54327
