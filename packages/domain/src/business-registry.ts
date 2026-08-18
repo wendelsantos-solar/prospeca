@@ -45,6 +45,9 @@ export interface BusinessRegistration {
   simplesOptedAt: string | null;
   /** Inscrito como MEI. */
   isMei: boolean | null;
+  /** Quadro de sócios e administradores (QSA da BrasilAPI). null = o campo
+   * não veio na resposta (cadastro sem QSA publicada). */
+  qsa: Array<{ name: string; qualification: string | null }> | null;
   fetchedAt: string;
 }
 

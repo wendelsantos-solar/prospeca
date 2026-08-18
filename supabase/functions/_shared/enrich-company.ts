@@ -32,9 +32,24 @@ import {
   type EnrichmentSourceMap,
 } from "@leads/domain/enrichment-state";
 import { companyProcessingKey } from "@leads/domain/job";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { createSupabaseJobQueue, stampJobMetrics } from "./job-queue.ts";
 
 export const SITE_TIMEOUT_MS = 4000;
+
+/**
+ * Custo do pass de enrichment: scrape do site da PRÓPRIA empresa (infra
+ * própria, sem fee por chamada) — zero COMPROVADO ('measured'), nunca
+ * desconhecido disfarçado de 0 (regra dura da Fase 7).
+ */
+export function enrichmentJobCost(): Parameters<typeof stampJobMetrics>[2] {
+  const c = calculateUsageCost("website_scraper", "enrich_request", 1);
+  return {
+    realCostUsd: c.realCostUsd,
+    estimatedCostUsd: c.estimatedCostUsd,
+    costSource: c.source,
+  };
+}
 export const ENRICHMENT_STALE_DAYS = 30;
 
 /** Confidence of the website source: grows with answered contact fields
@@ -157,7 +172,7 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     const website = (place.website_uri as string | null) ?? null;
     if (!website) {
       // Nothing to scrape — a definitive "not_found" answer for all fields.
-      await stampJobMetrics(admin, jobId, 0);
+      await stampJobMetrics(admin, jobId, enrichmentJobCost());
       await queue.complete(jobId, { fieldsFound: 0, enrichmentStatus: "not_found" });
       return { placeId, found: 0, status: "not_found" };
     }
@@ -224,6 +239,21 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     }
     await admin.from("places").update(patch).eq("id", placeId);
 
+    // searches.enriched_count (Fase 2.3): métrica lida por get-search-status e
+    // pelo painel, antes NUNCA escrita. Derivada por COUNT da fonte da verdade
+    // (places.enriched_at + enrichment_state) para ser idempotente — reprocessar
+    // o mesmo place recomputa o mesmo número, nunca infla. A RPC cobre TODAS as
+    // buscas que contêm este place (um place pode aparecer em várias).
+    const { error: recountError } = await admin.rpc("recount_search_enriched_counts", {
+      p_place_id: placeId,
+    });
+    if (recountError) {
+      // Métrica defasada não pode falhar o job — o enrichment em si concluiu.
+      console.warn(
+        `[enrich-company] enriched_count recompute failed for ${placeId}: ${recountError.message}`,
+      );
+    }
+
     // Provenance (spec #26): record/refresh the website source of this pass.
     // Confidence grows with the number of contact fields the site answered.
     await upsertWebsiteSource(admin, {
@@ -251,11 +281,11 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     // Close the job: definitive answer (ok/not_found/blocked) → completed;
     // a transient fetch failure → retry classification (bounded by attempts).
     if (outcome.status === "error") {
-      await stampJobMetrics(admin, jobId, 0);
+      await stampJobMetrics(admin, jobId, enrichmentJobCost());
       await queue.fail(jobId, { status: 503, message: "website fetch failed" });
       return { placeId, found: 0, status: "error" };
     }
-    await stampJobMetrics(admin, jobId, 0);
+    await stampJobMetrics(admin, jobId, enrichmentJobCost());
     await queue.complete(jobId, result);
     return {
       placeId,
@@ -264,7 +294,7 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
     };
   } catch (err) {
     // Unexpected local error (DB write, etc.) — classify; transient → retrying.
-    await stampJobMetrics(admin, jobId, 0).catch(() => {});
+    await stampJobMetrics(admin, jobId, enrichmentJobCost()).catch(() => {});
     await queue.fail(jobId, err);
     return { placeId, found: 0, status: "error" };
   }

@@ -33,6 +33,8 @@ interface BrasilApiCnpjResponse {
   opcao_pelo_simples?: boolean;
   data_opcao_pelo_simples?: string;
   opcao_pelo_mei?: boolean;
+  /** QSA — quadro de sócios e administradores (decisores). */
+  qsa?: Array<{ nome?: string; qual?: string }>;
 }
 
 export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
@@ -79,6 +81,14 @@ export class BrasilApiBusinessRegistry implements BusinessRegistryProvider {
         simplesNacional: raw.opcao_pelo_simples ?? null,
         simplesOptedAt: raw.data_opcao_pelo_simples ?? null,
         isMei: raw.opcao_pelo_mei ?? null,
+        qsa: Array.isArray(raw.qsa)
+          ? raw.qsa
+              .map((m) => ({
+                name: (m.nome ?? "").trim(),
+                qualification: m.qual?.trim() || null,
+              }))
+              .filter((m) => m.name)
+          : null,
         fetchedAt: new Date().toISOString(),
       };
     } finally {

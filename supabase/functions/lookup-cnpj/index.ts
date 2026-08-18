@@ -22,7 +22,8 @@ import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient, requireAuth } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
-import { assertRateLimit } from "../_shared/quota.ts";
+import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { isValidCnpj, normalizeCnpj } from "@leads/domain/business-registry";
 import {
   businessRegistryProvider,
@@ -68,6 +69,19 @@ Deno.serve(async (req) => {
       organizationId = ctx.organizationId;
       await assertRateLimit(ctx.adminClient, organizationId, "cnpj_lookup", 30);
     }
+
+    // Fase 7: fecha o ciclo do rate limit (mesmo event_type). BrasilAPI é
+    // gratuita — zero COMPROVADO ('measured'), não desconhecido.
+    const cost = calculateUsageCost("brasil_api", "cnpj_lookup", 1);
+    await recordUsage(adminClient(), {
+      organizationId,
+      eventType: "cnpj_lookup",
+      provider: "brasil_api",
+      quantity: 1,
+      estimatedCostUsd: cost.estimatedCostUsd,
+      realCostUsd: cost.realCostUsd,
+      costSource: cost.source,
+    });
 
     const admin = adminClient();
 
@@ -224,6 +238,9 @@ Deno.serve(async (req) => {
       registry_email: registration.email,
       registry_phone: registration.phone,
     };
+    // QSA (decisores) — só grava quando a fonte respondeu o campo; nunca
+    // sobrescreve um QSA existente com null.
+    if (registration.qsa != null) patch.qsa = registration.qsa;
     if (registration.legalName) patch.legal_name = registration.legalName;
     if (registration.primaryCnae) patch.primary_cnae = registration.primaryCnae;
     if (registration.cnaeDescription) patch.cnae_description = registration.cnaeDescription;
