@@ -106,6 +106,12 @@ export interface DiscoveryResult {
   /** Per-field enrichment state { email|instagram|whatsapp: {status, has} }.
    * A missing key means the field was never checked (pending). */
   enrichmentFields: Record<string, { status: string; has: boolean }> | null;
+  /** Atividade econômica (CNAE) vinda do registro — persistida por lookup-cnpj
+   * e servida pelo RPC de descoberta. Null enquanto o CNPJ não foi consultado:
+   * ausência de consulta, não ausência de atividade. */
+  primaryCnae: string | null;
+  cnaeDescription: string | null;
+  secondaryCnaes: string[] | null;
 }
 
 // ── Lead stages & temperatures ────────────────────────────────────────

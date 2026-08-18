@@ -124,6 +124,12 @@ export interface AdvancedDiscoveryFilters {
   enrichmentStatus?: "pending" | "processing" | "enriched" | "partial" | "failed";
   /** Presence of specific contact signals. */
   signal?: "no_website" | "has_whatsapp" | "has_phone" | "has_email" | "has_website";
+  /** Atividade econômica (CNAE). Casa por DESCRIÇÃO legível (contains,
+   * case-insensitive) ou por CÓDIGO (prefixo) — o usuário digita "barbearia",
+   * não "9602-5/01". Resultados sem CNPJ consultado (primaryCnae null) ficam
+   * FORA quando o filtro está ativo: ausência de consulta não é evidência de
+   * atividade diferente, mas o usuário pediu um recorte específico. */
+  cnae?: string;
   /** Filtros rápidos (F3) — ids de DISCOVERY_QUICK_FILTERS. Client-side. */
   quick?: string[];
   /** Presença digital LOCAL (F3): sem instagram E sem whatsapp. Filtra os
@@ -204,6 +210,13 @@ export function applyAdvancedDiscoveryFilters(
     }
     if (filters.enrichmentStatus && (r.enrichmentState ?? "pending") !== filters.enrichmentStatus) {
       return false;
+    }
+    if (filters.cnae) {
+      const q = filters.cnae.trim().toLowerCase();
+      const byCode = (r.primaryCnae ?? "").toLowerCase().startsWith(q);
+      const byDesc = (r.cnaeDescription ?? "").toLowerCase().includes(q);
+      const bySecondary = (r.secondaryCnaes ?? []).some((c) => c.toLowerCase().startsWith(q));
+      if (!byCode && !byDesc && !bySecondary) return false;
     }
     if (filters.signal === "no_website" && r.hasWebsite) return false;
     if (filters.signal === "has_website" && !r.hasWebsite) return false;

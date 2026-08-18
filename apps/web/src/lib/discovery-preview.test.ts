@@ -26,6 +26,9 @@ const base: DiscoveryResult = {
   importedLeadId: null,
   enrichmentState: "enriched",
   enrichmentFields: null,
+  primaryCnae: null,
+  cnaeDescription: null,
+  secondaryCnaes: null,
 };
 
 test("maps discovery fields onto a lead-shaped preview object", () => {

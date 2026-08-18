@@ -936,6 +936,9 @@ export class SupabaseSearchRepository implements SearchRepository {
         pipelineState: jobStateByPlace.get(r.place_id as string) ?? null,
         enrichmentFields:
           (r.enrichment_fields as Record<string, { status: string; has: boolean }> | null) ?? null,
+        primaryCnae: (r.primary_cnae as string | null) ?? null,
+        cnaeDescription: (r.cnae_description as string | null) ?? null,
+        secondaryCnaes: (r.secondary_cnaes as string[] | null) ?? null,
       };
     });
   }

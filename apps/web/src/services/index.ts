@@ -119,6 +119,9 @@ export const searchService = {
       importedLeadId: null,
       enrichmentState: "enriched",
       enrichmentFields: null,
+      primaryCnae: null,
+      cnaeDescription: null,
+      secondaryCnaes: null,
     }));
     getSearchRepository().registerDiscovery(search.id, discovery);
 

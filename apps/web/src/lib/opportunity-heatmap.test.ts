@@ -35,6 +35,9 @@ function result(partial: Partial<DiscoveryResult>): DiscoveryResult {
     importedLeadId: null,
     enrichmentState: "pending",
     enrichmentFields: null,
+    primaryCnae: null,
+    cnaeDescription: null,
+    secondaryCnaes: null,
     ...partial,
   };
 }

@@ -97,6 +97,23 @@ export function AdvancedFiltersPanel({ variant = "toolbar" }: { variant?: "toolb
               aria-label="Filtrar por segmento"
               className="h-7 w-full rounded-md border border-border bg-surface px-2 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
             />
+            {/* CNAE (Fase 5): aceita descrição legível OU código. O usuário não
+             * precisa conhecer "9602-5/01" — digita "barbearia". Só recorta
+             * empresas com CNPJ já consultado; as demais ficam de fora e o
+             * rodapé abaixo diz isso, para o recorte não parecer resultado vazio. */}
+            <input
+              value={filters.cnae ?? ""}
+              onChange={(e) => patch({ cnae: e.target.value || undefined })}
+              placeholder="Atividade / CNAE (ex: manicure ou 9602)"
+              aria-label="Filtrar por atividade econômica ou CNAE"
+              className="h-7 w-full rounded-md border border-border bg-surface px-2 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+            />
+            {filters.cnae ? (
+              <p className="text-[10.5px] leading-snug text-muted-foreground">
+                Mostra apenas empresas com CNPJ já consultado. As demais ficam de fora deste
+                recorte.
+              </p>
+            ) : null}
             <div className="flex gap-1.5">
               <input
                 value={filters.neighborhood ?? ""}

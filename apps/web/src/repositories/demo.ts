@@ -382,6 +382,9 @@ export class DemoSearchRepository implements SearchRepository {
           index === 0 ? "queued" : index === 1 ? "enriching" : index === 2 ? "retrying" : null,
         enrichmentState: index === 3 ? "pending" : "enriched",
         enrichmentFields: null,
+        primaryCnae: null,
+        cnaeDescription: null,
+        secondaryCnaes: null,
       }));
     this.discoveryCache.set(id, results);
 
