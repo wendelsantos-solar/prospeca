@@ -31,7 +31,7 @@ async function isReachable(): Promise<boolean> {
   try {
     const res = await fetch(`${API_URL}/rest/v1/`, {
       headers: { apikey: ANON_KEY },
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(5000),
     });
     return res.status < 500;
   } catch {
@@ -161,13 +161,26 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
   });
 
   afterAll(async () => {
-    // Limpeza via service_role. Apagar o usuário cascateia organização
-    // (organizations.owner_user_id) e o resto por ON DELETE CASCADE.
+    // Limpeza via service_role. organizations.owner_user_id referencia
+    // auth.users SEM on delete cascade — apagar a org ANTES do usuário
+    // (senão o deleteUser falha e os fixtures acumulam, degradando o
+    // PostgREST local — P1-f do gate).
     if (feedbackObjectPathA) {
       await admin.storage.from("feedback-attachments").remove([feedbackObjectPathA]);
     }
-    if (orgA?.userId) await admin.auth.admin.deleteUser(orgA.userId);
-    if (orgB?.userId) await admin.auth.admin.deleteUser(orgB.userId);
+    for (const actor of [orgA, orgB]) {
+      if (!actor?.userId) continue;
+      try {
+        await admin.from("organizations").delete().eq("owner_user_id", actor.userId);
+      } catch {
+        /* melhor esforço */
+      }
+      try {
+        await admin.auth.admin.deleteUser(actor.userId);
+      } catch {
+        /* melhor esforço */
+      }
+    }
   });
 
   // ── Leitura ────────────────────────────────────────────────────────────
