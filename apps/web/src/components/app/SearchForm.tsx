@@ -42,6 +42,8 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { useActivationStore } from "@/stores/activation";
 import { getSearchRepository } from "@/repositories";
+import { useQueryClient } from "@tanstack/react-query";
+import { isDemoMode } from "@/lib/env";
 import {
   Command,
   CommandEmpty,
@@ -104,6 +106,7 @@ function GpsButton({
 }
 
 export function SearchForm() {
+  const queryClient = useQueryClient();
   const setLeads = useLeadsStore((s) => s.setLeads);
   const setSearching = useLeadsStore((s) => s.setSearching);
   const setSearchError = useLeadsStore((s) => s.setSearchError);
@@ -231,7 +234,18 @@ export function SearchForm() {
     if (!current) return;
     try {
       await getSearchRepository().saveSearch(current.id, name);
-      toast.success("Busca salva como missão");
+      queryClient.invalidateQueries({ queryKey: ["searches", "saved"] });
+      // LOTE 4B: mesma correção do MapToolbar (app.mapa.tsx) — sem isto, quem
+      // já tinha visitado /app/historico recebe o cache de ["searches","saved"]
+      // vazio por até 5min (staleTime do router.tsx), mesmo com o dado já
+      // persistido.
+      // LOTE 4B: mesma honestidade de escopo do MapToolbar (app.mapa.tsx) —
+      // em demo o "salvo" é memória de módulo, não banco; some no reload.
+      toast.success("Busca salva como missão", {
+        description: isDemoMode
+          ? "Modo demonstração: dura até você recarregar a página."
+          : undefined,
+      });
       setSaveOpen(false);
       setSaveName("");
     } catch {

@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapIcon, Search, Sparkles, Loader2, Bookmark, X } from "lucide-react";
 import { getSearchRepository } from "@/repositories";
+import { useQueryClient } from "@tanstack/react-query";
+import { isDemoMode } from "@/lib/env";
 import { toast } from "sonner";
 import { LocationPrompt } from "@/components/app/LocationPrompt";
 import { useSearchSession } from "@/stores/searchSession";
@@ -170,11 +172,31 @@ function MapToolbar({
   // (convenção já adotada no resto do produto — Fase 90).
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const queryClient = useQueryClient();
   const saveMission = async () => {
     if (!currentSearch || !saveName.trim()) return;
     try {
       await getSearchRepository().saveSearch(currentSearch.id, saveName.trim());
-      toast.success("Busca salva como missão");
+      queryClient.invalidateQueries({ queryKey: ["searches", "saved"] });
+      // LOTE 4B: a persistência já funcionava — o defeito era propagação. A
+      // query de /app/historico (["searches","saved"]) tem staleTime de 5min
+      // e refetchOnWindowFocus:false (router.tsx); sem isto, quem visitou o
+      // histórico antes recebe o CACHE VAZIO por até 5 minutos depois de
+      // salvar, mesmo com o dado já persistido. Mesma chave que unsaveSearch
+      // já invalida em app.historico.tsx — só faltava aqui.
+      // LOTE 4B (2º defeito): em modo demo o "salvo" vive em memória do
+      // módulo (mesmo padrão de demoLeads/demoSearches) — não há banco por
+      // trás. Um reload de página descarta. Inventar persistência real só
+      // para missões, deixando lead/nota/estágio do funil ainda efêmeros no
+      // mesmo demo, seria uma inconsistência pior que a limitação: a tela
+      // diria "salvo" de um jeito e "não salvo" de outro dentro do MESMO
+      // modo. A saída honesta é avisar o escopo, não fingir um banco que não
+      // existe.
+      toast.success("Busca salva como missão", {
+        description: isDemoMode
+          ? "Modo demonstração: dura até você recarregar a página."
+          : undefined,
+      });
       setSaveOpen(false);
       setSaveName("");
     } catch {

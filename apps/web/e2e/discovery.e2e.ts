@@ -239,3 +239,51 @@ test("LOTE 4 (F1): badge do heatmap concorda com a lista após interagir com o m
   expect(after).toBe(before);
   expect(after).not.toMatch(/^0 de/);
 });
+
+test("LOTE 4B: cache velho de /app/historico não esconde missão recém-salva (sem reload)", async ({
+  page,
+}) => {
+  // Regressão real, pega DUAS VEZES com gate verde antes desta guarda:
+  // 1ª vez (LOTE 4) — persistência nunca acontecia (stub no-op). Consertada,
+  // mas o teste de unidade que provou isso não provava o que o USUÁRIO via.
+  // 2ª vez (LOTE 4B) — persistência OK, mas nenhum handler de salvar chamava
+  // invalidateQueries; a query ["searches","saved"] (staleTime 5min,
+  // refetchOnWindowFocus:false — router.tsx) fica presa no cache VAZIO para
+  // quem já tinha visitado /app/historico antes de salvar. Sem essa visita
+  // PRÉVIA — que cria o cache velho — este cenário não reproduz: um teste
+  // que só salva e navega direto ao histórico passaria mesmo com o bug de
+  // volta. A visita inicial abaixo é o passo que fecha essa lacuna.
+  await enterApp(page, "/app/historico");
+  await expect(page.getByText("Nenhuma missão salva ainda.")).toBeVisible({ timeout: 10_000 });
+
+  // Client-side (não page.goto) — precisa ser a MESMA sessão de query cache
+  // que acabou de visitar o histórico, senão o cache velho nunca se forma.
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByPlaceholder("Buscar páginas, nichos…").fill("Mapa");
+  await page.getByRole("option", { name: "Mapa", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/mapa$/);
+
+  const missionName = "Missão guarda 4B";
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+
+  await page.getByRole("button", { name: "Salvar busca como missão" }).click();
+  await page.getByPlaceholder("Nome para salvar a missão").fill(missionName);
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.getByText("Busca salva como missão")).toBeVisible({ timeout: 5_000 });
+
+  // Volta ao histórico client-side — SEM reload de página. Se a query velha
+  // não foi invalidada, este é exatamente o momento em que o cache de 5min
+  // esconderia a missão que acabou de ser salva.
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByPlaceholder("Buscar páginas, nichos…").fill("histórico");
+  await page.getByRole("option", { name: "Histórico de buscas" }).click();
+  await expect(page).toHaveURL(/\/app\/historico$/);
+
+  await expect(page.getByText(missionName)).toBeVisible({ timeout: 5_000 });
+});

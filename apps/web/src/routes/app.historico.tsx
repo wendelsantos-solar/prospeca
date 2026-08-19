@@ -23,6 +23,7 @@ import { getSearchRepository } from "@/repositories";
 import { useSearchSession } from "@/stores/searchSession";
 import { useSearchDraftStore, useLeadsStore } from "@/stores";
 import { queryKeys } from "@/lib/queryKeys";
+import { isDemoMode } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { savedSearchToSearch } from "@/lib/saved-search";
 import type { SavedSearch } from "@/types";
@@ -167,6 +168,15 @@ function HistoryPage() {
             <Bookmark className="h-4 w-4 text-primary" />
             Buscas salvas
           </h2>
+          {/* LOTE 4B (2º defeito): em demo o "salvo" é memória de módulo, não
+           * banco — some no reload, igual todo o resto do estado demo (lead,
+           * nota, estágio). Avisar aqui é mais honesto que inventar um banco
+           * só para esta lista enquanto o resto do demo continua efêmero. */}
+          {isDemoMode && (
+            <p className="text-[12px] text-muted-foreground">
+              Modo demonstração: missões salvas duram até você recarregar a página.
+            </p>
+          )}
 
           {savedQuery.isLoading && <Skeleton className="h-20 w-full" />}
           {savedQuery.error && (
