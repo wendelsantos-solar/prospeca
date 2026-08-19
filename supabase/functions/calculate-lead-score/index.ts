@@ -8,6 +8,16 @@ import { AppError, handleOptions, json, logEvent, newRequestId } from "../_share
 import { requireAuth } from "../_shared/auth.ts";
 import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain/opportunity-score";
 
+/**
+ * Versões cujo `leads.score` ainda carrega o número da engine LEGADA (v3.0.0).
+ * `null` cobre linhas antigas anteriores à coluna de versão.
+ */
+const LEGACY_SCORE_RULE_VERSIONS = ["v3.0.0", "legacy-v3.0.0"];
+
+function carriesLegacyScore(ruleVersion: string | null): boolean {
+  return ruleVersion === null || LEGACY_SCORE_RULE_VERSIONS.includes(ruleVersion);
+}
+
 const InputSchema = z.object({ leadIds: z.array(z.string().uuid()).min(1).max(100) });
 
 Deno.serve(async (req) => {
@@ -52,9 +62,16 @@ Deno.serve(async (req) => {
             // com null: a chave só entra no update quando há um v3 real a guardar.
             // Escrever null aqui apagaria o valor já preservado assim que o lead
             // passasse a V2 (score-company sincroniza antes) — a garantia de
-            // rollback sumiria em silêncio. Uma vez gravado, nunca é sobrescrito.
-            ...((lead.score_rule_version as string | null) !== OPPORTUNITY_SCORE_VERSION &&
-            lead.score != null
+            // rollback sumiria em silêncio.
+            //
+            // A condição olha SE O NÚMERO ATUAL É O LEGADO, não se a versão
+            // difere da corrente. Comparar com a versão corrente parecia
+            // equivalente enquanto a engine ficou em v1.2.0, mas quebra no
+            // primeiro bump: um lead em v1.2.0 recalculado sob v1.3.0 passaria
+            // no teste e gravaria o score V2 ANTERIOR por cima do v3 original,
+            // destruindo em silêncio o rollback que a migration
+            // 20260817000019 promete.
+            ...(carriesLegacyScore(lead.score_rule_version as string | null) && lead.score != null
               ? { score_legacy_v3: lead.score }
               : {}),
           })

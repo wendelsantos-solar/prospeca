@@ -210,6 +210,22 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
     }
   });
 
+  /** Place extra criado sob demanda (o insertPlace do beforeAll é local a ele). */
+  async function insertPlaceForBump(): Promise<string> {
+    const { data, error } = await admin
+      .from("places")
+      .insert({
+        organization_id: org.organizationId,
+        provider: "google_places",
+        provider_place_id: `score-bump-${RUN}`,
+        name: `Place bump ${RUN}`,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`insert place bump: ${error.message}`);
+    return data.id;
+  }
+
   async function leadRow(id: string) {
     const { data, error } = await admin
       .from("leads")
@@ -264,6 +280,57 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
       .eq("rule_version", OPPORTUNITY_SCORE_VERSION)
       .single();
     expect(row.score).toBe(cos?.score as number);
+  });
+
+  test("BUMP DE VERSÃO NÃO destrói o v3 guardado para rollback", async () => {
+    // Bug latente encontrado ao subir a engine de v1.2.0 para v1.3.0: a
+    // preservação testava `score_rule_version !== OPPORTUNITY_SCORE_VERSION`,
+    // o que parecia equivalente a "ainda é legado" ENQUANTO a versão nunca
+    // mudou. No primeiro bump, um lead já em V2 passa no teste e grava o score
+    // V2 ANTERIOR por cima do v3 original — o rollback prometido pela migration
+    // 20260817000019 sumiria em silêncio, sem erro e sem log.
+    //
+    // A condição correta olha SE O NÚMERO ATUAL É O LEGADO, não se a versão
+    // difere da corrente.
+    const placeBump = await insertPlaceForBump();
+    const { error: v2Error } = await admin.from("company_opportunity_scores").insert({
+      organization_id: org.organizationId,
+      place_id: placeBump,
+      score: 75,
+      temperature: "hot",
+      rule_version: OPPORTUNITY_SCORE_VERSION,
+      confidence: 0.9,
+      breakdown: { total: 75, version: OPPORTUNITY_SCORE_VERSION },
+    });
+    if (v2Error) throw new Error(`insert v2 bump: ${v2Error.message}`);
+
+    // Lead no estado REAL de produção: já migrado para uma versão V2 ANTERIOR,
+    // com o v3 original preservado.
+    const { data: lead, error } = await admin
+      .from("leads")
+      .insert({
+        organization_id: org.organizationId,
+        created_by: org.userId,
+        company_name: `Lead bump ${RUN}`,
+        city: "Porto Alegre",
+        place_id: placeBump,
+        score: 72,
+        score_rule_version: "v1.2.0-anterior",
+        score_legacy_v3: 41,
+        temperature: "cold",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`insert lead bump: ${error.message}`);
+
+    await recalcLeads(org, [lead.id]);
+
+    const row = await leadRow(lead.id);
+    expect(row.score).toBe(75); // adotou o V2 corrente
+    expect(row.score_rule_version).toBe(OPPORTUNITY_SCORE_VERSION);
+    // O v3 ORIGINAL sobrevive — não foi substituído pelo score V2 anterior.
+    expect(row.score_legacy_v3).toBe(41);
+    expect(row.score_legacy_v3).not.toBe(72);
   });
 
   test("ordenação por score continua correta sobre a coluna materializada", async () => {
