@@ -416,6 +416,10 @@ import_map = "./import_map.json"
 import_map = "./import_map.json"
 [functions.execute-search]
 import_map = "./import_map.json"
+[functions.generate-contact-message]
+import_map = "./import_map.json"
+[functions.geocode-location]
+import_map = "./import_map.json"
 [functions.get-notifications]
 import_map = "./import_map.json"
 [functions.import-search-results]
@@ -423,6 +427,8 @@ import_map = "./import_map.json"
 [functions.interpret-search-intent]
 import_map = "./import_map.json"
 [functions.lookup-cnpj]
+import_map = "./import_map.json"
+[functions.refresh-place-details]
 import_map = "./import_map.json"
 [functions.reprocess-decision-makers]
 import_map = "./import_map.json"

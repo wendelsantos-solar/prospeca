@@ -7,6 +7,17 @@
       "runtimeArgs": ["run", "dev:web"],
       "port": 8080,
       "autoPort": true
+    },
+    {
+      "name": "dev:demo",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["vite", "dev", "--port", "3031", "--strictPort", "--host", "127.0.0.1"],
+      "cwd": "apps/web",
+      "env": {
+        "VITE_DATA_MODE": "demo",
+        "NODE_NO_WARNINGS": "1"
+      },
+      "port": 3031
     }
   ]
 }

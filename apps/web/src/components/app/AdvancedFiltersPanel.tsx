@@ -143,7 +143,10 @@ export function AdvancedFiltersPanel({ variant = "toolbar" }: { variant?: "toolb
                 })
               }
               aria-label="Decisor identificado"
-              className={selectCls}
+              // Select solto na coluna acompanha a largura do painel, como o
+              // "Sinal de contato" — sem w-full ele encolhe para o conteúdo e
+              // quebra o alinhamento das linhas vizinhas.
+              className={cn(selectCls, "w-full")}
             >
               <option value="">Decisor (todos)</option>
               <option value="any">Com decisor identificado</option>
