@@ -276,6 +276,39 @@ Deno.serve(async (req) => {
     if (internal) query = query.eq("organization_id", organizationId);
     const { data: places } = await query;
 
+    // Decisores por empresa (People Intelligence). Uma consulta para o lote
+    // todo — não uma por place. `null` (place ausente do mapa) significa CNPJ
+    // nunca consultado, e é DIFERENTE de 0 (consultei, sem quadro societário
+    // sustentável): o primeiro não conta como dimensão observada, o segundo sim.
+    const decisionMakersByPlace = new Map<string, { count: number; topBand: string | null }>();
+    {
+      const { data: rels } = await admin
+        .from("company_people")
+        .select("place_id, role_band, decision_score")
+        .eq("organization_id", organizationId)
+        .in("place_id", placeIds)
+        .eq("is_current", true)
+        .in("role_band", ["high", "medium"]);
+      for (const rel of (rels ?? []) as Array<Record<string, unknown>>) {
+        const key = rel.place_id as string;
+        const prior = decisionMakersByPlace.get(key) ?? { count: 0, topBand: null };
+        decisionMakersByPlace.set(key, {
+          count: prior.count + 1,
+          topBand: prior.topBand === "high" ? "high" : ((rel.role_band as string) ?? null),
+        });
+      }
+    }
+    // Quais places TIVERAM o registro consultado (com ou sem decisor achado).
+    const registryAnswered = new Set(
+      ((places ?? []) as PlaceRowWithId[])
+        .filter((r) => {
+          const st = (r.enrichment_sources as EnrichmentSourceMap | null)?.business_registry
+            ?.status;
+          return st === "enriched" || st === "partial";
+        })
+        .map((r) => r.id),
+    );
+
     let updated = 0;
     for (const row of (places ?? []) as PlaceRowWithId[]) {
       const input = scoreInputFromRow(row, distanceByPlace.get(row.id) ?? null);
@@ -318,6 +351,14 @@ Deno.serve(async (req) => {
         websiteSourceFailed: websiteState === "failed" && input.hasWebsite,
         // V3-D second ESTABLISHED trigger: real registry age (never invented).
         yearsInBusiness: yearsInBusiness(row.founded_at ?? null),
+        // Decisor (v1.3.0). Só é número quando o registro RESPONDEU; enquanto
+        // o CNPJ não foi consultado fica null — ausência de consulta não é
+        // ausência de decisor.
+        decisionMakerCount: registryAnswered.has(row.id)
+          ? (decisionMakersByPlace.get(row.id)?.count ?? 0)
+          : null,
+        topDecisionMakerBand:
+          (decisionMakersByPlace.get(row.id)?.topBand as "high" | "medium" | null) ?? null,
       };
       const signals = deriveSignals(signalCtx);
       const signalEvidence = buildSignalEvidence(signals, signalCtx);
@@ -339,6 +380,7 @@ Deno.serve(async (req) => {
         intentMatch,
         territoryFavorability,
         freshnessDays: null,
+        decisionMakerCount: signalCtx.decisionMakerCount,
         websiteState,
         registryState,
       });

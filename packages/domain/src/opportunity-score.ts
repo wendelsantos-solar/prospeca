@@ -16,7 +16,21 @@ import type { CompanySignal } from "./signals.ts";
 import { temperatureFromScore } from "./score.ts";
 import type { EnrichmentState } from "./enrichment-state.ts";
 
-export const OPPORTUNITY_SCORE_VERSION = "v1.2.0";
+export const OPPORTUNITY_SCORE_VERSION = "v1.3.0";
+
+// v1.3.0 — o decisor entra na CONTATABILIDADE.
+//
+// Mudança de ORDEM, registrada de propósito: até aqui uma empresa com telefone
+// e WhatsApp pontuava igual tendo ou não uma pessoa nomeada para procurar.
+// Mas contatabilidade não é "tenho um número", é "consigo chegar em quem
+// decide" — e um sócio-administrador identificado no quadro societário é
+// exatamente isso. Sem essa parcela, toda a People Intelligence não movia a
+// fila de abordagem.
+//
+// Os PESOS entre componentes NÃO mudaram. A parcela do decisor entra DENTRO de
+// `contactability`, o que contém o efeito: nenhuma empresa sem decisor perde
+// pontos, só empresas com decisor ganham. Rebalancear os pesos mexeria na
+// posição de toda a base de uma vez.
 
 // ── Score progression state (V3-C) ─────────────────────────────────────────
 //
@@ -93,6 +107,12 @@ export interface OpportunityScoreInput {
   territoryFavorability?: number | null;
   /** Data freshness in days since last enrichment (absent = unknown). */
   freshnessDays?: number | null;
+  /**
+   * Decisores vigentes de banda high/medium. `null`/ausente = CNPJ nunca
+   * consultado; `0` = consultei e não há quadro societário sustentável. A
+   * distinção alimenta a CONFIANÇA, não a pontuação.
+   */
+  decisionMakerCount?: number | null;
   /** Source states for the score progression state (V3-C). */
   websiteState?: EnrichmentState | null;
   registryState?: EnrichmentState | null;
@@ -130,12 +150,28 @@ function digitalGapScore(input: OpportunityScoreInput): number {
   return clamp(score || 10); // full digital maturity = low opportunity here
 }
 
+/** Pontos do decisor dentro da contatabilidade (v1.3.0). */
+export const DECISION_MAKER_CONTACTABILITY_POINTS = {
+  /** Sócio/administrador/diretor — quem assina. */
+  high: 25,
+  /** Gerente/coordenador/procurador — influencia, nem sempre assina sozinho. */
+  identified: 15,
+} as const;
+
 function contactabilityScore(input: OpportunityScoreInput): number {
   let score = 0;
   if (has(input.signals, "VALID_PHONE")) score += 35;
   if (has(input.signals, "WHATSAPP_VALIDATED")) score += 40;
   else if (has(input.signals, "WHATSAPP_AVAILABLE")) score += 30;
   if (has(input.signals, "HAS_EMAIL")) score += 20;
+  // Canal sem pessoa é chegar na recepção; canal COM decisor nomeado é chegar
+  // em quem decide. Aditivo e sujeito ao mesmo clamp: uma empresa que já
+  // satura os canais não ganha nada aqui — ela já está no topo do componente.
+  if (has(input.signals, "DECISION_MAKER_HIGH")) {
+    score += DECISION_MAKER_CONTACTABILITY_POINTS.high;
+  } else if (has(input.signals, "DECISION_MAKER_IDENTIFIED")) {
+    score += DECISION_MAKER_CONTACTABILITY_POINTS.identified;
+  }
   return clamp(score);
 }
 
@@ -190,6 +226,9 @@ function computeConfidence(input: OpportunityScoreInput): number {
     input.intentMatch != null,
     input.territoryFavorability != null,
     input.freshnessDays != null,
+    // O quadro societário foi consultado? Zero decisores É observação — o
+    // registro respondeu. `null` (nunca consultei) não conta.
+    input.decisionMakerCount != null,
   ].filter(Boolean).length;
   const confidence = 0.6 + observed * 0.08;
   return Math.round(Math.min(1, confidence) * 100) / 100;
@@ -207,7 +246,11 @@ export function calculateOpportunityScore(input: OpportunityScoreInput): Opportu
       "contactability",
       "Contatabilidade",
       contactabilityScore(input),
-      "Canais de contato direto disponíveis",
+      has(input.signals, "DECISION_MAKER_HIGH")
+        ? "Decisor identificado no quadro societário + canais de contato"
+        : has(input.signals, "DECISION_MAKER_IDENTIFIED")
+          ? "Pessoa identificada no quadro societário + canais de contato"
+          : "Canais de contato direto disponíveis",
     ),
     buildComponent(
       "reputation",

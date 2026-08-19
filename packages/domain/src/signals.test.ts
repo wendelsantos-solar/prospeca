@@ -228,3 +228,62 @@ describe("buildSignalEvidence", () => {
     expect(noSite.confidence).toBeLessThan(1); // Google may simply not have mapped it
   });
 });
+
+// ── Sinais de decisor (v1.3.0) ──────────────────────────────────────────────
+
+describe("sinais de decisor", () => {
+  const ctx = (over: Partial<SignalContext> = {}): SignalContext => ({
+    hasWebsite: true,
+    hasValidPhone: true,
+    whatsappStatus: "possible",
+    hasEmail: false,
+    rating: 4,
+    reviewCount: 30,
+    businessStatus: "OPERATIONAL",
+    ...over,
+  });
+
+  test("CNPJ nunca consultado NÃO produz sinal de decisor", () => {
+    // Ausência de consulta não é evidência de nada — nem a favor nem contra.
+    const signals = deriveSignals(ctx());
+    expect(signals).not.toContain("DECISION_MAKER_IDENTIFIED");
+    expect(signals).not.toContain("DECISION_MAKER_HIGH");
+  });
+
+  test("consultei e não há decisor também não produz sinal", () => {
+    const signals = deriveSignals(ctx({ decisionMakerCount: 0 }));
+    expect(signals).not.toContain("DECISION_MAKER_IDENTIFIED");
+  });
+
+  test("decisor de banda média produz só IDENTIFIED", () => {
+    const signals = deriveSignals(ctx({ decisionMakerCount: 1, topDecisionMakerBand: "medium" }));
+    expect(signals).toContain("DECISION_MAKER_IDENTIFIED");
+    expect(signals).not.toContain("DECISION_MAKER_HIGH");
+  });
+
+  test("decisor de banda alta produz os DOIS sinais", () => {
+    const signals = deriveSignals(ctx({ decisionMakerCount: 2, topDecisionMakerBand: "high" }));
+    expect(signals).toContain("DECISION_MAKER_IDENTIFIED");
+    expect(signals).toContain("DECISION_MAKER_HIGH");
+  });
+
+  test("a evidência cita a fonte oficial e a contagem real", () => {
+    const c = ctx({ decisionMakerCount: 3, topDecisionMakerBand: "high" });
+    const evidence = buildSignalEvidence(deriveSignals(c), c);
+    const identified = evidence.find((e) => e.signal === "DECISION_MAKER_IDENTIFIED")!;
+    expect(identified.evidence).toContain("3 decisores");
+    expect(identified.source).toBe("business_registry");
+    // Registro público oficial: se o QSA diz que a pessoa é sócia, ela é.
+    expect(identified.confidence).toBe(1);
+
+    const high = evidence.find((e) => e.signal === "DECISION_MAKER_HIGH")!;
+    expect(high.evidence).toContain("sócio, administrador ou diretor");
+  });
+
+  test("um decisor só usa o singular", () => {
+    const c = ctx({ decisionMakerCount: 1, topDecisionMakerBand: "medium" });
+    const evidence = buildSignalEvidence(deriveSignals(c), c);
+    const identified = evidence.find((e) => e.signal === "DECISION_MAKER_IDENTIFIED")!;
+    expect(identified.evidence).toBe("decisor identificado no quadro societário");
+  });
+});

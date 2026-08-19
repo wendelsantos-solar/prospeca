@@ -22,6 +22,8 @@ export const COMPANY_SIGNALS = [
   "WEAK_WEBSITE",
   "NO_SOCIAL_PRESENCE",
   "HIGH_LOCAL_DEMAND",
+  "DECISION_MAKER_IDENTIFIED",
+  "DECISION_MAKER_HIGH",
 ] as const;
 
 export type CompanySignal = (typeof COMPANY_SIGNALS)[number];
@@ -58,6 +60,14 @@ export interface SignalContext {
   instagramFollowers?: number | null;
   /** Whether the business is known to be newly opened. */
   isNewBusiness?: boolean | null;
+  /**
+   * Decisores vigentes e sustentáveis (banda high/medium) identificados no
+   * quadro societário. `undefined`/`null` = nunca consultei o CNPJ, o que é
+   * DIFERENTE de zero (consultei e não há quadro societário publicado).
+   */
+  decisionMakerCount?: number | null;
+  /** Banda do decisor mais forte, quando há. */
+  topDecisionMakerBand?: "high" | "medium" | null;
   /** 0..1 local business density (from Territory Intelligence). */
   localDensity?: number | null;
   /** Whether the region has low digital competition. */
@@ -87,6 +97,12 @@ export function deriveSignals(ctx: SignalContext): CompanySignal[] {
   if (ctx.businessStatus === "OPERATIONAL") signals.push("BUSINESS_ACTIVE");
   if (!ctx.hasWebsite) signals.push("NO_WEBSITE");
   if (ctx.hasValidPhone) signals.push("VALID_PHONE");
+  // Decisor: só conta quando a fonte respondeu. Ausência de consulta nunca
+  // vira sinal — nem positivo nem negativo.
+  if ((ctx.decisionMakerCount ?? 0) > 0) {
+    signals.push("DECISION_MAKER_IDENTIFIED");
+    if (ctx.topDecisionMakerBand === "high") signals.push("DECISION_MAKER_HIGH");
+  }
 
   if (ctx.whatsappStatus === "verified") signals.push("WHATSAPP_VALIDATED");
   else if (ctx.whatsappStatus === "possible") signals.push("WHATSAPP_AVAILABLE");
@@ -176,6 +192,12 @@ const SIGNAL_SEVERITY: Record<CompanySignal, SignalSeverity> = {
   WEAK_WEBSITE: "medium",
   NO_SOCIAL_PRESENCE: "medium",
   HIGH_LOCAL_DEMAND: "medium",
+  // Ter uma pessoa nomeada para procurar é uma oportunidade forte de abordagem,
+  // não um problema — mas a severidade aqui mede RELEVÂNCIA do sinal na
+  // triagem, e um decisor de alta influência é o sinal mais acionável que a
+  // plataforma produz.
+  DECISION_MAKER_HIGH: "high",
+  DECISION_MAKER_IDENTIFIED: "medium",
   HIGH_RATING: "low",
   BUSINESS_ACTIVE: "low",
   VALID_PHONE: "low",
@@ -232,6 +254,31 @@ export function buildSignalEvidence(
 
   for (const signal of signals) {
     switch (signal) {
+      case "DECISION_MAKER_IDENTIFIED":
+        out.push({
+          signal,
+          severity: signalSeverity(signal),
+          evidence:
+            (ctx.decisionMakerCount ?? 0) > 1
+              ? `${ctx.decisionMakerCount} decisores no quadro societário`
+              : "decisor identificado no quadro societário",
+          // Registro público oficial: se o QSA diz que a pessoa é sócia, ela é.
+          confidence: 1,
+          source: "business_registry",
+          derivedAt: at,
+          metadata: { decisionMakerCount: ctx.decisionMakerCount ?? 0 },
+        });
+        break;
+      case "DECISION_MAKER_HIGH":
+        out.push({
+          signal,
+          severity: signalSeverity(signal),
+          evidence: "sócio, administrador ou diretor identificado",
+          confidence: 1,
+          source: "business_registry",
+          derivedAt: at,
+        });
+        break;
       case "NO_WEBSITE":
         out.push({
           signal,

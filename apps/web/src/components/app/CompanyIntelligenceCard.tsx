@@ -20,6 +20,12 @@ export const SIGNAL_LABELS: Record<string, string> = {
   HAS_EMAIL: "Tem e-mail",
   HIGH_LOCAL_DENSITY: "Alta densidade local",
   LOW_DIGITAL_COMPETITION: "Baixa concorrência digital",
+  ESTABLISHED_COMPANY: "Empresa consolidada",
+  WEAK_WEBSITE: "Site fraco",
+  NO_SOCIAL_PRESENCE: "Sem presença social",
+  HIGH_LOCAL_DEMAND: "Alta demanda local",
+  DECISION_MAKER_IDENTIFIED: "Decisor identificado",
+  DECISION_MAKER_HIGH: "Decisor de alta influência",
 };
 
 const URGENCY_LABEL: Record<string, string> = {

@@ -98,7 +98,10 @@ describe("calculateOpportunityScore", () => {
 
   test("version and confidence are present", () => {
     const result = calculateOpportunityScore(input());
-    expect(result.version).toBe("v1.2.0");
+    // Versão é contrato: muda quando a fórmula muda (v1.3.0 = decisor entra na
+    // contatabilidade). O teste trava o valor de propósito — bumpar sem
+    // perceber mudaria a ORDEM dos leads em silêncio.
+    expect(result.version).toBe("v1.3.0");
     expect(result.confidence).toBeGreaterThanOrEqual(0);
     expect(result.confidence).toBeLessThanOrEqual(1);
     expect(result.components.length).toBe(Object.keys(OPPORTUNITY_SCORE_WEIGHTS).length);
@@ -190,5 +193,88 @@ describe("fonte única (Fase 3 — unificação de score)", () => {
     const s = calculateOpportunityScore(input({ hasWebsite: false }));
     expect(opportunityTemperatureFromScore(s.total)).toBe(opportunityTemperatureFromScore(s.total));
     expect(["hot", "warm", "cold"]).toContain(opportunityTemperatureFromScore(s.total));
+  });
+});
+
+// ── Decisor na contatabilidade (v1.3.0) ─────────────────────────────────────
+//
+// Até v1.2.0 uma empresa pontuava igual tendo ou não uma pessoa nomeada para
+// procurar. Contatabilidade não é "tenho um número", é "consigo chegar em quem
+// decide" — e sem essa parcela toda a People Intelligence não movia a fila.
+
+describe("decisor na contatabilidade", () => {
+  const comCanais = (extra: Partial<OpportunityScoreInput> = {}): OpportunityScoreInput => ({
+    signals: ["VALID_PHONE", "WHATSAPP_AVAILABLE"],
+    rating: 4,
+    reviewCount: 30,
+    hasWebsite: true,
+    whatsappStatus: "possible",
+    ...extra,
+  });
+
+  const contactability = (i: OpportunityScoreInput) =>
+    calculateOpportunityScore(i).components.find((c) => c.key === "contactability")!;
+
+  test("decisor de banda alta sobe a contatabilidade", () => {
+    const sem = contactability(comCanais());
+    const com = contactability(
+      comCanais({
+        signals: [
+          "VALID_PHONE",
+          "WHATSAPP_AVAILABLE",
+          "DECISION_MAKER_IDENTIFIED",
+          "DECISION_MAKER_HIGH",
+        ],
+      }),
+    );
+    expect(com.score).toBeGreaterThan(sem.score);
+    expect(com.reason).toContain("Decisor identificado");
+  });
+
+  test("decisor de banda média vale menos que o de banda alta", () => {
+    const medio = contactability(
+      comCanais({ signals: ["VALID_PHONE", "DECISION_MAKER_IDENTIFIED"] }),
+    );
+    const alto = contactability(
+      comCanais({ signals: ["VALID_PHONE", "DECISION_MAKER_IDENTIFIED", "DECISION_MAKER_HIGH"] }),
+    );
+    expect(alto.score).toBeGreaterThan(medio.score);
+  });
+
+  test("empresa SEM decisor não perde nada (a mudança é só aditiva)", () => {
+    // Os pesos entre componentes não mudaram; a parcela entra dentro de
+    // contactability. Quem não tem decisor pontua igual a antes.
+    const semDecisor = comCanais();
+    const c = contactability(semDecisor);
+    expect(c.score).toBe(35 + 30); // VALID_PHONE + WHATSAPP_AVAILABLE, como em v1.2.0
+  });
+
+  test("decisor eleva o score TOTAL — é uma mudança de ordem deliberada", () => {
+    const sem = calculateOpportunityScore(comCanais()).total;
+    const com = calculateOpportunityScore(
+      comCanais({
+        signals: [
+          "VALID_PHONE",
+          "WHATSAPP_AVAILABLE",
+          "DECISION_MAKER_IDENTIFIED",
+          "DECISION_MAKER_HIGH",
+        ],
+      }),
+    ).total;
+    expect(com).toBeGreaterThan(sem);
+  });
+
+  test("consultei e não há decisor ≠ nunca consultei — só a CONFIANÇA muda", () => {
+    const nuncaConsultei = calculateOpportunityScore(comCanais());
+    const consulteiSemDecisor = calculateOpportunityScore(comCanais({ decisionMakerCount: 0 }));
+    // Pontuação idêntica: zero decisores não penaliza a empresa.
+    expect(consulteiSemDecisor.total).toBe(nuncaConsultei.total);
+    // Mas o registro respondeu — isso é uma dimensão observada a mais.
+    expect(consulteiSemDecisor.confidence).toBeGreaterThan(nuncaConsultei.confidence);
+  });
+
+  test("os pesos entre componentes continuam intactos", () => {
+    expect(OPPORTUNITY_SCORE_WEIGHTS.contactability).toBe(0.2);
+    expect(OPPORTUNITY_SCORE_WEIGHTS.digital_gap).toBe(0.3);
   });
 });

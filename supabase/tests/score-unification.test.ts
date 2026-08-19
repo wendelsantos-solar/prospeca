@@ -15,6 +15,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+// A versão vem da ENGINE, nunca escrita à mão: um bump de fórmula (v1.2.0 →
+// v1.3.0, decisor na contatabilidade) já quebrou este teste duas vezes por
+// literal defasado, escondendo o que de fato importa — que o escritor único
+// sincroniza leads.score com o V2 corrente, seja qual for a versão.
+import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain";
 
 const API_URL = process.env.SUPABASE_TEST_URL ?? "http://127.0.0.1:54321";
 const ANON_KEY =
@@ -167,7 +172,7 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
       place_id: placeWithV2,
       score: 72,
       temperature: "hot",
-      rule_version: "v1.2.0",
+      rule_version: OPPORTUNITY_SCORE_VERSION,
       confidence: 0.85,
       breakdown: {
         total: 72,
@@ -176,7 +181,7 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
           { key: "digital_gap", label: "Presença digital", score: 40, reason: "Sem site" },
         ],
         scoreState: "FINALIZADO",
-        version: "v1.2.0",
+        version: OPPORTUNITY_SCORE_VERSION,
       },
     });
     if (v2Error) throw new Error(`insert v2: ${v2Error.message}`);
@@ -221,7 +226,7 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
 
     const row = await leadRow(leadWithV2);
     expect(row.score).toBe(72);
-    expect(row.score_rule_version).toBe("v1.2.0");
+    expect(row.score_rule_version).toBe(OPPORTUNITY_SCORE_VERSION);
     expect(row.temperature).toBe("hot");
     expect(row.score_legacy_v3).toBe(41);
   });
@@ -250,13 +255,13 @@ describeIfDb("unificação de score (Fase 3): leads.score = V2, v3 legado preser
 
     // O lead do MESMO place foi sincronizado para o V2 recém-computado.
     const row = await leadRow(leadWithV2);
-    expect(row.score_rule_version).toBe("v1.2.0");
+    expect(row.score_rule_version).toBe(OPPORTUNITY_SCORE_VERSION);
     const { data: cos } = await admin
       .from("company_opportunity_scores")
       .select("score")
       .eq("organization_id", org.organizationId)
       .eq("place_id", placeWithV2)
-      .eq("rule_version", "v1.2.0")
+      .eq("rule_version", OPPORTUNITY_SCORE_VERSION)
       .single();
     expect(row.score).toBe(cos?.score as number);
   });
