@@ -1,5 +1,11 @@
 // Os TRÊS import maps do monorepo têm que concordar.
 //
+// ESCOPO: só a sincronia dos maps. Foi tentado também exigir `import_map` por
+// função no config.toml e a regra NÃO se sustenta — três funções que alcançam
+// @leads/* não têm a chave e bootam normalmente, porque o
+// `[edge_runtime].import_map_path` global resolve. Assertar invariante falsa
+// gera trabalho inútil e falsa confiança.
+//
 // Motivo (defeito real, 2026-08-18): um módulo novo em @leads/domain foi
 // adicionado só ao `deno.json` da raiz. `deno check` passou — ele usa a raiz —
 // e o typecheck do monorepo passou. Mas o edge runtime resolve por
