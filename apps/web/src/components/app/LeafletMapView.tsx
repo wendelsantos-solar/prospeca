@@ -59,6 +59,11 @@ export function LeafletMapView({
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
   const heatRef = useRef<L.HeatLayer | null>(null);
+  // Última mode lida pelo listener moveend/zoomend (registrado uma vez, no
+  // efeito de init do mapa) sem precisar re-assinar o listener a cada troca de
+  // modo — mesmo padrão do GoogleMapView.
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -123,6 +128,11 @@ export function LeafletMapView({
       clusterRef.current = cluster;
       const setDraft = useSearchDraftStore.getState().setDraft;
       const updateVisible = () => {
+        // Em heatmap não existem markers (o efeito de troca de modo limpa
+        // markersRef e fixa o badge em results.length) — recontar markersRef
+        // aqui sempre dá 0 e apaga o número correto no primeiro moveend/zoomend.
+        // Mesmo defeito e mesmo fix do GoogleMapView.
+        if (modeRef.current === "heatmap") return;
         const bounds = map.getBounds();
         let count = 0;
         markersRef.current.forEach((m) => {

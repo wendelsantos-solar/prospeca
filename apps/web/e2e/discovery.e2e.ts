@@ -173,3 +173,69 @@ test("descoberta: ação de ampliar raio aparece e funciona (cenário alcançáv
   await expect(page.getByText("20 km", { exact: true })).toHaveCount(2);
 });
 
+test("LOTE 4 (F2): salvar missão persiste e aparece em /app/historico", async ({ page }) => {
+  // O stub de demo era um no-op declarado: a UI disparava
+  // toast.success("Busca salva como missão") mesmo sem nada persistir, e
+  // /app/historico > Buscas salvas nunca mostrava o que "foi salvo" — foi
+  // exatamente isso que a Vitrine não viu ao validar o LOTE 2.
+  await enterApp(page, "/app/mapa");
+
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+
+  await page.getByRole("button", { name: "Salvar busca como missão" }).click();
+  const nameInput = page.getByPlaceholder("Nome para salvar a missão");
+  await nameInput.fill("Missão E2E Barbearia POA");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.getByText("Busca salva como missão")).toBeVisible({ timeout: 5_000 });
+
+  // Navegação client-side (não page.goto): o demo guarda o que foi salvo em
+  // memória de módulo, não em storage — um reload de página descartaria o
+  // estado, o que seria um FALSO negativo do teste, não um defeito real.
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByPlaceholder("Buscar páginas, nichos…").fill("histórico");
+  await page.getByRole("option", { name: "Histórico de buscas" }).click();
+  await expect(page).toHaveURL(/\/app\/historico$/);
+  await expect(page.getByText("Missão E2E Barbearia POA")).toBeVisible({ timeout: 10_000 });
+});
+
+test("LOTE 4 (F1): badge do heatmap concorda com a lista após interagir com o mapa", async ({
+  page,
+}) => {
+  // GoogleMapView/LeafletMapView: em heatmap não existem markers (a troca de
+  // modo os limpa e fixa o badge em results.length), mas o listener de
+  // idle/moveend reconta a partir de markersRef — vazio nesse modo — e
+  // zerava o número no primeiro pan/zoom. "2 de 2" virava "0 de 2" mesmo com
+  // a lista mostrando 2, o mesmo defeito de contador-vs-tela do P0 do raio.
+  await enterApp(page, "/app/mapa");
+
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+
+  await page.getByRole("button", { name: "Heatmap" }).click();
+  await expect(page.getByLabel("Métrica do heatmap")).toBeVisible();
+
+  const badge = page.getByText(/de \d+ no raio/);
+  await expect(badge).toBeVisible({ timeout: 10_000 });
+  const before = await badge.innerText();
+
+  // Pan+zoom no mapa — dispara idle/moveend, o gatilho exato do defeito.
+  const map = page.locator(".gm-style, .leaflet-container").first();
+  await map.hover();
+  await page.mouse.wheel(0, -200);
+  await page.waitForTimeout(600);
+
+  const after = await badge.innerText();
+  expect(after).toBe(before);
+  expect(after).not.toMatch(/^0 de/);
+});

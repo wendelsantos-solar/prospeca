@@ -440,14 +440,20 @@ export function GoogleMapView({
           // Alimenta o 'Buscar nesta área' da BARRA (store transitório) —
           // o pan só ATUALIZA o estado; busca mesmo, só no clique.
           if (c) setMapViewport({ lat: c.lat(), lng: c.lng() });
-          const bounds = map.getBounds();
-          if (bounds) {
-            let count = 0;
-            markersRef.current.forEach((m) => {
-              const pos = m.getPosition();
-              if (pos && bounds.contains(pos)) count++;
-            });
-            setVisibleCount(count);
+          // Em heatmap não existem markers (linha 585-588 os limpa e fixa o
+          // badge em results.length) — recontar markersRef aqui SEMPRE dá 0 e
+          // apaga o número correto no primeiro idle. "Quantos markers estão no
+          // viewport" só é a pergunta certa quando existem markers.
+          if (modeRef.current !== "heatmap") {
+            const bounds = map.getBounds();
+            if (bounds) {
+              let count = 0;
+              markersRef.current.forEach((m) => {
+                const pos = m.getPosition();
+                if (pos && bounds.contains(pos)) count++;
+              });
+              setVisibleCount(count);
+            }
           }
           // Only sync while picking a location (no search/preview yet) — see the
           // Leaflet view for the full rationale.

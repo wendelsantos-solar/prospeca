@@ -40,6 +40,13 @@ import type { SearchEstimate } from "@leads/domain";
 
 let demoLeads: Lead[] = [...MOCK_LEADS];
 const demoSearches: Search[] = [];
+// searchId -> nome salvo. Mesmo padrão de cache em memória de demoLeads/
+// demoSearches (LOTE 4, Tarefa 2): o stub anterior era um no-op que fingia
+// sucesso (toast.success disparava mesmo sem nada acontecer) — a Vitrine
+// reportou FAIL correto sobre causa errada porque "salvar" nunca persistia
+// nem em memória. Aqui persiste de verdade, só que não sobrevive a um reload
+// (dado demo é efêmero por natureza — coerente com demoLeads).
+const demoSavedSearches = new Map<string, string>();
 
 /**
  * Seed do repositório demo a partir do store. MERGE POR ID (upsert), não
@@ -434,8 +441,14 @@ export class DemoSearchRepository implements SearchRepository {
     return this.discoveryCache.get(searchId) ?? [];
   }
 
-  registerDiscovery(searchId: string, results: DiscoveryResult[]): void {
-    this.discoveryCache.set(searchId, results);
+  registerDiscovery(search: Search, results: DiscoveryResult[]): void {
+    this.discoveryCache.set(search.id, results);
+    // searchService.run() (LOTE 4, Tarefa 2) é o único chamador — precisa
+    // ficar em demoSearches para que saveSearch/listSavedSearches encontrem a
+    // busca depois. Sem isto, "salvar" ficava mudo para toda busca REAL do
+    // demo (só funcionava chamando create() diretamente, o que nenhum
+    // caminho de UI faz).
+    if (!demoSearches.some((s) => s.id === search.id)) demoSearches.unshift(search);
   }
 
   async enrichDiscovery(_searchId: string, placeId?: string): Promise<{ enriched: number }> {
@@ -497,16 +510,53 @@ export class DemoSearchRepository implements SearchRepository {
     // no-op no modo demo.
   }
 
-  async saveSearch(_searchId: string, _name: string): Promise<void> {
-    // no-op no modo demo.
+  async saveSearch(searchId: string, name: string): Promise<void> {
+    // Espelha a regra do repositório real (supabase.ts): nome vazio salva
+    // como null (a busca fica marcada, sem apelido). Não é no-op: PRECISA
+    // aparecer em listSavedSearches / /app/historico, senão volta a ser a
+    // mesma mentira "salvou" que este lote existe para remover.
+    demoSavedSearches.set(searchId, name.trim());
   }
 
-  async unsaveSearch(_searchId: string): Promise<void> {
-    // no-op no modo demo.
+  async unsaveSearch(searchId: string): Promise<void> {
+    demoSavedSearches.delete(searchId);
   }
 
   async listSavedSearches(): Promise<SavedSearch[]> {
-    return [];
+    const out: SavedSearch[] = [];
+    for (const [searchId, savedName] of demoSavedSearches) {
+      const search = demoSearches.find((s) => s.id === searchId);
+      if (!search) continue; // busca removida da sessão demo — não referencia lixo
+      const results = this.discoveryCache.get(searchId) ?? [];
+      const scores = results.map((r) => r.score);
+      out.push({
+        searchId: search.id,
+        query: search.niche,
+        category: null,
+        locationLabel: search.location,
+        radiusMeters: Math.round(search.radiusKm * 1000),
+        presenceFilter:
+          search.presence === "no-website"
+            ? "without_website"
+            : search.presence === "with-website"
+              ? "with_website"
+              : "all",
+        status: "completed",
+        foundCount: search.totalFound,
+        importedCount: search.addedToPipeline,
+        createdAt: search.createdAt,
+        savedName: savedName || null,
+        latitude: search.latitude,
+        longitude: search.longitude,
+        totalResults: results.length,
+        hotCount: results.filter((r) => r.temperature === "hot").length,
+        avgScore:
+          scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+        withoutWebsite: results.filter((r) => !r.hasWebsite).length,
+      });
+    }
+    // Mais recente primeiro — mesma ordem de listHistory.
+    return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /** Demo has no persisted opportunity scores — client-side calc is the fallback. */

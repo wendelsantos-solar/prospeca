@@ -274,10 +274,15 @@ export interface SearchRepository {
     importAll: boolean,
   ): Promise<{ imported: number; duplicates: number }>;
   getDiscovery(searchId: string): Promise<DiscoveryResult[]>;
-  /** Register discovery results for a search created outside the repository
-   * (demo mode's mock searchService). Real mode populates via create(), so the
-   * Supabase implementation is a no-op. */
-  registerDiscovery(searchId: string, results: DiscoveryResult[]): void;
+  /** Register a search + its discovery results, created outside the
+   * repository (demo mode's mock searchService). Real mode populates via
+   * create(), so the Supabase implementation is a no-op.
+   * Carries the full Search, not just its id (LOTE 4, Tarefa 2): saveSearch/
+   * listSavedSearches need niche/location/radius/presence/createdAt to build
+   * a SavedSearch, and searchService.run() is the only place that has them —
+   * id-only left "salvar" a no-op for every search a real demo user actually
+   * runs (registerDiscovery only cached results, never the search itself). */
+  registerDiscovery(search: Search, results: DiscoveryResult[]): void;
   /** Enrich discovery contact fields via website scrape. No placeId → top-N by
    * score; with placeId → just that business (lazy, on-open). Best-effort. */
   enrichDiscovery(searchId: string, placeId?: string): Promise<{ enriched: number }>;

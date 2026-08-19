@@ -144,7 +144,7 @@ export const searchService = {
       topDecisionMakerBand: null,
       topDecisionMakerScore: null,
     }));
-    getSearchRepository().registerDiscovery(search.id, discovery);
+    getSearchRepository().registerDiscovery(search, discovery);
 
     return { leads: final, search };
   },
