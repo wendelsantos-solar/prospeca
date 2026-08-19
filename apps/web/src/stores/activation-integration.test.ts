@@ -30,6 +30,9 @@ const preview: DiscoveryResult = {
   primaryCnae: null,
   cnaeDescription: null,
   secondaryCnaes: null,
+  decisionMakerCount: 0,
+  topDecisionMakerBand: null,
+  topDecisionMakerScore: null,
 };
 
 beforeEach(() => {

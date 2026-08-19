@@ -140,6 +140,17 @@ export interface AdvancedDiscoveryFilters {
   weakNetworks?: boolean;
   /** Presença digital LOCAL: zero avaliações persistidas. */
   noReviews?: boolean;
+  /**
+   * Decisor identificado (People Intelligence). Filtra os resultados já
+   * carregados.
+   *
+   * `any` = tem pelo menos um decisor sustentável; `high` = tem um de banda
+   * alta (sócio/administrador/diretor). Empresa sem CNPJ consultado tem
+   * contagem 0 e fica FORA quando o filtro está ativo — ausência de consulta
+   * não é evidência de que não há decisor, mas o usuário pediu o recorte de
+   * quem JÁ tem um nome para procurar.
+   */
+  decisionMaker?: "any" | "high";
 }
 
 /** Filtros rápidos aplicáveis a resultados de descoberta — os mesmos ids dos
@@ -153,6 +164,11 @@ export const DISCOVERY_QUICK_FILTERS = [
   { id: "no-site", label: "Sem site", predicate: (r: DiscoveryResult) => !r.hasWebsite },
   { id: "rating-4", label: "Nota > 4", predicate: (r: DiscoveryResult) => (r.rating ?? 0) > 4 },
   { id: "hot", label: "Quente", predicate: (r: DiscoveryResult) => r.temperature === "hot" },
+  {
+    id: "decision-maker",
+    label: "Com decisor",
+    predicate: (r: DiscoveryResult) => r.decisionMakerCount > 0,
+  },
 ] as const;
 
 export const EMPTY_ADVANCED_FILTERS: AdvancedDiscoveryFilters = {};
@@ -211,6 +227,8 @@ export function applyAdvancedDiscoveryFilters(
     if (filters.enrichmentStatus && (r.enrichmentState ?? "pending") !== filters.enrichmentStatus) {
       return false;
     }
+    if (filters.decisionMaker === "any" && r.decisionMakerCount < 1) return false;
+    if (filters.decisionMaker === "high" && r.topDecisionMakerBand !== "high") return false;
     if (filters.cnae) {
       const q = filters.cnae.trim().toLowerCase();
       const byCode = (r.primaryCnae ?? "").toLowerCase().startsWith(q);

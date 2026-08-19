@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, Phone, Star, Flame, Instagram, Share2 } from "lucide-react";
+import { MessageCircle, Phone, Star, Flame, Instagram, Share2, UserCheck } from "lucide-react";
 import { useLeadsStore } from "@/stores";
 import { useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
@@ -167,6 +167,33 @@ export const DiscoveryCard = memo(function DiscoveryCard({
               >
                 <Share2 className="h-3 w-3" aria-hidden />
                 {socialStrength === "none" ? "Sem redes" : "Redes fracas"}
+              </span>
+            )}
+            {/* Decisor identificado — o sinal que muda a ORDEM de abordagem
+             * numa lista de 60. Só nome nenhum aqui: a triagem precisa saber
+             * ONDE há decisor forte, não quem é (o nome aparece ao abrir). */}
+            {result.decisionMakerCount > 0 && (
+              <span
+                title={
+                  result.topDecisionMakerBand === "high"
+                    ? `Decisor de alta influência identificado no quadro societário${
+                        result.topDecisionMakerScore != null
+                          ? ` (score ${result.topDecisionMakerScore})`
+                          : ""
+                      }`
+                    : "Decisor identificado no quadro societário"
+                }
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                  result.topDecisionMakerBand === "high"
+                    ? "bg-hot-soft text-hot"
+                    : "bg-warning-soft text-warning-foreground",
+                )}
+              >
+                <UserCheck className="h-3 w-3" aria-hidden />
+                {result.decisionMakerCount > 1
+                  ? `${result.decisionMakerCount} decisores`
+                  : "Decisor"}
               </span>
             )}
             {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (

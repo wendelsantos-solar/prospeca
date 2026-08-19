@@ -939,6 +939,9 @@ export class SupabaseSearchRepository implements SearchRepository {
         primaryCnae: (r.primary_cnae as string | null) ?? null,
         cnaeDescription: (r.cnae_description as string | null) ?? null,
         secondaryCnaes: (r.secondary_cnaes as string[] | null) ?? null,
+        decisionMakerCount: (r.decision_maker_count as number | null) ?? 0,
+        topDecisionMakerBand: (r.top_decision_maker_band as "high" | "medium" | null) ?? null,
+        topDecisionMakerScore: (r.top_decision_maker_score as number | null) ?? null,
       };
     });
   }

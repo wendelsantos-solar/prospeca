@@ -38,6 +38,9 @@ function result(partial: Partial<DiscoveryResult>): DiscoveryResult {
     primaryCnae: null,
     cnaeDescription: null,
     secondaryCnaes: null,
+    decisionMakerCount: 0,
+    topDecisionMakerBand: null,
+    topDecisionMakerScore: null,
     ...partial,
   };
 }

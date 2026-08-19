@@ -130,6 +130,25 @@ export function AdvancedFiltersPanel({ variant = "toolbar" }: { variant?: "toolb
                 className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-[12px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
               />
             </div>
+            {/* Decisor — o recorte que muda a ordem de abordagem: quem já tem
+             * um nome para procurar. Empresa sem CNPJ consultado tem contagem
+             * 0 e sai do recorte, por isso o rótulo fala em "identificado". */}
+            <select
+              value={filters.decisionMaker ?? ""}
+              onChange={(e) =>
+                patch({
+                  decisionMaker: (e.target.value || undefined) as
+                    | AdvancedDiscoveryFilters["decisionMaker"]
+                    | undefined,
+                })
+              }
+              aria-label="Decisor identificado"
+              className={selectCls}
+            >
+              <option value="">Decisor (todos)</option>
+              <option value="any">Com decisor identificado</option>
+              <option value="high">Decisor de alta influência</option>
+            </select>
             <div className="flex gap-1.5">
               <select
                 value={filters.confidenceBand ?? ""}

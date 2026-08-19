@@ -112,6 +112,22 @@ export interface DiscoveryResult {
   primaryCnae: string | null;
   cnaeDescription: string | null;
   secondaryCnaes: string[] | null;
+  /**
+   * Decisores identificados nesta empresa (People Intelligence), agregados
+   * para TRIAGEM.
+   *
+   * Contagem, banda e score — nunca o NOME. Para triar 60 resultados o
+   * vendedor precisa saber ONDE existe um decisor forte, não quem ele é; o
+   * nome aparece ao abrir a empresa, sob a mesma RLS. Assim o PII de sócio
+   * não trafega em payload de listagem.
+   *
+   * Conta só relação VIGENTE e banda high/medium — o mesmo recorte de
+   * pickPrimaryDecisionMaker. `0` significa "nenhum decisor sustentável",
+   * o que inclui empresa sem CNPJ consultado.
+   */
+  decisionMakerCount: number;
+  topDecisionMakerBand: "high" | "medium" | null;
+  topDecisionMakerScore: number | null;
 }
 
 // ── Lead stages & temperatures ────────────────────────────────────────

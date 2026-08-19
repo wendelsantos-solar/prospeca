@@ -385,6 +385,9 @@ export class DemoSearchRepository implements SearchRepository {
         primaryCnae: null,
         cnaeDescription: null,
         secondaryCnaes: null,
+        decisionMakerCount: 0,
+        topDecisionMakerBand: null,
+        topDecisionMakerScore: null,
       }));
     this.discoveryCache.set(id, results);
 

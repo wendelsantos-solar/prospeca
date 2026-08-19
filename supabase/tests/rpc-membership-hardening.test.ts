@@ -469,4 +469,111 @@ describeIfDb("rpc membership hardening (get_search_discovery + increment_usage_c
     expect(eeError).toBeNull();
     expect(typeof ee).toBe("number");
   });
+
+  // ── Agregado de decisores na descoberta (Fase 15) ────────────────────────
+  //
+  // A função foi RECRIADA para expor o agregado. Esta é a mesma função que teve
+  // o P0-1 (PII cross-tenant via p_organization_id), então o agregado novo
+  // precisa provar que não reabriu a porta — e que respeita minimização.
+
+  test("RPC-026: o agregado de decisores conta só relação vigente e banda high/medium", async () => {
+    const { data: person } = await admin
+      .from("people")
+      .insert({
+        organization_id: orgA.organizationId,
+        full_name: `Decisor RPC ${RUN}`,
+        normalized_name: `decisor rpc ${RUN}`,
+      })
+      .select("id")
+      .single();
+    const { data: ex } = await admin
+      .from("people")
+      .insert({
+        organization_id: orgA.organizationId,
+        full_name: `Ex-sócio RPC ${RUN}`,
+        normalized_name: `ex socio rpc ${RUN}`,
+      })
+      .select("id")
+      .single();
+    const { data: junior } = await admin
+      .from("people")
+      .insert({
+        organization_id: orgA.organizationId,
+        full_name: `Analista RPC ${RUN}`,
+        normalized_name: `analista rpc ${RUN}`,
+      })
+      .select("id")
+      .single();
+
+    await admin.from("company_people").insert([
+      {
+        organization_id: orgA.organizationId,
+        place_id: placeIdA,
+        person_id: person!.id,
+        role: "Sócio-Administrador",
+        role_band: "high",
+        decision_score: 100,
+        member_type: "person",
+        source: "qsa",
+        is_current: true,
+      },
+      {
+        // Saiu da sociedade: não pode inflar a contagem da triagem.
+        organization_id: orgA.organizationId,
+        place_id: placeIdA,
+        person_id: ex!.id,
+        role: "Diretor",
+        role_band: "high",
+        decision_score: 100,
+        member_type: "person",
+        source: "qsa",
+        is_current: false,
+      },
+      {
+        // Banda baixa não é decisor: contá-la mandaria priorizar errado.
+        organization_id: orgA.organizationId,
+        place_id: placeIdA,
+        person_id: junior!.id,
+        role: "Analista",
+        role_band: "low",
+        decision_score: 5,
+        member_type: "person",
+        source: "qsa",
+        is_current: true,
+      },
+    ]);
+
+    const { data, error } = await orgA.client.rpc("get_search_discovery", {
+      p_search_id: searchIdA,
+    });
+    expect(error).toBeNull();
+    const row = ((data ?? []) as Array<Record<string, unknown>>).find(
+      (r) => r.place_id === placeIdA,
+    )!;
+    expect(row.decision_maker_count).toBe(1);
+    expect(row.top_decision_maker_band).toBe("high");
+    expect(row.top_decision_maker_score).toBe(100);
+  });
+
+  test("RPC-027: a listagem NÃO devolve nome de decisor (minimização)", async () => {
+    // O nome é PII de sócio e só aparece ao abrir a empresa, sob a mesma RLS.
+    // Trafegá-lo em payload de listagem seria expor mais do que a triagem usa.
+    const { data } = await orgA.client.rpc("get_search_discovery", {
+      p_search_id: searchIdA,
+    });
+    const row = ((data ?? []) as Array<Record<string, unknown>>).find(
+      (r) => r.place_id === placeIdA,
+    )!;
+    expect(Object.keys(row)).not.toContain("top_decision_maker_name");
+    expect(JSON.stringify(row)).not.toContain(`Decisor RPC ${RUN}`);
+  });
+
+  test("RPC-028: o agregado não reabre a porta cross-tenant", async () => {
+    const { data, error } = await orgB.client.rpc("get_search_discovery", {
+      p_search_id: searchIdA,
+      p_organization_id: orgA.organizationId,
+    });
+    expect(error).toBeNull();
+    expect(data ?? []).toEqual([]);
+  });
 });
