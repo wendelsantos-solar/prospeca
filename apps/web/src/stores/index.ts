@@ -13,6 +13,7 @@ import type {
 } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
 import type { AdvancedDiscoveryFilters } from "@/lib/filters";
+import type { DiscoverySortBy } from "@/lib/discovery-sort";
 import {
   DEFAULT_MESSAGE_TEMPLATE,
   STORAGE_KEY,
@@ -65,6 +66,13 @@ interface UIState {
   heatMetric: "opportunity" | "density" | "weak_digital" | "segment_concentration";
   /** Advanced discovery filters (V3-A progressive disclosure). */
   advancedFilters: AdvancedDiscoveryFilters;
+  /** FASE C2: ordenação dos resultados de descoberta — ÚNICA fonte, lida
+   * pelo painel (AppSidebar) E pela lista principal (ResultsList via
+   * app.mapa.tsx), para as duas superfícies nunca mais divergirem na ordem
+   * da MESMA busca. TRANSITÓRIO como advancedFilters e pelo mesmo motivo:
+   * um critério de ordenação de uma sessão antiga reordenando uma busca
+   * nova, sem aviso, é a mesma classe de bug de estado preso do navMode. */
+  resultSortBy: DiscoverySortBy;
   /** NavRail: 'auto' = default responsivo (>=1536 expandida, <1536 colapsada).
    * DECISÃO (P3-4 do gate): o default responsivo vale enquanto o usuário NUNCA
    * tocou no toggle — 'auto' persiste como 'auto' (sem preferência). O
@@ -88,6 +96,7 @@ interface UIState {
   setAdvancedFilters: (patch: Partial<AdvancedDiscoveryFilters>) => void;
   /** Limpa TODOS os filtros avançados/locais (merge com {} não limpa nada). */
   resetAdvancedFilters: () => void;
+  setResultSortBy: (v: DiscoverySortBy) => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -109,6 +118,7 @@ export const useUIStore = create<UIState>()(
       discoveryView: "list",
       heatMetric: "opportunity",
       advancedFilters: {},
+      resultSortBy: "score",
       navMode: "auto",
       mapViewport: null,
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
@@ -130,6 +140,7 @@ export const useUIStore = create<UIState>()(
       setAdvancedFilters: (patch) =>
         set((s) => ({ advancedFilters: { ...s.advancedFilters, ...patch } })),
       resetAdvancedFilters: () => set({ advancedFilters: {} }),
+      setResultSortBy: (resultSortBy) => set({ resultSortBy }),
     }),
     {
       name: `${STORAGE_KEY}:ui`,

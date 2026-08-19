@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
@@ -7,6 +7,11 @@ import { useSearchSession } from "@/stores/searchSession";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { RADIUS_OPTIONS } from "@/lib/constants";
 import { hasAdvancedFilters } from "@/lib/filters";
+import {
+  DISCOVERY_SORT_OPTIONS,
+  sortDiscoveryResults,
+  type DiscoverySortBy,
+} from "@/lib/discovery-sort";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
 import { useFilteredResults } from "./AdvancedFiltersPanel";
@@ -18,18 +23,6 @@ import { radiusToReach, nearestOutsideDescription } from "@/lib/nearest-outside"
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-type SortBy = "score" | "distance" | "rating" | "reviews";
-
-/** Ordenações reais sobre DiscoveryResult — espelham sortLeads (lib/filters):
- * "Melhor oportunidade" = score-desc; as demais correspondem a
- * distance-asc / rating-desc / reviews-desc. */
-const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
-  { value: "score", label: "Melhor oportunidade" },
-  { value: "distance", label: "Mais próximo" },
-  { value: "rating", label: "Melhor avaliação" },
-  { value: "reviews", label: "Mais avaliações" },
-];
 
 /** "Ver mais resultados" sobe o teto de maxResults e re-roda a MESMA busca
  * (cache hit no provider real). Google Text Search limita ~60 por busca. */
@@ -61,7 +54,10 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const focusedId = useLeadsStore((s) => s.focusedId);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
-  const [sortBy, setSortBy] = useState<SortBy>("score");
+  // FASE C2: fonte única de ordenação (useUIStore), compartilhada com a
+  // lista principal em app.mapa.tsx — se este seletor mudar, ela muda junto.
+  const sortBy = useUIStore((s) => s.resultSortBy);
+  const setSortBy = useUIStore((s) => s.setResultSortBy);
 
   // Discovery list: results of the current search (search_results ⋈ places),
   // NOT the org's accumulated leads. A lead only exists once added to the funnel.
@@ -94,18 +90,10 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   // lista e mapa sempre concordem sobre o conjunto visível.
   const filteredResults = useFilteredResults(resultsInRadius);
 
-  const sortedResults = useMemo(() => {
-    const arr = [...filteredResults];
-    if (sortBy === "score") arr.sort((a, b) => b.score - a.score);
-    // Sem distância conhecida vai para o FIM (Infinity), nunca para o topo —
-    // que é onde um `?? 0` colocaria: "desconhecido" apareceria como o mais
-    // perto de todos.
-    if (sortBy === "distance")
-      arr.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-    if (sortBy === "rating") arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    if (sortBy === "reviews") arr.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
-    return arr;
-  }, [filteredResults, sortBy]);
+  const sortedResults = useMemo(
+    () => sortDiscoveryResults(filteredResults, sortBy),
+    [filteredResults, sortBy],
+  );
 
   // "Ver mais resultados": só aparece quando o retorno ALCANÇOU o teto pedido
   // (pode haver mais) e ainda existe um teto maior.
@@ -184,11 +172,11 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
               <span className="hidden sm:inline">Ordenar:</span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                onChange={(e) => setSortBy(e.target.value as DiscoverySortBy)}
                 aria-label="Ordenar resultados"
                 className="h-7 max-w-[140px] rounded-md border border-border bg-surface px-1.5 text-[11.5px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
               >
-                {SORT_OPTIONS.map((o) => (
+                {DISCOVERY_SORT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>

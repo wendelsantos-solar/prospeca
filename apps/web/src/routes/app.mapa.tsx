@@ -9,6 +9,7 @@ import {
 } from "@/stores";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { filterByRadius } from "@/lib/filters";
+import { sortDiscoveryResults } from "@/lib/discovery-sort";
 import { radiusToReach, nearestOutsideDescription } from "@/lib/nearest-outside";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -397,6 +398,16 @@ function MapaWorkspace() {
   // Advanced filters (V3-A) apply on top of the hard radius filter — map,
   // list and territories always agree on the visible set.
   const filteredResults = useFilteredResults(resultsInRadius);
+  // FASE C2: mesma ordenação e mesma fonte (useUIStore.resultSortBy) que o
+  // painel (AppSidebar) usa — a lista principal e o painel mostravam a MESMA
+  // busca em ordens diferentes porque cada um ordenava por conta própria (ou,
+  // como aqui, não ordenava nada). Se o seletor do painel mudar, esta lista
+  // muda junto — não há um segundo lugar para esquecer de atualizar.
+  const resultSortBy = useUIStore((s) => s.resultSortBy);
+  const sortedResults = useMemo(
+    () => sortDiscoveryResults(filteredResults, resultSortBy),
+    [filteredResults, resultSortBy],
+  );
 
   if (searching && allResults.length === 0) {
     return <CenteredLoader label="Buscando empresas..." />;
@@ -499,7 +510,7 @@ function MapaWorkspace() {
           }
         />
         <div className="min-h-0 flex-1">
-          <ResultsList results={filteredResults} searchId={currentSearch.id} />
+          <ResultsList results={sortedResults} searchId={currentSearch.id} />
         </div>
       </div>
     );
@@ -522,7 +533,7 @@ function MapaWorkspace() {
       <div className="min-h-0 flex-1">
         <Suspense fallback={<CenteredLoader label="Carregando o mapa..." />}>
           <MapView
-            results={filteredResults}
+            results={sortedResults}
             mode={discoveryView === "heatmap" ? "heatmap" : "markers"}
           />
         </Suspense>

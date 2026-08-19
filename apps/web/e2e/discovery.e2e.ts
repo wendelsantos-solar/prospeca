@@ -379,3 +379,61 @@ test("FASE C: preferência salva (discoveryView='map', blob v3 existente) sobrev
     "false",
   );
 });
+
+test("FASE C2: painel e lista principal mostram a MESMA busca na MESMA ordem", async ({ page }) => {
+  // Antes desta guarda, AppSidebar (painel) ordenava por conta própria e
+  // ResultsList (lista principal, discoveryView='list') não ordenava nada —
+  // a mesma busca aparecia em ordens diferentes nas duas superfícies. Agora
+  // as duas leem sortDiscoveryResults() + useUIStore.resultSortBy (fonte
+  // única). "Todas" (sem filtro de presença) para ter massa suficiente pra
+  // provar ordem, não só ausência de card.
+  await enterApp(page, "/app/mapa");
+
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByRole("button", { name: /^Selecionar / }).first()).toBeVisible({
+    timeout: 25_000,
+  });
+
+  // Ordem no PAINEL (sidebar): botões "Selecionar <nome>" — aria-label,
+  // não innerText (o botão de seleção não tem texto visível, só ícone).
+  const panelButtons = page.getByRole("button", { name: /^Selecionar / });
+  const panelLabels = await panelButtons.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("aria-label") ?? ""),
+  );
+  const panelNames = panelLabels.map((l) => l.replace(/^Selecionar\s*/, "").trim());
+  expect(panelNames.length).toBeGreaterThan(1); // sem massa, o teste não prova ordem
+
+  // Ordem na LISTA PRINCIPAL (tabela, discoveryView='list' — já é o default
+  // da FASE C, mas explícito aqui para não depender de outro teste). O nome
+  // é o span "font-semibold" na primeira célula — não o texto bruto da
+  // linha, que também carrega o número do score (ScoreRing).
+  await page
+    .getByRole("group", { name: "Alternar visualização" })
+    .getByRole("button", { name: "Lista" })
+    .click();
+  const rows = page.locator("table tbody tr");
+  await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+  const listNames = await rows.locator("td:first-child span.font-semibold").allInnerTexts();
+
+  expect(listNames).toEqual(panelNames);
+
+  // O seletor de ordenação vive só no painel — trocá-lo tem que mudar a
+  // lista principal JUNTO (fonte única: useUIStore.resultSortBy), não só o
+  // painel. Muda pra "Mais próximo" e confirma que as duas concordam de novo
+  // sob o NOVO critério (não a mesma ordem antiga coincidindo por acaso).
+  await page.getByRole("combobox", { name: "Ordenar resultados" }).selectOption("distance");
+  const panelNamesByDistance = await panelButtons
+    .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""))
+    .then((labels) => labels.map((l) => l.replace(/^Selecionar\s*/, "").trim()));
+  const listNamesByDistance = await rows
+    .locator("td:first-child span.font-semibold")
+    .allInnerTexts();
+
+  expect(listNamesByDistance).toEqual(panelNamesByDistance);
+});
