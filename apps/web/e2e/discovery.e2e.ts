@@ -169,7 +169,15 @@ test("descoberta: ação de ampliar raio aparece e funciona (cenário alcançáv
   });
   // E o raio visível reflete o valor realmente usado — não pode divergir (a
   // mesma regra dura do estado do slider). Aparece em 2 lugares (badge do
-  // SearchForm + contexto da missão) e os DOIS concordam com "20 km".
+  // SearchForm + legenda do mapa) e os DOIS concordam com "20 km". A legenda
+  // só existe com o mapa montado (FASE C: default agora é Lista) — troca de
+  // view explícita para exercitar o segundo local.
+  await page
+    .getByRole("group", { name: "Alternar visualização" })
+    .getByRole("button", {
+      name: "Mapa",
+    })
+    .click();
   await expect(page.getByText("20 km", { exact: true })).toHaveCount(2);
 });
 
@@ -286,4 +294,88 @@ test("LOTE 4B: cache velho de /app/historico não esconde missão recém-salva (
   await expect(page).toHaveURL(/\/app\/historico$/);
 
   await expect(page.getByText(missionName)).toBeVisible({ timeout: 5_000 });
+});
+
+test("FASE C: entrar sem storage prévio cai na LISTA (não no mapa); seletor funciona nos dois sentidos", async ({
+  page,
+}) => {
+  // A promessa da landing é "quem abordar primeiro e por quê" — a lista
+  // responde isso (score em anel + motivo por card); o mapa responde "onde
+  // estão". Este teste prova o DEFAULT para quem nunca usou o produto — sem
+  // nenhum blob de discoveryView em localStorage (playwright.config.ts só
+  // pré-semeia "radar-local:sim-errors", não discoveryView).
+  await enterApp(page, "/app/mapa");
+
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+
+  const toggle = page.getByRole("group", { name: "Alternar visualização" });
+  const listBtn = toggle.getByRole("button", { name: "Lista" });
+  const mapBtn = toggle.getByRole("button", { name: "Mapa" });
+  const heatmapBtn = toggle.getByRole("button", { name: "Heatmap" });
+
+  // 1. Default: Lista ativa, mapa NÃO renderizado.
+  await expect(listBtn).toHaveAttribute("aria-pressed", "true");
+  await expect(mapBtn).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".gm-style, .leaflet-container")).toHaveCount(0);
+
+  // 2. Lista → Mapa: o mapa aparece, o botão troca de estado.
+  await mapBtn.click();
+  await expect(mapBtn).toHaveAttribute("aria-pressed", "true");
+  await expect(listBtn).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".gm-style, .leaflet-container").first()).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // 3. Mapa → Heatmap → Lista: o seletor continua respondendo nos dois sentidos.
+  await heatmapBtn.click();
+  await expect(heatmapBtn).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Métrica do heatmap")).toBeVisible();
+
+  await listBtn.click();
+  await expect(listBtn).toHaveAttribute("aria-pressed", "true");
+  await expect(heatmapBtn).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".gm-style, .leaflet-container")).toHaveCount(0);
+});
+
+test("FASE C: preferência salva (discoveryView='map', blob v3 existente) sobrevive ao novo default", async ({
+  page,
+}) => {
+  // Simula usuário que já usa o produto: blob v3 com discoveryView='map' já
+  // persistido. Versão bate com a atual (3) — persist NEM CHAMA migrate()
+  // neste caso (zustand só migra quando a versão do blob é diferente da
+  // atual); a troca do literal em create() não pode alcançar esse usuário.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "radar-local/v1:ui",
+      JSON.stringify({
+        state: { discoveryView: "map", navMode: "auto" },
+        version: 3,
+      }),
+    );
+  });
+
+  await enterApp(page, "/app/mapa");
+  await page.getByRole("combobox").filter({ hasText: "Nicho" }).click();
+  await page.getByRole("option", { name: "Barbearia" }).click();
+  await page.getByRole("button", { name: /Localização/ }).click();
+  await page.getByPlaceholder("Cidade, bairro ou endereço...").fill("Porto Alegre");
+  await page.getByRole("option", { name: "Porto Alegre, Rio Grande do Sul" }).click();
+  await page.getByRole("button", { name: "Buscar oportunidades" }).click();
+  await expect(page.getByText(/empresas analisadas até agora/)).toBeVisible({ timeout: 25_000 });
+
+  const toggle = page.getByRole("group", { name: "Alternar visualização" });
+  await expect(toggle.getByRole("button", { name: "Mapa" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(toggle.getByRole("button", { name: "Lista" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
 });

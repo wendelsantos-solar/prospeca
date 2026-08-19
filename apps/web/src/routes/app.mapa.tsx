@@ -77,12 +77,15 @@ function HomeState() {
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-primary to-primary/50 text-primary-foreground shadow-elevated">
           <MapIcon className="h-7 w-7" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Encontre sua próxima oportunidade local
-        </h1>
+        {/* FASE C: alinhado à promessa da landing ("Encontre quem abordar
+         * primeiro e por quê") — antes vendia busca geográfica, e o produto
+         * responde priorização + explicação (score em anel, decisor,
+         * presença digital, reputação), não "onde estão". */}
+        <h1 className="text-2xl font-semibold tracking-tight">Quem abordar primeiro, e por quê</h1>
         <p className="text-sm text-muted-foreground">
-          Pesquise empresas por nicho e localização, identifique quem tem baixa presença digital e
-          organize os leads em um funil comercial.
+          Pesquise empresas por nicho e região. Cada uma chega com um score de oportunidade e o
+          motivo — presença digital, decisor identificado, reputação — para você priorizar o próximo
+          contato.
         </p>
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left">
           {[

@@ -99,7 +99,14 @@ export const useUIStore = create<UIState>()(
       mapShowCircle: true,
       mapDark: false,
       mapLegendCollapsed: false,
-      discoveryView: "map",
+      // FASE C: default para quem NUNCA usou o produto (storage limpo) — a
+      // promessa da landing é "quem abordar primeiro e por quê" (priorização
+      // + explicação), que a LISTA responde e o mapa não (score em anel,
+      // badge de decisor, confiança e status de enriquecimento não cabem num
+      // pino). Só afeta hidratação sem blob persistido: quem já tem
+      // discoveryView salvo (qualquer versão ≤3) carrega o PRÓPRIO valor via
+      // migrate() abaixo, nunca este literal — ver nota em migrate.
+      discoveryView: "list",
       heatMetric: "opportunity",
       advancedFilters: {},
       navMode: "auto",

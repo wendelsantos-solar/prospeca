@@ -59,3 +59,26 @@ test("useUIStore migrate rebaixa discoveryView ausente/corrompido para 'map'", (
     "map",
   );
 });
+
+// FASE C — default de discoveryView vira "list" (a lista responde "quem
+// abordar primeiro e por quê"; o mapa responde "onde estão"). Dois casos
+// precisam ficar provados, ou a mudança vira uma sobrescrita silenciosa de
+// preferência de quem já usa o produto:
+test("useUIStore: literal inicial (sem storage) usa 'list' — só afeta quem NUNCA usou o produto", () => {
+  // getState() aqui reflete o literal do create(), não um blob hidratado:
+  // persist.getOptions().storage é safeStorage() (no-op fora de browser),
+  // então zustand nunca tem um blob pra reidratar neste processo de teste —
+  // o mesmo caminho real de um usuário com localStorage vazio (persist só
+  // chama migrate() quando EXISTE um blob salvo; ver middleware.js do
+  // zustand — sem blob, o literal do create() é usado direto, sem migrate).
+  expect(useUIStore.getState().discoveryView).toBe("list");
+});
+
+test("useUIStore migrate NÃO sobrescreve discoveryView='map' já persistido com o novo default", () => {
+  // Só roda pra quem tem blob de versão ANTIGA (<3) com discoveryView='map'
+  // válido — preferência salva, mesmo que nunca 'escolhida' ativamente,
+  // precisa sobreviver à troca do default literal.
+  const migrate = useUIStore.persist.getOptions().migrate!;
+  const migrated = migrate({ discoveryView: "map" }, 2) as { discoveryView: string };
+  expect(migrated.discoveryView).toBe("map");
+});

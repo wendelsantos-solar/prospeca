@@ -152,11 +152,15 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
         <div className="min-w-0">
+          {/* FASE C: alinhado à promessa da landing ("quem abordar primeiro e
+           * por quê" — priorização + explicação, não busca geográfica). O que
+           * a lista mostra de fato: score em anel + o motivo (decisor,
+           * presença digital, reputação) por card — nada além disso. */}
           <div className="truncate text-[15px] font-semibold leading-tight tracking-tight">
-            Descobrir oportunidades
+            Quem abordar primeiro
           </div>
           <div className="truncate text-[11.5px] text-muted-foreground">
-            Encontre empresas locais com baixa presença digital
+            Empresas rankeadas por oportunidade, com o motivo em cada uma
           </div>
         </div>
       </div>
