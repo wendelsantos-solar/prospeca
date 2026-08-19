@@ -80,15 +80,26 @@ export function buildFieldMap(
 // per-source status + TTL so each source revalidates on its own horizon.
 //
 // Persisted shape on places.enrichment_sources:
-//   { website: {status, fetchedAt, expiresAt}, business_registry: {...} }
+//   { website: {status, fetchedAt, expiresAt}, business_registry: {...},
+//     website_cnpj: {...} }
 
-export const ENRICHMENT_SOURCES = ["website", "business_registry"] as const;
+export const ENRICHMENT_SOURCES = ["website", "business_registry", "website_cnpj"] as const;
 export type EnrichmentSourceKey = (typeof ENRICHMENT_SOURCES)[number];
 
-/** TTL per source in days — website re-checked monthly, registry quarterly. */
+/**
+ * TTL per source in days — website re-checked monthly, registry quarterly.
+ *
+ * `website_cnpj` é a BUSCA por CNPJ no site, separada do scrape de contato de
+ * propósito. Sem ela, um place raspado ANTES desta feature ficaria com o site
+ * "fresco" e o CNPJ nunca seria procurado até o TTL de 30 dias vencer — a base
+ * existente ficaria escura. Com a chave própria, a busca por CNPJ tem seu
+ * próprio horizonte: ausente = nunca procurei (re-raspa), presente = já
+ * procurei, mesmo que não tenha achado nada.
+ */
 export const ENRICHMENT_SOURCE_TTL_DAYS: Record<EnrichmentSourceKey, number> = {
   website: 30,
   business_registry: 90,
+  website_cnpj: 30,
 };
 
 export interface EnrichmentSourceState {

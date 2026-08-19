@@ -130,9 +130,21 @@ Deno.serve(async (req) => {
         const website = r.places.website_uri as string | null;
         if (!website) return false;
         const sources = (r.places.enrichment_sources as EnrichmentSourceMap | null) ?? null;
-        if (sources && !isEnrichmentSourceStale(sources, "website")) return false; // fresh
-        const enrichedAt = r.places.enriched_at as string | null;
-        return enrichedAt == null || enrichedAt < staleBefore;
+        // Catch-up de uma vez: place raspado ANTES da descoberta de CNPJ tem o
+        // site fresco e nunca procurou CNPJ nenhum. Sem esta porta, a base
+        // existente só acenderia quando o TTL de 30 dias vencesse — o usuário
+        // abriria empresas antigas e veria "ainda não consultado" para sempre.
+        // Auto-limitante: o pass carimba website_cnpj (ache ou não ache), então
+        // isto libera no máximo UMA re-raspagem por place.
+        const neverLookedForCnpj = isEnrichmentSourceStale(sources, "website_cnpj");
+        if (sources && !isEnrichmentSourceStale(sources, "website") && !neverLookedForCnpj) {
+          return false; // fresco em tudo
+        }
+        if (!neverLookedForCnpj) {
+          const enrichedAt = r.places.enriched_at as string | null;
+          return enrichedAt == null || enrichedAt < staleBefore;
+        }
+        return true;
       })
       .slice(0, internal ? 1 : placeId ? 1 : TOP_N);
 

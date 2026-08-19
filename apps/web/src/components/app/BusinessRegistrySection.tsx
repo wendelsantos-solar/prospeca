@@ -75,6 +75,11 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
   const fetchedAt = registration?.registration_fetched_at
     ? new Date(registration.registration_fetched_at)
     : null;
+  // O site já foi vasculhado atrás de CNPJ? (enrichment_sources.website_cnpj)
+  const cnpjSearched =
+    (registration?.enrichment_sources as { website_cnpj?: { status?: string } } | null)
+      ?.website_cnpj?.status === "enriched";
+
   const ageDays = fetchedAt ? (Date.now() - fetchedAt.getTime()) / 86400000 : null;
   const isStale = ageDays != null && ageDays >= REGISTRY_TTL_DAYS;
   const registryFreshness = isStale ? "Desatualizado" : "Atualizado";
@@ -211,6 +216,15 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
             </>
           )}
         </div>
+      )}
+
+      {/* "Procurei no site e não achei" ≠ "ninguém tentou". Sem essa distinção
+       * a empresa parece abandonada, e o usuário não sabe se vale digitar o
+       * CNPJ à mão ou se o sistema ainda vai buscar sozinho. */}
+      {!isLoading && !hasRegistration && cnpjSearched && (
+        <p className="mt-2 text-[11.5px] text-muted-foreground">
+          Procuramos o CNPJ no site da empresa e não encontramos. Se você souber, informe abaixo.
+        </p>
       )}
 
       <CompanyPeopleSection

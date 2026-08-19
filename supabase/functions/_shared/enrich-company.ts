@@ -113,7 +113,8 @@ export async function upsertWebsiteCnpjSource(
     organizationId: string;
     placeId: string;
     candidates: string[];
-    chosen: string;
+    /** null quando o site respondeu e não publicava CNPJ nenhum. */
+    chosen: string | null;
     website: string;
   },
 ): Promise<void> {
@@ -133,10 +134,13 @@ export async function upsertWebsiteCnpjSource(
     source_type: "registry_hint",
     fetched_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + ENRICHMENT_STALE_DAYS * 86400000).toISOString(),
-    confidence: websiteCnpjConfidence(args.candidates.length),
+    // Sem candidato não há afirmação a fazer — confiança 0 é o valor honesto
+    // para "procurei e o site não publica CNPJ".
+    confidence: args.chosen ? websiteCnpjConfidence(args.candidates.length) : 0,
     attempts: ((existing?.attempts as number | null) ?? 0) + 1,
     error: null,
     metadata: {
+      result: args.chosen ? "found" : "not_found",
       candidates: args.candidates,
       chosen: args.chosen,
       sourceUrl: args.website,
@@ -290,6 +294,20 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
           new Date(),
           ENRICHMENT_SOURCE_TTL_DAYS.website,
         ),
+        // Carimba a BUSCA por CNPJ, não o achado. Um site que não publica CNPJ
+        // precisa ficar marcado como "já procurei" — senão toda abertura do
+        // drawer re-raspa o mesmo site atrás de um número que não existe.
+        // Só carimba quando a fonte de fato RESPONDEU: erro/bloqueio não é
+        // resposta e continua re-checável.
+        ...(websiteSourceStatus === "enriched"
+          ? {
+              website_cnpj: buildSourceState(
+                "enriched" as const,
+                new Date(),
+                ENRICHMENT_SOURCE_TTL_DAYS.website_cnpj,
+              ),
+            }
+          : {}),
       },
     };
     // ── Descoberta de CNPJ (Fase 10) ────────────────────────────────────────
@@ -340,7 +358,11 @@ export async function enrichOnePlace(args: EnrichOnePlaceArgs): Promise<EnrichOn
       website,
     });
 
-    if (discoveredTaxId) {
+    // Proveniência da BUSCA por CNPJ — inclusive quando não achou. "Procurei e
+    // o site não publica" é informação: explica para o usuário por que a
+    // empresa segue sem cadastro, em vez de parecer que ninguém tentou.
+    // Não escreve quando o place já tinha CNPJ (a origem daquele é outra).
+    if (!priorTaxId && outcome.status !== "error" && outcome.status !== "blocked") {
       await upsertWebsiteCnpjSource(admin, {
         organizationId,
         placeId,

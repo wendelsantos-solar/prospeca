@@ -142,3 +142,43 @@ describe("multi-source state (Fase 5)", () => {
     expect(deriveEnrichmentState(map)).toBe("enriched");
   });
 });
+
+// ── Catch-up da busca por CNPJ (website_cnpj) ───────────────────────────────
+//
+// A chave existe para acender a base EXISTENTE: um place raspado antes da
+// descoberta de CNPJ tem `website` fresco e nunca procurou CNPJ. Sem uma chave
+// própria, ele só procuraria quando o TTL de 30 dias do site vencesse.
+
+import type { EnrichmentSourceMap } from "./enrichment-state.ts";
+
+test("website_cnpj ausente = nunca procurei (re-raspa)", () => {
+  const sources: EnrichmentSourceMap = {
+    website: buildSourceState("enriched", new Date(), 30),
+  };
+  expect(isEnrichmentSourceStale(sources, "website")).toBe(false); // site fresco
+  expect(isEnrichmentSourceStale(sources, "website_cnpj")).toBe(true); // mas nunca procurou
+});
+
+test("website_cnpj carimbado = já procurei, mesmo sem ter achado", () => {
+  // O carimbo marca a BUSCA, não o achado — senão um site que não publica CNPJ
+  // seria re-raspado em toda abertura do drawer, para sempre.
+  const sources: EnrichmentSourceMap = {
+    website: buildSourceState("enriched", new Date(), 30),
+    website_cnpj: buildSourceState("enriched", new Date(), 30),
+  };
+  expect(isEnrichmentSourceStale(sources, "website_cnpj")).toBe(false);
+});
+
+test("website_cnpj vence junto com o site (mesmo TTL)", () => {
+  expect(ENRICHMENT_SOURCE_TTL_DAYS.website_cnpj).toBe(ENRICHMENT_SOURCE_TTL_DAYS.website);
+  const old = new Date(Date.now() - 31 * 86400000);
+  const sources: EnrichmentSourceMap = { website_cnpj: buildSourceState("enriched", old, 30) };
+  expect(isEnrichmentSourceStale(sources, "website_cnpj")).toBe(true);
+});
+
+test("busca que FALHOU continua re-checável", () => {
+  const sources: EnrichmentSourceMap = {
+    website_cnpj: buildSourceState("failed", new Date(), 30),
+  };
+  expect(isEnrichmentSourceStale(sources, "website_cnpj")).toBe(true);
+});
