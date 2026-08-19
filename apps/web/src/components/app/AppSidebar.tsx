@@ -14,6 +14,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { LeadListSkeleton } from "@/components/shared/Skeletons";
 import { filterByRadius } from "@/lib/filters";
+import { radiusToReach, nearestOutsideDescription } from "@/lib/nearest-outside";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +97,11 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const sortedResults = useMemo(() => {
     const arr = [...filteredResults];
     if (sortBy === "score") arr.sort((a, b) => b.score - a.score);
-    if (sortBy === "distance") arr.sort((a, b) => a.distanceKm - b.distanceKm);
+    // Sem distância conhecida vai para o FIM (Infinity), nunca para o topo —
+    // que é onde um `?? 0` colocaria: "desconhecido" apareceria como o mais
+    // perto de todos.
+    if (sortBy === "distance")
+      arr.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     if (sortBy === "rating") arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     if (sortBy === "reviews") arr.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
     return arr;
@@ -211,11 +217,40 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
               onBack={() => setSearchError(null)}
             />
           ) : resultsInRadius.length === 0 ? (
-            <EmptyState
-              icon={Search}
-              title="Nenhuma empresa"
-              description="Faça uma busca ou aumente o raio."
-            />
+            (() => {
+              // MESMA explicação e MESMA ação do mapa (app.mapa.tsx): lista e
+              // mapa discordarem sobre o vazio foi parte do defeito do raio.
+              const nearest = currentSearch?.nearestOutsideRadius ?? null;
+              const expandTo = nearest ? radiusToReach(nearest.distanceKm) : null;
+              return (
+                <EmptyState
+                  icon={Search}
+                  title={
+                    nearest
+                      ? `Nenhuma empresa dentro de ${radiusKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`
+                      : "Nenhuma empresa"
+                  }
+                  description={
+                    nearest
+                      ? nearestOutsideDescription(nearest)
+                      : "Faça uma busca ou ajuste o nicho."
+                  }
+                  action={
+                    expandTo != null ? (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setDraft({ radiusKm: expandTo });
+                          useSearchSession.getState().retrySearch();
+                        }}
+                      >
+                        Buscar num raio de {expandTo} km
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              );
+            })()
           ) : sortedResults.length === 0 ? (
             <EmptyState
               icon={Search}

@@ -20,6 +20,7 @@ import {
   type SortValue,
 } from "@/lib/constants";
 import { isDemoMode } from "@/lib/env";
+import { MAX_RADIUS_KM } from "@/lib/nearest-outside";
 import { track } from "@/lib/analytics";
 import { seedDemoLeads } from "@/repositories";
 import { useActivationStore } from "@/stores/activation";
@@ -54,9 +55,12 @@ interface UIState {
   mapShowCircle: boolean;
   mapDark: boolean;
   mapLegendCollapsed: boolean;
-  /** Discovery workspace view: the map, a full-width results list, the
-   * opportunity heatmap, or the territories aggregation. */
-  discoveryView: "map" | "list" | "heatmap" | "territories";
+  /** Discovery workspace view: the map, a full-width results list, or the
+   * opportunity heatmap. ("territories" removido no LOTE 2, Tarefa 4 — a
+   * view/tab saiu da UI na Fase remoção; TerritoriesView.tsx era órfão desde
+   * então. O domínio/backend de territórios continuam intocados, só
+   * desacoplados desta store.) */
+  discoveryView: "map" | "list" | "heatmap";
   /** Heatmap metric (spec #38). */
   heatMetric: "opportunity" | "density" | "weak_digital" | "segment_concentration";
   /** Advanced discovery filters (V3-A progressive disclosure). */
@@ -79,7 +83,7 @@ interface UIState {
   setMapShowCircle: (v: boolean) => void;
   setMapDark: (v: boolean) => void;
   setMapLegendCollapsed: (v: boolean) => void;
-  setDiscoveryView: (v: "map" | "list" | "heatmap" | "territories") => void;
+  setDiscoveryView: (v: "map" | "list" | "heatmap") => void;
   setHeatMetric: (v: "opportunity" | "density" | "weak_digital" | "segment_concentration") => void;
   setAdvancedFilters: (patch: Partial<AdvancedDiscoveryFilters>) => void;
   /** Limpa TODOS os filtros avançados/locais (merge com {} não limpa nada). */
@@ -122,7 +126,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: `${STORAGE_KEY}:ui`,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => safeStorage()),
       // Persiste SÓ o que faz sentido entre sessões (Fase 6b): estado de
       // apresentação e preferências explícitas. advancedFilters fica de fora —
@@ -145,6 +149,16 @@ export const useUIStore = create<UIState>()(
         const p = (persisted ?? {}) as Record<string, unknown>;
         if (p.navMode !== "expanded" && p.navMode !== "collapsed" && p.navMode !== "auto") {
           p.navMode = "auto";
+        }
+        // v2→v3 (LOTE 2, Tarefa 4): "territories" saiu do tipo — quem tinha
+        // essa view persistida (ou qualquer valor fora do contrato atual)
+        // cai em "map", não numa tela em branco.
+        if (
+          p.discoveryView !== "map" &&
+          p.discoveryView !== "list" &&
+          p.discoveryView !== "heatmap"
+        ) {
+          p.discoveryView = "map";
         }
         return p as never;
       },
@@ -175,9 +189,31 @@ export const useSettingsStore = create<SettingsState>()(
       defaultSort: "relevance",
       signature: "",
       senderName: "",
-      set: (patch) => set(patch),
+      // Clamp aqui, não só na migração: é o único setter (MotorSettings), mas
+      // defensivo é mais barato que outro F3 (estado salvo virando estado
+      // inválido silencioso).
+      set: (patch) =>
+        set(
+          patch.defaultRadius != null
+            ? { ...patch, defaultRadius: Math.min(patch.defaultRadius, MAX_RADIUS_KM) }
+            : patch,
+        ),
     }),
-    { name: `${STORAGE_KEY}:settings`, storage: createJSONStorage(() => safeStorage()) },
+    {
+      name: `${STORAGE_KEY}:settings`,
+      storage: createJSONStorage(() => safeStorage()),
+      version: 1,
+      // v0 (pré-LOTE 2) podia ter defaultRadius até 100 — o slider hoje vai
+      // só até MAX_RADIUS_KM (50, teto real do provider). Sem isto, blob
+      // antigo hidrata um raio que nenhum controle da UI consegue exibir.
+      migrate: (persisted) => {
+        const state = persisted as Partial<SettingsState>;
+        if (state && typeof state.defaultRadius === "number") {
+          state.defaultRadius = Math.min(state.defaultRadius, MAX_RADIUS_KM);
+        }
+        return state as SettingsState;
+      },
+    },
   ),
 );
 
@@ -605,7 +641,10 @@ export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
         niche: search.niche,
         location: search.location,
         coords: { lat: search.latitude, lng: search.longitude },
-        radiusKm: search.radiusKm,
+        // Missão salva antes do LOTE 2 pode ter raio > MAX_RADIUS_KM (teto
+        // era 100). Sem o clamp, o slider herdava um valor fora do seu
+        // próprio range — mesma classe de estado inválido silencioso do F3.
+        radiusKm: Math.min(search.radiusKm, MAX_RADIUS_KM),
         presence: search.presence,
       },
     }),

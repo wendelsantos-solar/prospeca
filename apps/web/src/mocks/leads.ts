@@ -144,8 +144,14 @@ function slugPhone(city: string, i: number) {
 }
 
 let idx = 0;
-function makeLead(companyName: string, category: string, cityName: string, seed: number): Lead {
-  const city = CITIES[cityName];
+function makeLead(
+  companyName: string,
+  category: string,
+  cityName: string,
+  seed: number,
+  cityOverride?: (typeof CITIES)[string],
+): Lead {
+  const city = cityOverride ?? CITIES[cityName];
   const rand = seededRand(seed);
   const nb = city.neighborhoods[Math.floor(rand() * city.neighborhoods.length)];
   const lat = city.lat + (rand() - 0.5) * 0.08;
@@ -264,6 +270,23 @@ export function generateLeads(): Lead[] {
     const city = cityNames[i % cityNames.length];
     leads.push(makeLead(name, cat, city, hash(name) + 999 + i));
   });
+
+  // LOTE 2, Tarefa 2: até aqui, TODA categoria escassa numa cidade (ex.:
+  // Barbearia em São Paulo) tem a mais próxima a 300+ km — acima do teto do
+  // raio (50km), então "Buscar num raio maior" nunca aparece no demo. Um
+  // lead isolado (cityOverride, NÃO entra em CITIES — não mexe na
+  // distribuição determinística das outras 72 leads nem nas distâncias já
+  // cobertas pelos testes existentes) cobre esse cenário: Barbearia, ~26km
+  // de São Paulo — fora do raio padrão (10km), dentro do teto (50km).
+  leads.push(
+    makeLead("Barbearia Guarulhos Centro", "Barbearia", "Guarulhos", hash("guarulhos-barbearia"), {
+      state: "SP",
+      lat: -23.4538,
+      lng: -46.5333,
+      neighborhoods: ["Centro"],
+    }),
+  );
+
   return leads;
 }
 

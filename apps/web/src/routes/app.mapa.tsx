@@ -9,11 +9,15 @@ import {
 } from "@/stores";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { filterByRadius } from "@/lib/filters";
+import { radiusToReach, nearestOutsideDescription } from "@/lib/nearest-outside";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { HOME_SUGGESTIONS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
-import { MapIcon, Search, Sparkles, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MapIcon, Search, Sparkles, Loader2, Bookmark, X } from "lucide-react";
+import { getSearchRepository } from "@/repositories";
+import { toast } from "sonner";
 import { LocationPrompt } from "@/components/app/LocationPrompt";
 import { useSearchSession } from "@/stores/searchSession";
 import { ResultsList } from "@/components/app/ResultsList";
@@ -158,6 +162,26 @@ function MapToolbar({
   const significant = isSignificantPan(mapViewport);
   const dirtyOk = dirty && !(reason === "niche" && draft.niche.trim().length < 2);
   const showSearchHere = !!currentSearch && !searching && (significant || dirtyOk);
+
+  // "Salvar busca como missão" (LOTE 2, Tarefa 3 / achado F5): vivia no
+  // TopNav, mas TopNav some inteiro em /app/mapa — o botão nunca renderizava.
+  // Reusa a MESMA chamada de repositório do "Salvar busca" do SearchForm
+  // (AppSidebar), só que como input inline aqui na barra, sem window.prompt
+  // (convenção já adotada no resto do produto — Fase 90).
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const saveMission = async () => {
+    if (!currentSearch || !saveName.trim()) return;
+    try {
+      await getSearchRepository().saveSearch(currentSearch.id, saveName.trim());
+      toast.success("Busca salva como missão");
+      setSaveOpen(false);
+      setSaveName("");
+    } catch {
+      toast.error("Não foi possível salvar a busca");
+    }
+  };
+
   return (
     <div className="border-b border-border bg-background px-4 py-2">
       {/* Linha 1 — KPI bar */}
@@ -224,6 +248,56 @@ function MapToolbar({
           </select>
         )}
         <AdvancedFiltersPanel />
+        {currentSearch &&
+          (saveOpen ? (
+            <div className="ml-auto flex items-center gap-1.5">
+              <Input
+                autoFocus
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="Nome para salvar a missão"
+                aria-label="Nome para salvar a busca"
+                className="h-8 w-40 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveMission();
+                  if (e.key === "Escape") setSaveOpen(false);
+                }}
+              />
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                disabled={!saveName.trim()}
+                onClick={() => void saveMission()}
+              >
+                Salvar
+              </Button>
+              <button
+                type="button"
+                onClick={() => setSaveOpen(false)}
+                aria-label="Cancelar salvamento"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setSaveName(currentSearch.niche || "Missão sem nome");
+                setSaveOpen(true);
+              }}
+              title="Salvar busca como missão"
+              aria-label="Salvar busca como missão"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-border-strong",
+                !showSearchHere && "ml-auto",
+              )}
+            >
+              <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
+              Salvar missão
+            </button>
+          ))}
         {showSearchHere && (
           <button
             type="button"
@@ -340,22 +414,43 @@ function MapaWorkspace() {
   }
 
   if (resultsInRadius.length === 0) {
-    const outsideRadius = allResults.length > 0;
+    // O que explica o vazio agora é a mais próxima FORA do raio (campo separado
+    // da busca), não a presença de resultados fora do raio na lista — o serviço
+    // não devolve mais esses registros.
+    const nearest = currentSearch?.nearestOutsideRadius ?? null;
+    const expandTo = nearest ? radiusToReach(nearest.distanceKm) : null;
     return (
       <div className="grid h-full place-items-center">
         <EmptyState
           icon={MapIcon}
-          title={outsideRadius ? "Nada dentro do raio" : "Nenhum resultado"}
+          title={
+            nearest
+              ? `Nenhuma empresa dentro de ${radiusKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`
+              : "Nenhum resultado"
+          }
           description={
-            outsideRadius
-              ? "Nenhuma empresa desta busca está dentro do raio atual. Aumente o raio."
-              : "Ajuste a busca e tente novamente."
+            nearest ? nearestOutsideDescription(nearest) : "Ajuste a busca e tente novamente."
           }
           action={
-            outsideRadius ? (
-              <Button variant="outline" size="sm" onClick={() => clearFilters()}>
-                Limpar filtros
-              </Button>
+            nearest ? (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {expandTo != null && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      // Atualiza o controle de raio (slider) E refaz a busca:
+                      // o valor visível não pode divergir do valor usado.
+                      useSearchDraftStore.getState().setDraft({ radiusKm: expandTo });
+                      useSearchSession.getState().retrySearch();
+                    }}
+                  >
+                    Buscar num raio de {expandTo} km
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => clearFilters()}>
+                  Limpar filtros
+                </Button>
+              </div>
             ) : undefined
           }
         />

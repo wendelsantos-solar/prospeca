@@ -6,7 +6,12 @@ export const STORAGE_KEY = "radar-local/v1";
 
 export const DEFAULT_MESSAGE_TEMPLATE = `Olá! Encontrei a {{empresa}} e vi que {{razao_contato}}. Posso te mostrar rapidamente como melhorar isso e atrair mais clientes?`;
 
-export const RADIUS_OPTIONS = [1, 5, 10, 20, 30, 50, 100] as const;
+// Teto = 50km, NÃO escolha nossa: o Places API (New) documenta
+// "The radius must be within [0.0, 50000.0]" para Circle.radius
+// (nearbySearch), e o provider aplica Math.min(radiusMeters, 50000) nos dois
+// modos de busca (_shared/google.ts). Oferecer mais que isso na UI prometia
+// cobertura que a busca nunca entregava (LOTE 2, Tarefa 1).
+export const RADIUS_OPTIONS = [1, 5, 10, 20, 30, 50] as const;
 
 export const NICHES = [
   "Clínica médica",

@@ -169,6 +169,10 @@ function MobileNav() {
 
 function AppLayout() {
   useThemeSync();
+  // Painel de descoberta é escopo de /app/mapa — vazava fixo em TODAS as rotas
+  // (Hoje/Pipeline), cortando a coluna "Ganho" do Kanban em telas de notebook.
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const onMapa = pathname === "/app/mapa";
   // Supabase Realtime: keeps leads in sync across tabs/devices without polling
   useLeadsRealtimeSubscription();
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -274,7 +278,13 @@ function AppLayout() {
           ) : (
             <>
               <NavRail />
-              <AppSidebar />
+              {/* hidden (nao unmount): SearchForm registra _runSearch em
+                  useSearchSession no mount — CommandPalette/HistoryDrawer chamam
+                  suggestSearch() logo apos navigate({ to: "/app/mapa" }), antes
+                  da rota nova montar. Desmontar aqui quebraria essa chamada. */}
+              <div className={onMapa ? undefined : "hidden"}>
+                <AppSidebar />
+              </div>
               <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 lg:pb-0">
                 <TopNav />
                 <div className="flex-1 min-h-0 overflow-hidden">

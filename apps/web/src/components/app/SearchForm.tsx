@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { NICHES } from "@/lib/constants";
+import { MAX_RADIUS_KM } from "@/lib/nearest-outside";
 import { historyService, type SearchInput } from "@/services";
 import {
   useLeadsStore,
@@ -35,7 +36,6 @@ import { reverseGeocodeCoords, geocodeLocationText } from "@/lib/reverse-geocode
 import { toast } from "sonner";
 import { pushRecentAction } from "@/lib/recent-actions";
 import type { PresenceFilter } from "@/types";
-import { isRealMode } from "@/lib/env";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -178,11 +178,10 @@ export function SearchForm() {
       setLeads(leads, search);
       setSearching(false);
       pushRecentAction(`${search.totalFound} leads encontrados`);
-      toast.success(
-        isRealMode
-          ? `${search.totalFound} empresas encontradas`
-          : `${leads.length} empresas encontradas`,
-      );
+      // Um número só, o mesmo que a lista renderiza (totalFound já é pós-raio).
+      // Antes o demo usava leads.length e o real usava totalFound — duas fontes
+      // para o mesmo fato é como os contadores passaram a discordar.
+      toast.success(`${search.totalFound} empresas encontradas`);
       track("search_completed", { niche: search.niche, totalFound: search.totalFound });
       markMilestone("firstSearch", { niche: search.niche, totalFound: search.totalFound });
     },
@@ -483,7 +482,7 @@ export function SearchForm() {
           value={[radius]}
           onValueChange={(v) => setDraft({ radiusKm: v[0]! })}
           min={1}
-          max={100}
+          max={MAX_RADIUS_KM}
           step={0.5}
           aria-label="Raio de busca"
         />
@@ -654,8 +653,14 @@ export function SearchForm() {
             </button>
           </div>
           <Progress value={progress.percent} className="h-1.5" />
+          {/* "analisadas", não "encontradas": este número é pré-raio por
+           * natureza (no demo é animação de progresso; no real é
+           * importedCount/foundCount do backend, antes do filtro do cliente).
+           * Chamar de "encontradas" prometia um resultado que a tela podia não
+           * mostrar — era o primeiro dos três contadores que discordavam.
+           * Mesma redação já usada no OnboardingWizard. */}
           <p className="text-[11px] text-muted-foreground">
-            {progress.partialCount} empresas encontradas até agora...
+            {progress.partialCount} empresas analisadas até agora...
           </p>
           {progress.estimate && (
             <p className="text-[11px] text-muted-foreground">

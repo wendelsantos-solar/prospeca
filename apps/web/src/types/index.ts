@@ -126,6 +126,19 @@ export interface Lead {
   timeline: TimelineEvent[];
 }
 
+/** A ocorrência mais próxima que ficou FORA do raio buscado.
+ *
+ * Vive em campo SEPARADO de propósito: misturar esses registros no array de
+ * resultados foi exatamente o que criou o P0 do raio (o serviço devolvia leads
+ * a centenas de km, o filtro duro do cliente reapagava, e a tela mostrava 0
+ * sem explicar). Aqui o dado informa o estado vazio sem nunca virar resultado. */
+export interface NearestOutsideRadius {
+  name: string;
+  city: string;
+  state: string;
+  distanceKm: number;
+}
+
 export interface Search {
   id: string;
   niche: string;
@@ -135,7 +148,11 @@ export interface Search {
   radiusKm: number;
   presence: PresenceFilter;
   createdAt: string;
+  /** Quantidade que o usuário REALMENTE vê (já dentro do raio). */
   totalFound: number;
+  /** Preenchido só quando existe ocorrência fora do raio. Opcional: o modo
+   * real não calcula isso hoje, e ausência ≠ "não existe nada por perto". */
+  nearestOutsideRadius?: NearestOutsideRadius | null;
   enrichedCount: number;
   addedToPipeline: number;
   contactsFound: number;
