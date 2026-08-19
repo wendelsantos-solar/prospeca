@@ -72,6 +72,11 @@ export interface TimelineEvent {
 
 export interface Lead {
   id: string;
+  /** The canonical place this lead was materialized from (places.id). Present
+   * for funnel leads; discovery-preview leads set it to the place id too, so
+   * the V2 persisted opportunity score (company_opportunity_scores) can be
+   * read via RLS. */
+  placeId?: string;
   companyName: string;
   category: string;
   description?: string;
@@ -88,6 +93,10 @@ export interface Lead {
   instagram?: string;
   website?: string;
   hasWebsite: boolean;
+  /** Discovery preview only: enrichment lifecycle + per-field state, used to
+   * distinguish "não possui/não encontrado" from "ainda não verificado". */
+  enrichmentState?: "pending" | "processing" | "enriched" | "partial" | "failed";
+  enrichmentFields?: Record<string, { status: string; has: boolean }> | null;
   rating?: number;
   reviewCount?: number;
   score: number;
@@ -107,12 +116,50 @@ export interface Lead {
   respondedAt?: string;
   meetingAt?: string;
   proposalAt?: string;
+  /** Responsável pelo lead (uuid de auth.users; null = sem responsável). */
+  assignedTo?: string;
   discoveredAt: string;
   openingHours?: string[];
   nextActivity?: LeadActivity;
   notes: LeadNote[];
   activities: LeadActivity[];
   timeline: TimelineEvent[];
+}
+
+/** A forma de `Lead` usada para EXIBIR: coordenada e distância podem ser
+ * desconhecidas (NULL).
+ *
+ * Existe porque descoberta e funil têm garantias diferentes. Um `Lead`
+ * materializado no funil sempre tem posição; um resultado de descoberta pode
+ * chegar sem `location` (o campo não é garantido pelo contrato da Places API),
+ * e o LOTE 3 proibiu transformar esse desconhecido em 0 — (0,0) é o Golfo da
+ * Guiné e `distanceKm: 0` afirma "bem aqui".
+ *
+ * `Lead` é atribuível a `DisplayLead` (alargamento seguro), então componentes
+ * de exibição que nunca leem posição declaram `DisplayLead` e continuam
+ * aceitando leads reais sem nenhuma mudança de comportamento.
+ *
+ * NOTA DE ESCOPO: o certo a longo prazo é o próprio `Lead` admitir posição
+ * desconhecida. Isso exige mudar `services/index.ts`, que está fora do LOTE 3
+ * (reservado ao LOTE 4). Este tipo mantém a honestidade no único caminho que
+ * hoje produz o dado nulo, sem deixar a migração pela metade. */
+export type DisplayLead = Omit<Lead, "latitude" | "longitude" | "distanceKm"> & {
+  latitude: number | null;
+  longitude: number | null;
+  distanceKm: number | null;
+};
+
+/** A ocorrência mais próxima que ficou FORA do raio buscado.
+ *
+ * Vive em campo SEPARADO de propósito: misturar esses registros no array de
+ * resultados foi exatamente o que criou o P0 do raio (o serviço devolvia leads
+ * a centenas de km, o filtro duro do cliente reapagava, e a tela mostrava 0
+ * sem explicar). Aqui o dado informa o estado vazio sem nunca virar resultado. */
+export interface NearestOutsideRadius {
+  name: string;
+  city: string;
+  state: string;
+  distanceKm: number;
 }
 
 export interface Search {
@@ -124,10 +171,39 @@ export interface Search {
   radiusKm: number;
   presence: PresenceFilter;
   createdAt: string;
+  /** Quantidade que o usuário REALMENTE vê (já dentro do raio). */
   totalFound: number;
+  /** Preenchido só quando existe ocorrência fora do raio. Opcional: o modo
+   * real não calcula isso hoje, e ausência ≠ "não existe nada por perto". */
+  nearestOutsideRadius?: NearestOutsideRadius | null;
   enrichedCount: number;
   addedToPipeline: number;
   contactsFound: number;
+  /** Pre-flight estimates persisted by create-search (honest ranges). */
+  estimatedCostUsd?: number | null;
+  estimatedResults?: number | null;
+}
+
+/** A search the user explicitly saved as a reusable "missão", with per-search
+ * opportunity stats derived from its persisted results. */
+export interface SavedSearch {
+  searchId: string;
+  query: string;
+  category: string | null;
+  locationLabel: string;
+  radiusMeters: number;
+  presenceFilter: "without_website" | "with_website" | "all";
+  status: string;
+  foundCount: number;
+  importedCount: number;
+  createdAt: string;
+  savedName: string | null;
+  latitude: number;
+  longitude: number;
+  totalResults: number;
+  hotCount: number;
+  avgScore: number;
+  withoutWebsite: number;
 }
 
 export interface SearchProgress {

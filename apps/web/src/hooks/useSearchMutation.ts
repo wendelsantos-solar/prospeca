@@ -7,6 +7,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSearchRepository } from "@/repositories";
+import { leadKeys } from "./useLeadsQuery";
 import { getSupabase } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
 import type { Lead, Search } from "@/types";
@@ -22,6 +23,13 @@ export interface SearchProgress {
   stepLabel: string;
   percent: number;
   partialCount: number;
+  /** Pre-flight estimate from create-search (range, honest — never exact). */
+  estimate?: {
+    costUsdMin: number;
+    costUsdMax: number;
+    resultsMin: number;
+    resultsMax: number;
+  } | null;
 }
 
 interface UseSearchMutationOptions {
@@ -71,12 +79,29 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
             : input.presence === "with-website"
               ? "with_website"
               : "all",
+        maxResults: input.maxResults,
         forceRefresh: input.forceRefresh,
       };
 
       // Step 1: Create the search
       setProgress({ step: 0, stepLabel: "Criando busca...", percent: 5, partialCount: 0 });
-      const { searchId } = await repo.create(createInput);
+      const created = await repo.create(createInput);
+      const { searchId } = created;
+      if (created.estimate) {
+        setProgress((p) =>
+          p
+            ? {
+                ...p,
+                estimate: {
+                  costUsdMin: created.estimate!.costUsdMin,
+                  costUsdMax: created.estimate!.costUsdMax,
+                  resultsMin: created.estimate!.resultsMin,
+                  resultsMax: created.estimate!.resultsMax,
+                },
+              }
+            : p,
+        );
+      }
       if (cancelRef.current) return;
 
       // Step 2: aguarda conclusão. Realtime empurra o UPDATE de `searches` na
@@ -186,12 +211,14 @@ export function useSearchMutation({ onSuccess, onError }: UseSearchMutationOptio
         enrichedCount: status.enrichedCount,
         addedToPipeline: 0,
         contactsFound: status.enrichedCount,
+        estimatedCostUsd: status.estimatedCostUsd ?? null,
+        estimatedResults: status.estimatedResults ?? null,
       };
 
       setProgress(null);
 
       // Refresh discovery + CRM list views.
-      queryClient.invalidateQueries({ queryKey: ["leads", "list"] });
+      queryClient.invalidateQueries({ queryKey: leadKeys.all });
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
 
       // Phase 2: discovery contact enrichment (top-N by score, best-effort).

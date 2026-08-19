@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { fillTemplate, buildContactMessage } from "./message-fill";
+import { fillTemplate, buildContactMessage, contactReason } from "./message-fill";
+import { DEFAULT_MESSAGE_TEMPLATE } from "./constants";
 
 const CONTACT = {
   companyName: "Empório Real Barbearia",
@@ -51,5 +52,40 @@ describe("buildContactMessage", () => {
     expect(
       buildContactMessage("Oi", CONTACT, { signature: "Prospeca" }, "Retomando o contato."),
     ).toBe("Retomando o contato.\n\nOi\n\nProspeca");
+  });
+});
+
+describe("contactReason", () => {
+  it("grounds the reason in the no-website signal", () => {
+    expect(contactReason({ companyName: "X", hasWebsite: false })).toBe("não tem site próprio");
+  });
+
+  it("grounds the reason in a low rating", () => {
+    expect(contactReason({ companyName: "X", hasWebsite: true, rating: 3.2 })).toBe(
+      "tem avaliações abaixo da média (nota 3.2)",
+    );
+  });
+
+  it("grounds the reason in zero reviews", () => {
+    expect(contactReason({ companyName: "X", hasWebsite: true, reviewCount: 0 })).toBe(
+      "não tem avaliações online",
+    );
+  });
+
+  it("falls back to a soft digital-presence reason when there is no strong signal", () => {
+    expect(
+      contactReason({ companyName: "X", hasWebsite: true, rating: 4.5, reviewCount: 10 }),
+    ).toBe("ainda dá para melhorar a presença digital");
+  });
+});
+
+describe("default template", () => {
+  it("renders a grounded opener, not a generic pitch", () => {
+    const msg = buildContactMessage(DEFAULT_MESSAGE_TEMPLATE, {
+      companyName: "Barbearia do Beto",
+      hasWebsite: false,
+    });
+    expect(msg).toContain("não tem site próprio");
+    expect(msg).not.toContain("uma oportunidade");
   });
 });

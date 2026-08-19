@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLeadsList, useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
+import { useLeadsListInfinite, useCompleteActivityMutation } from "@/hooks/useLeadsQuery";
 import { useLeadsStore, useUIStore } from "@/stores";
 import { applyFilters } from "@/lib/filters";
 import { buildTodayGroups, type TodayItem } from "@/lib/today";
 import { ActivityItem } from "@/components/app/ActivityItem";
+import { ActivationChecklist } from "@/components/app/ActivationChecklist";
 import { CommercialCalendar } from "@/components/app/CommercialCalendar";
 import { NbaCard } from "@/components/app/NbaCard";
 import { SavedFiltersBar } from "@/components/app/SavedFiltersBar";
@@ -308,9 +309,19 @@ function SkeletonList() {
 // ── Main page ─────────────────────────────────────────────────────────
 
 function HojePage() {
-  const { data, isLoading, error, refetch } = useLeadsList({ quick: [] });
+  // Fase 4.1: paginação real — os itens de hoje nunca mais herdam o teto
+  // invisível de 50 leads; o total real vem do servidor e o botão carrega mais.
+  const infinite = useLeadsListInfinite({ quick: [] });
   const filters = useLeadsStore((s) => s.filters);
-  const leads = useMemo(() => applyFilters(data?.items ?? [], filters), [data, filters]);
+  const allLeads = useMemo(
+    () => (infinite.data?.pages ?? []).flatMap((p) => p.items),
+    [infinite.data],
+  );
+  const serverTotal = infinite.data?.pages[0]?.total ?? 0;
+  const leads = useMemo(() => applyFilters(allLeads, filters), [allLeads, filters]);
+  const isLoading = infinite.isLoading;
+  const error = infinite.error;
+  const refetch = () => void infinite.refetch();
 
   const groups = useMemo(() => buildTodayGroups(leads), [leads]);
   const totalPending = groups.reduce((s, g) => s + g.items.length, 0);
@@ -359,7 +370,7 @@ function HojePage() {
     }
   }
 
-  if (error && !data) {
+  if (error && !infinite.data) {
     return (
       <div className="grid h-full place-items-center">
         <ErrorState
@@ -373,6 +384,11 @@ function HojePage() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* Fase remoção: o checklist de primeiros passos saiu da tela de
+       * Descobrir (nao existe no mockup) e vive aqui — a tela de trabalho
+       * diario, onde o lembrete de proximos passos faz sentido. Ativacao
+       * preservada; composicao do mockup respeitada. */}
+      <ActivationChecklist />
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-5 py-3">
         <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
@@ -439,7 +455,21 @@ function HojePage() {
           <SkeletonList />
         </div>
       ) : (
-        <>{mainTab === "fila" ? <FilaTab leads={leads} /> : <AgendaTab leads={leads} />}</>
+        <>
+          {mainTab === "fila" ? <FilaTab leads={leads} /> : <AgendaTab leads={leads} />}
+          {infinite.hasNextPage && (
+            <div className="flex justify-center border-t bg-surface px-5 py-2.5">
+              <button
+                onClick={() => void infinite.fetchNextPage()}
+                className="rounded-md border border-border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {allLeads.length < serverTotal
+                  ? `Carregar mais (${allLeads.length} de ${serverTotal} carregados)`
+                  : "Carregar mais"}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,6 +1,12 @@
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
-import { useLeadsList, useDiscoveryResults } from "@/hooks/useLeadsQuery";
+import {
+  useLeadsListInfinite,
+  useDiscoveryResults,
+  useResolveLeadsBatch,
+} from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
+import type { Lead } from "@/types";
+import type { BulkResolvedLead } from "@/repositories/types";
 
 interface BulkTarget {
   id: string;
@@ -11,6 +17,9 @@ interface BulkTarget {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  hasWebsite: boolean;
+  rating: number | null;
+  reviewCount: number | null;
   kind: "discovery" | "lead";
   inFunnel: boolean;
 }
@@ -37,15 +46,32 @@ export function BulkMessageDialog({
 }) {
   const selected = useLeadsStore((s) => s.selectedIds);
   const currentSearch = useLeadsStore((s) => s.currentSearch);
-  const { data: leadPage } = useLeadsList({ quick: [] });
+  const infinite = useLeadsListInfinite({ quick: [] });
+  // P3 (4d): memo estável — objeto novo por render invalidava o memo abaixo.
+  const leadPage = useMemo(
+    () => ({ items: (infinite.data?.pages ?? []).flatMap((pg) => pg.items) }),
+    [infinite.data],
+  );
   const { data: discovery } = useDiscoveryResults(currentSearch?.id);
   const { openWhatsApp } = useOutbound();
+
+  // P2 (4d): ids que não estão em cache são resolvidos NO SERVIDOR — a ação
+  // em lote nunca opera sobre seleção parcial sem aviso.
+  const cachedLeadIds = useMemo(() => new Set((leadPage.items ?? []).map((l) => l.id)), [leadPage]);
+  const unresolvedIds = useMemo(
+    () => selected.filter((id) => !cachedLeadIds.has(id)),
+    [selected, cachedLeadIds],
+  );
+  const { data: serverResolved, isPending: resolvingBatch } = useResolveLeadsBatch(unresolvedIds);
 
   // Selection can hold discovery place ids (prospecting from the sidebar/map) or
   // lead ids (kanban). Resolve each against both so the dialog works for either.
   const targets = useMemo<BulkTarget[]>(() => {
     const byPlace = new Map((discovery ?? []).map((r) => [r.placeId, r]));
-    const byLead = new Map((leadPage?.items ?? []).map((l) => [l.id, l]));
+    const byLead = new Map<string, Lead | BulkResolvedLead>([
+      ...(leadPage?.items ?? []).map((l) => [l.id, l] as const),
+      ...(serverResolved ?? []).map((l) => [l.id, l] as const),
+    ]);
     return selected
       .map((id): BulkTarget | null => {
         const r = byPlace.get(id);
@@ -59,6 +85,9 @@ export function BulkMessageDialog({
             phone: r.phone,
             whatsapp: r.whatsapp,
             email: r.email,
+            hasWebsite: r.hasWebsite,
+            rating: r.rating,
+            reviewCount: r.reviewCount,
             kind: "discovery",
             inFunnel: r.importedLeadId != null,
           };
@@ -74,6 +103,9 @@ export function BulkMessageDialog({
             phone: l.phone ?? null,
             whatsapp: l.whatsapp ?? null,
             email: l.email ?? null,
+            hasWebsite: l.hasWebsite,
+            rating: l.rating ?? null,
+            reviewCount: l.reviewCount ?? null,
             kind: "lead",
             inFunnel: true,
           };
@@ -81,7 +113,7 @@ export function BulkMessageDialog({
         return null;
       })
       .filter((t): t is BulkTarget => t !== null);
-  }, [selected, discovery, leadPage]);
+  }, [selected, discovery, leadPage, serverResolved]);
 
   const template = useMessageStore((s) => s.template);
   const senderName = useSettingsStore((s) => s.senderName);
@@ -104,6 +136,9 @@ export function BulkMessageDialog({
         city: t.city,
         neighborhood: t.neighborhood,
         phone: t.phone,
+        hasWebsite: t.hasWebsite,
+        rating: t.rating,
+        reviewCount: t.reviewCount,
       },
       { senderName, userName, signature },
     );
@@ -135,6 +170,15 @@ export function BulkMessageDialog({
           <DialogTitle>Preparar mensagens ({targets.length})</DialogTitle>
           <DialogDescription>Revise e personalize cada mensagem antes de enviar.</DialogDescription>
         </DialogHeader>
+        {!resolvingBatch && targets.length < selected.length && (
+          <p className="text-[12px] text-destructive">
+            {selected.length - targets.length}{" "}
+            {selected.length - targets.length === 1
+              ? "selecionado não pôde"
+              : "selecionados não puderam"}{" "}
+            ser resolvido(s) — a ação não os inclui.
+          </p>
+        )}
         <div className="grid grid-cols-[220px_1fr] gap-4 min-h-[420px]">
           <div className="border-r pr-3 space-y-1 max-h-[420px] overflow-y-auto">
             {targets.map((l, i) => (

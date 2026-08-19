@@ -5,6 +5,7 @@ import type {
   LeadNote,
   LeadActivity,
   Search,
+  SavedSearch,
   CreateLeadNoteInput,
   CreateLeadActivityInput,
   RecordContactInput,
@@ -13,27 +14,135 @@ import type {
 import { MOCK_LEADS } from "@/mocks/leads";
 import { applyFilters } from "@/lib/filters";
 import type {
+  BulkResolvedLead,
+  CompanyTimelineData,
   CreateSearchInput,
   DashboardOverview,
   DashboardRepository,
   DiscoveryResult,
+  ExportPipelineFilters,
   LeadRepository,
+  LeadStageCounts,
   ListLeadsInput,
+  MissionJobRow,
+  MissionSourceRow,
   MoveLeadInput,
+  OrganizationMember,
   PaginatedResult,
+  PersistedOpportunityScore,
   SearchRepository,
   SearchStatusSnapshot,
+  TodayCounts,
   UpdateLeadInput,
 } from "./types";
+import type { TerritoryStats } from "@leads/domain";
+import type { SearchEstimate } from "@leads/domain";
 
 let demoLeads: Lead[] = [...MOCK_LEADS];
 const demoSearches: Search[] = [];
+// searchId -> nome salvo. Mesmo padrão de cache em memória de demoLeads/
+// demoSearches (LOTE 4, Tarefa 2): o stub anterior era um no-op que fingia
+// sucesso (toast.success disparava mesmo sem nada acontecer) — a Vitrine
+// reportou FAIL correto sobre causa errada porque "salvar" nunca persistia
+// nem em memória. Aqui persiste de verdade, só que não sobrevive a um reload
+// (dado demo é efêmero por natureza — coerente com demoLeads).
+const demoSavedSearches = new Map<string, string>();
 
+/**
+ * Seed do repositório demo a partir do store. MERGE POR ID (upsert), não
+ * substituição: com a paginação da Fase 4 o store passou a conter UMA PÁGINA
+ * (50 de 82) e a substituição apagava leads fora da página + revertia mutações
+ * locais (P2 da 4d). Existentes são PRESERVADOS (mutação local vence);
+ * entradas novas são adicionadas. Reset explícito: resetDemoLeads.
+ */
 export function seedDemoLeads(leads: Lead[]) {
-  demoLeads = [...leads];
+  const byId = new Map(demoLeads.map((l) => [l.id, l]));
+  for (const incoming of leads) {
+    if (!byId.has(incoming.id)) byId.set(incoming.id, incoming);
+  }
+  demoLeads = [...byId.values()];
+}
+
+/** Caminho legítimo e EXPLÍCITO para descartar mutações locais (reset demo). */
+export function resetDemoLeads(next: Lead[]) {
+  demoLeads = [...next];
 }
 
 export class DemoLeadRepository implements LeadRepository {
+  async stageCounts(): Promise<LeadStageCounts> {
+    const byStage: Record<string, number> = {};
+    for (const l of demoLeads) byStage[l.stage] = (byStage[l.stage] ?? 0) + 1;
+    return { total: demoLeads.length, byStage };
+  }
+
+  async todayCounts(): Promise<TodayCounts> {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    let today = 0;
+    let overdue = 0;
+    let firstReach = 0;
+    for (const l of demoLeads) {
+      if (l.stage === "won" || l.stage === "discarded") continue;
+      const open = l.activities.filter((a) => a.date && !a.done);
+      let hasScheduled = false;
+      for (const a of open) {
+        hasScheduled = true;
+        const due = new Date(a.date!);
+        if (due < todayStart) overdue++;
+        else if (due <= todayEnd) today++;
+      }
+      if (!hasScheduled && l.stage === "new" && !l.lastInteractionAt) firstReach++;
+    }
+    return { today, overdue, firstReach };
+  }
+
+  async exportPipeline(format: "csv" | "xlsx", _filters: ExportPipelineFilters): Promise<Blob> {
+    // Demo coerente: CSV client-side (sem backend), como o resto do modo demo.
+    const header = "Empresa;Cidade;Estágio";
+    const lines = demoLeads.map((l) => `${l.companyName};${l.city};${l.stage}`);
+    return new Blob(["﻿" + [header, ...lines].join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+  }
+
+  async members(): Promise<OrganizationMember[]> {
+    return [];
+  }
+
+  async assignLead(leadId: string, userId: string | null): Promise<void> {
+    demoLeads = demoLeads.map((l) =>
+      l.id === leadId ? { ...l, assignedTo: userId ?? undefined } : l,
+    );
+  }
+
+  async getLeadsByIds(ids: string[]): Promise<BulkResolvedLead[]> {
+    return demoLeads
+      .filter((l) => ids.includes(l.id))
+      .map((l) => ({
+        id: l.id,
+        companyName: l.companyName,
+        category: l.category,
+        address: l.address,
+        neighborhood: l.neighborhood ?? null,
+        city: l.city,
+        state: l.state,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        phone: l.phone ?? null,
+        whatsapp: l.whatsapp ?? null,
+        email: l.email ?? null,
+        instagram: l.instagram ?? null,
+        hasWebsite: l.hasWebsite,
+        rating: l.rating ?? null,
+        reviewCount: l.reviewCount ?? null,
+        temperature: l.temperature,
+        stage: l.stage,
+      }));
+  }
+
   async list(input: ListLeadsInput): Promise<PaginatedResult<Lead>> {
     const filtered = applyFilters(demoLeads, input.filters);
     const page = input.page ?? 1;
@@ -228,7 +337,10 @@ export class DemoSearchRepository implements SearchRepository {
   // Map searchId → discovery results so the sidebar list + map stay populated.
   private discoveryCache = new Map<string, DiscoveryResult[]>();
 
-  async create(input: CreateSearchInput): Promise<{ searchId: string }> {
+  async create(
+    input: CreateSearchInput,
+    _idempotencyKey?: string,
+  ): Promise<{ searchId: string; estimate?: SearchEstimate | null }> {
     const id = `demo-search-${Date.now()}`;
 
     // Build discovery results from mock leads — same data the service returns
@@ -248,7 +360,7 @@ export class DemoSearchRepository implements SearchRepository {
           l.category.toLowerCase().includes(nicheLower) ||
           l.companyName.toLowerCase().includes(nicheLower),
       )
-      .map((l) => ({
+      .map((l, index) => ({
         placeId: l.id,
         name: l.companyName,
         category: l.category,
@@ -270,6 +382,19 @@ export class DemoSearchRepository implements SearchRepository {
         score: l.score,
         temperature: l.temperature,
         importedLeadId: null, // starts unimported; updated by addToFunnel
+        // Deterministic demo seed (by index, never random) so every async
+        // badge state can be validated in the browser: index 0-2 show
+        // queued/enriching/retrying, index 3 shows a provisional score.
+        pipelineState:
+          index === 0 ? "queued" : index === 1 ? "enriching" : index === 2 ? "retrying" : null,
+        enrichmentState: index === 3 ? "pending" : "enriched",
+        enrichmentFields: null,
+        primaryCnae: null,
+        cnaeDescription: null,
+        secondaryCnaes: null,
+        decisionMakerCount: 0,
+        topDecisionMakerBand: null,
+        topDecisionMakerScore: null,
       }));
     this.discoveryCache.set(id, results);
 
@@ -314,6 +439,16 @@ export class DemoSearchRepository implements SearchRepository {
 
   async getDiscovery(searchId: string): Promise<DiscoveryResult[]> {
     return this.discoveryCache.get(searchId) ?? [];
+  }
+
+  registerDiscovery(search: Search, results: DiscoveryResult[]): void {
+    this.discoveryCache.set(search.id, results);
+    // searchService.run() (LOTE 4, Tarefa 2) é o único chamador — precisa
+    // ficar em demoSearches para que saveSearch/listSavedSearches encontrem a
+    // busca depois. Sem isto, "salvar" ficava mudo para toda busca REAL do
+    // demo (só funcionava chamando create() diretamente, o que nenhum
+    // caminho de UI faz).
+    if (!demoSearches.some((s) => s.id === search.id)) demoSearches.unshift(search);
   }
 
   async enrichDiscovery(_searchId: string, placeId?: string): Promise<{ enriched: number }> {
@@ -374,6 +509,77 @@ export class DemoSearchRepository implements SearchRepository {
   async enrichLead(_leadId: string): Promise<void> {
     // no-op no modo demo.
   }
+
+  async saveSearch(searchId: string, name: string): Promise<void> {
+    // Espelha a regra do repositório real (supabase.ts): nome vazio salva
+    // como null (a busca fica marcada, sem apelido). Não é no-op: PRECISA
+    // aparecer em listSavedSearches / /app/historico, senão volta a ser a
+    // mesma mentira "salvou" que este lote existe para remover.
+    demoSavedSearches.set(searchId, name.trim());
+  }
+
+  async unsaveSearch(searchId: string): Promise<void> {
+    demoSavedSearches.delete(searchId);
+  }
+
+  async listSavedSearches(): Promise<SavedSearch[]> {
+    const out: SavedSearch[] = [];
+    for (const [searchId, savedName] of demoSavedSearches) {
+      const search = demoSearches.find((s) => s.id === searchId);
+      if (!search) continue; // busca removida da sessão demo — não referencia lixo
+      const results = this.discoveryCache.get(searchId) ?? [];
+      const scores = results.map((r) => r.score);
+      out.push({
+        searchId: search.id,
+        query: search.niche,
+        category: null,
+        locationLabel: search.location,
+        radiusMeters: Math.round(search.radiusKm * 1000),
+        presenceFilter:
+          search.presence === "no-website"
+            ? "without_website"
+            : search.presence === "with-website"
+              ? "with_website"
+              : "all",
+        status: "completed",
+        foundCount: search.totalFound,
+        importedCount: search.addedToPipeline,
+        createdAt: search.createdAt,
+        savedName: savedName || null,
+        latitude: search.latitude,
+        longitude: search.longitude,
+        totalResults: results.length,
+        hotCount: results.filter((r) => r.temperature === "hot").length,
+        avgScore:
+          scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+        withoutWebsite: results.filter((r) => !r.hasWebsite).length,
+      });
+    }
+    // Mais recente primeiro — mesma ordem de listHistory.
+    return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  /** Demo has no persisted opportunity scores — client-side calc is the fallback. */
+  async getOpportunityScore(_placeId: string): Promise<PersistedOpportunityScore | null> {
+    return null;
+  }
+
+  /** Demo has no server-side territories — the client-side aggregation runs. */
+  async listTerritoryStats(_searchId: string): Promise<TerritoryStats[]> {
+    return [];
+  }
+
+  /** Demo has no real pipeline rows — honest empty (UI shows "aguardando"). */
+  async getMissionPipeline(
+    _searchId: string,
+  ): Promise<{ jobs: MissionJobRow[]; sources: MissionSourceRow[] }> {
+    return { jobs: [], sources: [] };
+  }
+
+  /** Demo has no real timeline rows — honest empty. */
+  async getCompanyTimeline(_placeId: string): Promise<CompanyTimelineData> {
+    return { jobs: [], sources: [], scores: [], leadEvents: [] };
+  }
 }
 
 export class DemoDashboardRepository implements DashboardRepository {
@@ -391,16 +597,37 @@ export class DemoDashboardRepository implements DashboardRepository {
     return {
       totalLeads: inPeriod.length,
       byStage: count((l) => l.stage),
+      byStageValue: Object.fromEntries(
+        Object.entries(count((l) => l.stage)).map(([stage]) => [
+          stage,
+          inPeriod
+            .filter((l) => l.stage === stage)
+            .reduce(
+              (s, l) => s + (stage === "won" ? (l.closedValue ?? 0) : (l.estimatedValue ?? 0)),
+              0,
+            ),
+        ]),
+      ),
       byTemperature: count((l) => l.temperature),
       byCity: Object.entries(count((l) => l.city)).map(([city, c]) => ({
         city,
         count: c,
         won: won.filter((l) => l.city === city).length,
+        qualified: inPeriod.filter((l) => l.city === city && l.stage === "qualified").length,
+        contacted: inPeriod.filter((l) => l.city === city && l.stage === "contacted").length,
+        revenue: won.filter((l) => l.city === city).reduce((s, l) => s + (l.closedValue ?? 0), 0),
       })),
       byCategory: Object.entries(count((l) => l.category)).map(([category, c]) => ({
         category,
         count: c,
         won: won.filter((l) => l.category === category).length,
+        qualified: inPeriod.filter((l) => l.category === category && l.stage === "qualified")
+          .length,
+        contacted: inPeriod.filter((l) => l.category === category && l.stage === "contacted")
+          .length,
+        revenue: won
+          .filter((l) => l.category === category)
+          .reduce((s, l) => s + (l.closedValue ?? 0), 0),
       })),
       contacted: inPeriod.filter((l) => ["contacted", "won"].includes(l.stage)).length,
       wonCount: won.length,
@@ -413,6 +640,38 @@ export class DemoDashboardRepository implements DashboardRepository {
       conversionRate: inPeriod.length ? (won.length / inPeriod.length) * 100 : 0,
       searchCount: demoSearches.length,
       importedCount: 0,
+      // ── Fase 4 (espelho da extensão da RPC no modo demo) ──
+      enrichedCount: inPeriod.filter((l) => l.phone || l.whatsapp || l.email).length,
+      respondedCount: inPeriod.filter((l) => l.respondedAt).length,
+      meetingCount: inPeriod.filter((l) => l.meetingAt).length,
+      proposalCount: inPeriod.filter((l) => l.proposalAt).length,
+      discardedCount: inPeriod.filter((l) => l.stage === "discarded").length,
+      pipelineCount: inPeriod.filter((l) => !["discarded", "won"].includes(l.stage)).length,
+      pipelineValueWindowed: inPeriod
+        .filter((l) => !["discarded", "won"].includes(l.stage))
+        .reduce((s, l) => s + (l.estimatedValue ?? 0), 0),
+      channels: {
+        whatsapp: inPeriod.filter((l) => l.whatsapp).length,
+        phone: inPeriod.filter((l) => l.phone).length,
+        instagram: inPeriod.filter((l) => l.instagram).length,
+        email: inPeriod.filter((l) => l.email).length,
+        site: inPeriod.filter((l) => l.hasWebsite).length,
+      },
+      dailySeries: [],
+      allTime: {
+        totalFound: demoLeads.length,
+        withoutWebsite: demoLeads.filter((l) => !l.hasWebsite).length,
+        noReviews: demoLeads.filter((l) => l.reviewCount === 0).length,
+        lowRating: demoLeads.filter((l) => l.rating != null && l.rating < 4).length,
+        hot: demoLeads.filter((l) => l.temperature === "hot").length,
+        contacted: demoLeads.filter((l) => l.lastInteractionAt != null).length,
+        responded: demoLeads.filter((l) => l.respondedAt != null).length,
+        meetings: demoLeads.filter((l) => l.meetingAt != null).length,
+        proposals: demoLeads.filter((l) => l.proposalAt != null).length,
+        won: demoLeads.filter((l) => l.stage === "won").length,
+        revenue: demoLeads.reduce((s, l) => s + (l.closedValue ?? 0), 0),
+        cities: [...new Set(demoLeads.map((l) => l.city).filter(Boolean))].sort(),
+      },
     };
   }
 }

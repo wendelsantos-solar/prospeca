@@ -11,7 +11,7 @@ import { icons } from "@/design-system/icons/icon-registry";
 
 /** Page titles for the header context when there is no active search to show. */
 const PAGE_TITLES: Record<string, string> = {
-  "/app/mapa": "Mapa",
+  "/app/mapa": "Descobrir",
   "/app/hoje": "Hoje",
   "/app/kanban": "Pipeline",
   "/app/agenda": "Agenda",
@@ -27,13 +27,14 @@ export function TopNav() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
-  const discoveryView = useUIStore((s) => s.discoveryView);
-  const setDiscoveryView = useUIStore((s) => s.setDiscoveryView);
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
 
   const niche = useSearchDraftStore((s) => s.draft.niche);
   const location = useSearchDraftStore((s) => s.draft.location);
   const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
-  const hasSearch = useLeadsStore((s) => s.currentSearch) != null;
+  const currentSearch = useLeadsStore((s) => s.currentSearch);
+  const hasSearch = currentSearch != null;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -53,104 +54,99 @@ export function TopNav() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Fase remoção: o mockup NÃO tem barra superior na descoberta — a primeira
+  // linha são os KPIs. A barra em si continua oculta NA rota /app/mapa (JSX
+  // abaixo: `{!onMapa && <header>...}` — deixou de ser early return no LOTE 2
+  // Tarefa 3, exatamente para não voltar a esconder o palette). O Cmd+K
+  // precisa funcionar em QUALQUER rota (achado F4): o listener de teclado
+  // roda sempre — corrigido é o <CommandPalette> nunca ficar preso atrás do
+  // header condicional,
+  // senão a tecla alterna estado e nada renderiza (era o defeito: /app/agenda
+  // e /app/historico só eram alcançáveis pelo palette, então ficavam
+  // inalcançáveis a partir do mapa). "Salvar busca como missão" NÃO volta
+  // para cá — vive na barra do mapa (MapToolbar), que é onde de fato
+  // renderiza; aqui era o botão morto do achado F5.
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-        aria-label={sidebarCollapsed ? "Mostrar painel de busca" : "Ocultar painel de busca"}
-        title={sidebarCollapsed ? "Mostrar painel" : "Ocultar painel"}
-      >
-        {sidebarCollapsed ? (
-          <AppIcon icon={icons.layout.expandSidebar} size="lg" tone="inherit" decorative />
-        ) : (
-          <AppIcon icon={icons.layout.collapseSidebar} size="lg" tone="inherit" decorative />
-        )}
-      </button>
+    <>
+      {!onMapa && (
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:grid"
+            aria-label={sidebarCollapsed ? "Mostrar painel de busca" : "Ocultar painel de busca"}
+            title={sidebarCollapsed ? "Mostrar painel" : "Ocultar painel"}
+          >
+            {sidebarCollapsed ? (
+              <AppIcon icon={icons.layout.expandSidebar} size="lg" tone="inherit" decorative />
+            ) : (
+              <AppIcon icon={icons.layout.collapseSidebar} size="lg" tone="inherit" decorative />
+            )}
+          </button>
 
-      {/* Context */}
-      <div className="flex min-w-0 items-center gap-2 text-[13px]">
-        {showSearchContext ? (
-          <>
-            <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
-              <AppIcon icon={icons.lead.location} size="xs" tone="primary" decorative />
-            </span>
-            <span className="truncate text-muted-foreground">{location}</span>
-            <span className="text-muted-foreground/50">/</span>
-            <span className="truncate font-semibold text-foreground">
-              {niche ? `${niche} · ${radiusKm} km` : `${radiusKm} km`}
-            </span>
-          </>
-        ) : (
-          <span className="truncate font-semibold text-foreground">{pageTitle}</span>
-        )}
-      </div>
+          {/* Context */}
+          <div className="flex min-w-0 items-center gap-2 text-[13px]">
+            {showSearchContext ? (
+              <>
+                <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
+                  <AppIcon icon={icons.lead.location} size="xs" tone="primary" decorative />
+                </span>
+                <span className="truncate text-muted-foreground">{location}</span>
+                <span className="text-muted-foreground/50">/</span>
+                <span className="truncate font-semibold text-foreground">
+                  {niche ? `${niche} · ${radiusKm} km` : `${radiusKm} km`}
+                </span>
+              </>
+            ) : (
+              <span className="truncate font-semibold text-foreground">{pageTitle}</span>
+            )}
+          </div>
 
-      {/* Global command palette trigger */}
-      <button
-        onClick={() => setPaletteOpen(true)}
-        className={cn(
-          "ml-auto hidden h-9 max-w-[320px] flex-1 items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 text-[13px] text-muted-foreground transition-colors hover:border-border-strong lg:flex",
-        )}
-        aria-label="Abrir busca de comandos (atalho: Ctrl+K)"
-      >
-        <AppIcon icon={icons.actions.search} size="sm" tone="inherit" decorative />
-        <span className="truncate">Buscar páginas, nichos…</span>
-        <kbd className="ml-auto rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-          ⌘K
-        </kbd>
-      </button>
+          {/* Global command palette trigger */}
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className={cn(
+              "ml-auto hidden h-9 max-w-[320px] flex-1 items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 text-[13px] text-muted-foreground transition-colors hover:border-border-strong lg:flex",
+            )}
+            aria-label="Abrir busca de comandos (atalho: Ctrl+K)"
+          >
+            <AppIcon icon={icons.actions.search} size="sm" tone="inherit" decorative />
+            <span className="truncate">Buscar páginas, nichos…</span>
+            <kbd className="ml-auto rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </button>
 
-      {/* Compact trigger for small headers */}
-      <button
-        onClick={() => setPaletteOpen(true)}
-        className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
-        aria-label="Abrir busca de comandos"
-      >
-        <AppIcon icon={icons.actions.search} size="lg" tone="inherit" decorative />
-      </button>
+          {/* Compact trigger for small headers */}
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+            aria-label="Abrir busca de comandos"
+          >
+            <AppIcon icon={icons.actions.search} size="lg" tone="inherit" decorative />
+          </button>
 
-      {/* Map / List view toggle (discovery workspace only) */}
-      {onMapa && (
-        <div
-          className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
-          role="group"
-          aria-label="Alternar visualização"
-        >
-          {(
-            [
-              { v: "map", label: "Mapa", icon: icons.navigation.map },
-              { v: "list", label: "Lista", icon: icons.layout.list },
-            ] as const
-          ).map((o) => {
-            const active = discoveryView === o.v;
-            return (
-              <button
-                key={o.v}
-                onClick={() => setDiscoveryView(o.v)}
-                aria-pressed={active}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors",
-                  active
-                    ? "bg-surface text-foreground shadow-card"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <AppIcon icon={o.icon} size="sm" tone="inherit" decorative />
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+            >
+              <AppIcon
+                icon={theme === "dark" ? icons.theme.light : icons.theme.dark}
+                size="lg"
+                tone="inherit"
+                decorative
+              />
+            </button>
+            <FeedbackForm currentPage={path} />
+            <NotificationsPopover />
+            <UserMenu className="lg:hidden" />
+          </div>
+        </header>
       )}
 
-      <div className="flex items-center gap-1">
-        <FeedbackForm currentPage={path} />
-        <NotificationsPopover />
-        <UserMenu className="md:hidden" />
-      </div>
-
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-    </header>
+    </>
   );
 }

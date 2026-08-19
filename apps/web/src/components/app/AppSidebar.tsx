@@ -1,41 +1,45 @@
-import { useMemo, useEffect, useRef, useState } from "react";
-import { Virtuoso } from "react-virtuoso";
-import { Search, Phone, Globe, MessageCircle, ArrowUpDown, Download } from "lucide-react";
+import { useMemo, useEffect, useRef } from "react";
+import { Search } from "lucide-react";
 import { AppIcon } from "@/design-system/icons/AppIcon";
 import { icons } from "@/design-system/icons/icon-registry";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useUIStore, useLeadsStore, useSearchDraftStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
 import { useDiscoveryResults } from "@/hooks/useLeadsQuery";
 import { RADIUS_OPTIONS } from "@/lib/constants";
+import { hasAdvancedFilters } from "@/lib/filters";
+import {
+  DISCOVERY_SORT_OPTIONS,
+  sortDiscoveryResults,
+  type DiscoverySortBy,
+} from "@/lib/discovery-sort";
 import { SearchForm } from "./SearchForm";
 import { DiscoveryCard } from "./DiscoveryCard";
-import { HistoryDrawer } from "./HistoryDrawer";
+import { useFilteredResults } from "./AdvancedFiltersPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { LeadListSkeleton, SummarySkeleton } from "@/components/shared/Skeletons";
+import { LeadListSkeleton } from "@/components/shared/Skeletons";
 import { filterByRadius } from "@/lib/filters";
-import { exportDiscoveryCSV } from "@/lib/export";
+import { radiusToReach, nearestOutsideDescription } from "@/lib/nearest-outside";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type SortBy = "score" | "distance" | "rating";
+/** "Ver mais resultados" sobe o teto de maxResults e re-roda a MESMA busca
+ * (cache hit no provider real). Google Text Search limita ~60 por busca. */
+const RESULT_COUNTS = [10, 25, 50, 100] as const;
 
 export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const density = useUIStore((s) => s.density);
+  const advancedFilters = useUIStore((s) => s.advancedFilters);
+  const filtersActive = hasAdvancedFilters(advancedFilters);
 
   const searching = useLeadsStore((s) => s.searching);
   const searchError = useLeadsStore((s) => s.searchError);
   const setSearchError = useLeadsStore((s) => s.setSearchError);
   const radiusKm = useSearchDraftStore((s) => s.draft.radiusKm);
+  const maxResults = useSearchDraftStore((s) => s.draft.maxResults) ?? 25;
   const draftCoords = useSearchDraftStore((s) => s.draft.coords);
   const setDraft = useSearchDraftStore((s) => s.setDraft);
   const isAreaTooLargeError = !!searchError?.toLowerCase().includes("raio");
@@ -47,11 +51,13 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
   const radiusCenter = currentSearch
     ? { lat: currentSearch.latitude, lng: currentSearch.longitude }
     : draftCoords;
-  const bulkMode = useLeadsStore((s) => s.bulkMode);
   const focusedId = useLeadsStore((s) => s.focusedId);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
-  const [sortBy, setSortBy] = useState<SortBy>("score");
+  // FASE C2: fonte única de ordenação (useUIStore), compartilhada com a
+  // lista principal em app.mapa.tsx — se este seletor mudar, ela muda junto.
+  const sortBy = useUIStore((s) => s.resultSortBy);
+  const setSortBy = useUIStore((s) => s.setResultSortBy);
 
   // Discovery list: results of the current search (search_results ⋈ places),
   // NOT the org's accumulated leads. A lead only exists once added to the funnel.
@@ -80,73 +86,71 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
     [results, radiusCenter.lat, radiusCenter.lng, radiusKm],
   );
 
-  const sortedResults = useMemo(() => {
-    const arr = [...resultsInRadius];
-    if (sortBy === "score") arr.sort((a, b) => b.score - a.score);
-    if (sortBy === "distance") arr.sort((a, b) => a.distanceKm - b.distanceKm);
-    if (sortBy === "rating") arr.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    return arr;
-  }, [resultsInRadius, sortBy]);
+  // Filtros locais + avançados (F3) — a MESMA função que o mapa usa, para que
+  // lista e mapa sempre concordem sobre o conjunto visível.
+  const filteredResults = useFilteredResults(resultsInRadius);
 
-  const summary = useMemo(() => {
-    if (!resultsInRadius.length) return null;
-    let noSite = 0;
-    let phones = 0;
-    let whats = 0;
-    let inFunnel = 0;
-    for (const r of resultsInRadius) {
-      if (!r.hasWebsite) noSite++;
-      if (r.phone) phones++;
-      if (r.whatsapp) whats++;
-      if (r.importedLeadId != null) inFunnel++;
-    }
-    return {
-      noSite,
-      phones,
-      whats,
-      inFunnel,
-      // Denominador = o que existe de fato na lista/mapa (dentro do raio real),
-      // não o found_count bruto do provider (inclui cantos da bbox fora do
-      // círculo, que foram descartados no execute-search e não são navegáveis).
-      // Mapa, lista e este contador têm que concordar. found_count segue no
-      // Histórico, onde é métrica de auditoria da busca.
-      total: resultsInRadius.length,
-    };
-  }, [resultsInRadius]);
+  const sortedResults = useMemo(
+    () => sortDiscoveryResults(filteredResults, sortBy),
+    [filteredResults, sortBy],
+  );
 
-  const handleExportCsv = () => {
-    try {
-      exportDiscoveryCSV(resultsInRadius);
-      toast.success(`CSV exportado (${resultsInRadius.length} empresas)`);
-    } catch {
-      toast.error("Falha ao exportar CSV");
-    }
+  // "Ver mais resultados": só aparece quando o retorno ALCANÇOU o teto pedido
+  // (pode haver mais) e ainda existe um teto maior.
+  const nextTier = RESULT_COUNTS.find((n) => n > maxResults);
+  const canLoadMore = nextTier != null && discovery != null && discovery.length >= maxResults;
+
+  const loadMore = () => {
+    if (!nextTier) return;
+    setDraft({ maxResults: nextTier });
+    useSearchSession.getState().retrySearch();
   };
 
-  // Colapsada = some por completo (igual ao reference). O botão de expandir
-  // vive no TopNav (PanelLeftOpen) quando sidebarCollapsed.
-  if (collapsed && !mobile) return null;
+  // Colapsada = tira de ~48px com o botão de expandir SEMPRE visível (REGRA
+  // DURA: nunca esconder sem forma óbvia de restaurar). O mesmo toggle vive
+  // no TopNav (PanelLeftOpen); a tira garante affordance mesmo que o header
+  // mude. Em mobile o painel vive num Sheet e nunca colapsa.
+  if (collapsed && !mobile) {
+    return (
+      <aside
+        aria-label="Painel de descoberta recolhido"
+        className="hidden w-12 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-3 lg:flex"
+      >
+        <button
+          onClick={() => setSidebarCollapsed(false)}
+          className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Mostrar painel de descoberta"
+          title="Mostrar painel de descoberta"
+          aria-expanded="false"
+        >
+          <AppIcon icon={icons.layout.expandSidebar} size="md" tone="inherit" decorative />
+        </button>
+        <Search className="mt-2 h-4 w-4 text-muted-foreground/60" aria-hidden />
+      </aside>
+    );
+  }
 
   return (
     <aside
       className={cn(
         "flex flex-col bg-sidebar",
-        mobile
-          ? "h-full w-full"
-          : "hidden md:flex w-full max-w-[360px] xl:max-w-[400px] shrink-0 border-r",
+        mobile ? "h-full w-full" : "hidden lg:flex w-full max-w-[340px] shrink-0 border-r",
       )}
     >
       {/* Header */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
         <div className="min-w-0">
+          {/* FASE C: alinhado à promessa da landing ("quem abordar primeiro e
+           * por quê" — priorização + explicação, não busca geográfica). O que
+           * a lista mostra de fato: score em anel + o motivo (decisor,
+           * presença digital, reputação) por card — nada além disso. */}
           <div className="truncate text-[15px] font-semibold leading-tight tracking-tight">
-            Buscar empresas
+            Quem abordar primeiro
           </div>
           <div className="truncate text-[11.5px] text-muted-foreground">
-            Encontre quem tem pouca presença digital
+            Empresas rankeadas por oportunidade, com o motivo em cada uma
           </div>
         </div>
-        <HistoryDrawer />
       </div>
 
       <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -155,62 +159,30 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
           <SearchForm />
         </div>
 
-        {/* Summary */}
-        {searching ? (
-          <SummarySkeleton />
-        ) : summary ? (
-          <div className="border-b border-sidebar-border px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Resumo da pesquisa
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-1">
-              <SummaryPill label="Encontradas" value={summary.total} />
-              <SummaryPill label="Sem site" value={summary.noSite} icon={Globe} />
-              <SummaryPill label="Telefones" value={summary.phones} icon={Phone} />
-              <SummaryPill label="WhatsApp" value={summary.whats} icon={MessageCircle} />
-              <SummaryPill label="Pipeline" value={summary.inFunnel} tone="primary" />
-            </div>
-          </div>
-        ) : null}
-
-        {/* Toolbar */}
-        {!!summary && (
-          <div className="flex shrink-0 items-center gap-1 border-b border-sidebar-border px-3 py-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
-                <ArrowUpDown className="h-3 w-3" />
-                Ordenar
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setSortBy("score")}>
-                  Score (maior)
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortBy("distance")}>
-                  Distância (menor)
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortBy("rating")}>
-                  Avaliação (maior)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  disabled={resultsInRadius.length === 0}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                >
-                  <Download className="h-3 w-3" />
-                  Exportar
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={handleExportCsv}>Exportar CSV</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        {/* Contagem + ordenação + export — uma linha, como o mockup */}
+        {!searching && !searchError && resultsInRadius.length > 0 && (
+          <div className="flex items-center gap-2 border-b border-sidebar-border px-4 py-2">
+            <span className="min-w-0 truncate text-[12px] font-medium text-foreground">
+              {sortedResults.length} empresas encontradas
+              {filtersActive && (
+                <span className="text-muted-foreground"> de {resultsInRadius.length}</span>
+              )}
+            </span>
+            <label className="ml-auto flex items-center gap-1 text-[11.5px] text-muted-foreground">
+              <span className="hidden sm:inline">Ordenar:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as DiscoverySortBy)}
+                aria-label="Ordenar resultados"
+                className="h-7 max-w-[140px] rounded-md border border-border bg-surface px-1.5 text-[11.5px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/15"
+              >
+                {DISCOVERY_SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
 
@@ -237,65 +209,72 @@ export function AppSidebar({ mobile }: { mobile?: boolean }) {
               onBack={() => setSearchError(null)}
             />
           ) : resultsInRadius.length === 0 ? (
+            (() => {
+              // MESMA explicação e MESMA ação do mapa (app.mapa.tsx): lista e
+              // mapa discordarem sobre o vazio foi parte do defeito do raio.
+              const nearest = currentSearch?.nearestOutsideRadius ?? null;
+              const expandTo = nearest ? radiusToReach(nearest.distanceKm) : null;
+              return (
+                <EmptyState
+                  icon={Search}
+                  title={
+                    nearest
+                      ? `Nenhuma empresa dentro de ${radiusKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`
+                      : "Nenhuma empresa"
+                  }
+                  description={
+                    nearest
+                      ? nearestOutsideDescription(nearest)
+                      : "Faça uma busca ou ajuste o nicho."
+                  }
+                  action={
+                    expandTo != null ? (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setDraft({ radiusKm: expandTo });
+                          useSearchSession.getState().retrySearch();
+                        }}
+                      >
+                        Buscar num raio de {expandTo} km
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              );
+            })()
+          ) : sortedResults.length === 0 ? (
             <EmptyState
               icon={Search}
-              title="Nenhuma empresa"
-              description="Faça uma busca ou aumente o raio."
+              title="Filtros removeram tudo"
+              description="Nenhuma empresa do resultado carregado passa pelos filtros locais."
             />
           ) : (
-            <Virtuoso
-              totalCount={sortedResults.length}
-              useWindowScroll={false}
-              itemContent={(index) => {
-                const r = sortedResults[index];
-                return (
-                  <div className="px-0.5 py-0.5" data-place-id={r.placeId}>
-                    <DiscoveryCard
-                      result={r}
-                      searchId={currentSearch?.id ?? ""}
-                      density={density}
-                    />
-                  </div>
-                );
-              }}
-              style={{ height: `${Math.max(sortedResults.length * 120, 200)}px` }}
-            />
+            <>
+              {/* Lista simples mapeada — SEM virtualização: o provider limita
+               * ~60 resultados por busca, e um Virtuoso com altura fixa
+               * (todos os itens renderizados) além de não virtualizar nada,
+               * quebrava em branco quando totalCount ia 2→0→2 numa re-busca
+               * (P2-1 do gate: contador renderizava e a lista não). */}
+              {sortedResults.map((r) => (
+                <div key={r.placeId} className="px-0.5 py-0.5" data-place-id={r.placeId}>
+                  <DiscoveryCard result={r} searchId={currentSearch?.id ?? ""} />
+                </div>
+              ))}
+              {canLoadMore && (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="mx-auto mt-2 block text-[12px] font-medium text-primary hover:underline"
+                >
+                  Ver mais resultados (~{nextTier})
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
       {/* fecha o scroll wrapper */}
     </aside>
-  );
-}
-
-function SummaryPill({
-  label,
-  value,
-  tone,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  tone?: "primary";
-  icon?: typeof Globe;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-md px-1.5 py-1.5 text-center",
-        tone === "primary" ? "bg-primary-soft" : "bg-muted",
-      )}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-center gap-0.5 text-[15px] font-semibold",
-          tone === "primary" ? "text-primary" : "text-foreground",
-        )}
-      >
-        {Icon && <Icon className="h-3 w-3 opacity-60" />}
-        {value}
-      </div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
   );
 }

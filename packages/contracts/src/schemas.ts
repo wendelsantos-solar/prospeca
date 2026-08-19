@@ -48,6 +48,9 @@ export interface SearchStatusSnapshot {
   importedCount: number;
   enrichedCount: number;
   providerRequestCount: number;
+  /** Pre-flight cost estimate (USD, range max) persisted by create-search. */
+  estimatedCostUsd?: number | null;
+  estimatedResults?: number | null;
   errorMessage?: string | null;
 }
 
@@ -68,8 +71,16 @@ export interface DiscoveryResult {
   placeId: string;
   name: string;
   category: string | null;
-  latitude: number;
-  longitude: number;
+  /** NULL = coordenada desconhecida (o provider pode omitir `location`; o
+   * banco guarda places.location NULLABLE e o RPC devolve NULL via st_y/st_x).
+   *
+   * NUNCA use 0 como ausência: 0,0 é o Golfo da Guiné, a 5.670 km de São
+   * Paulo — o haversine calcula essa distância honestamente e o filtro de raio
+   * descarta o lugar em silêncio, sem que ninguém saiba que a coordenada era
+   * desconhecida. É a mesma regra que a Fase 7 fixou para custo: NULL é
+   * desconhecido, 0 só quando comprovadamente zero. */
+  latitude: number | null;
+  longitude: number | null;
   address: string | null;
   neighborhood: string | null;
   city: string | null;
@@ -82,10 +93,51 @@ export interface DiscoveryResult {
   whatsapp: string | null;
   rating: number | null;
   reviewCount: number | null;
-  distanceKm: number;
+  /** NULL = sem coordenada, logo sem distância calculável. Nunca 0 para
+   * ausência — 0 significaria "no centro exato da busca". */
+  distanceKm: number | null;
+  /** Single display source for the discovery list: search_results.score holds
+   * the V2 opportunity score written by score-company (RPC get_search_discovery
+   * serves it unchanged). The funnel (leads.score) stays v3.0.0. */
   score: number;
   temperature: "hot" | "warm" | "cold";
   importedLeadId: string | null;
+  /** V2 score confidence (0..1) from company_opportunity_scores — metadata only
+   * (the RPC does not expose it); null until score-company has scored the place.
+   * Drives the LOW/MEDIUM/HIGH confidence band badge in the list. */
+  opportunityConfidence?: number | null;
+  /** Overall enrichment lifecycle for this business (pending | processing |
+   * enriched | partial | failed). Drives the "ainda não verificamos" vs
+   * "não possui" distinction in the UI. */
+  enrichmentState: "pending" | "processing" | "enriched" | "partial" | "failed";
+  /** Real job state for this place in the current search (V3-B): derived from
+   * the jobs table when a non-terminal job exists. Null when idle. */
+  pipelineState?: "queued" | "enriching" | "retrying" | null;
+  /** Per-field enrichment state { email|instagram|whatsapp: {status, has} }.
+   * A missing key means the field was never checked (pending). */
+  enrichmentFields: Record<string, { status: string; has: boolean }> | null;
+  /** Atividade econômica (CNAE) vinda do registro — persistida por lookup-cnpj
+   * e servida pelo RPC de descoberta. Null enquanto o CNPJ não foi consultado:
+   * ausência de consulta, não ausência de atividade. */
+  primaryCnae: string | null;
+  cnaeDescription: string | null;
+  secondaryCnaes: string[] | null;
+  /**
+   * Decisores identificados nesta empresa (People Intelligence), agregados
+   * para TRIAGEM.
+   *
+   * Contagem, banda e score — nunca o NOME. Para triar 60 resultados o
+   * vendedor precisa saber ONDE existe um decisor forte, não quem ele é; o
+   * nome aparece ao abrir a empresa, sob a mesma RLS. Assim o PII de sócio
+   * não trafega em payload de listagem.
+   *
+   * Conta só relação VIGENTE e banda high/medium — o mesmo recorte de
+   * pickPrimaryDecisionMaker. `0` significa "nenhum decisor sustentável",
+   * o que inclui empresa sem CNPJ consultado.
+   */
+  decisionMakerCount: number;
+  topDecisionMakerBand: "high" | "medium" | null;
+  topDecisionMakerScore: number | null;
 }
 
 // ── Lead stages & temperatures ────────────────────────────────────────
@@ -140,3 +192,73 @@ export const DeleteAccountSchema = z.object({
 });
 
 export type DeleteAccountInput = z.infer<typeof DeleteAccountSchema>;
+
+// ── Export ────────────────────────────────────────────────────────────
+
+export const EXPORT_FORMATS = ["csv", "xlsx"] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** Campos exportáveis de lead (lista fechada — campos desconhecidos são
+ * REJEITADOS com 422, nunca silenciosamente ignorados). */
+export const EXPORTABLE_LEAD_FIELDS = [
+  "company_name",
+  "category",
+  "address",
+  "neighborhood",
+  "city",
+  "state",
+  "phone",
+  "whatsapp",
+  "email",
+  "instagram",
+  "website",
+  "has_website",
+  "rating",
+  "review_count",
+  "score",
+  "temperature",
+  "stage",
+  "estimated_value",
+  "closed_value",
+  "created_at",
+  "last_interaction_at",
+] as const;
+export type ExportableLeadField = (typeof EXPORTABLE_LEAD_FIELDS)[number];
+
+export const CreateExportSchema = z
+  .object({
+    format: z.enum(EXPORT_FORMATS),
+    /** Campos a exportar (V3-F). */
+    fields: z.array(z.enum(EXPORTABLE_LEAD_FIELDS)).min(1).max(30).optional(),
+    /** Retrocompat: alias de `fields` (versões antigas do cliente). */
+    columns: z.array(z.string()).min(1).max(30).optional(),
+    filters: z
+      .object({
+        stages: z.array(z.string()).optional(),
+        temperatures: z.array(z.string()).optional(),
+        cities: z.array(z.string()).optional(),
+        categories: z.array(z.string()).optional(),
+        minScore: z.number().optional(),
+        // Fase 4.4 (retrocompat — tudo opcional): exportar "o que estou vendo"
+        // com os filtros ativos da carteira.
+        neighborhoods: z.array(z.string()).optional(),
+        maxScore: z.number().optional(),
+        minRating: z.number().optional(),
+        minReviews: z.number().optional(),
+        hasWebsite: z.boolean().optional(),
+        hasPhone: z.boolean().optional(),
+        hasWhatsapp: z.boolean().optional(),
+        hasEmail: z.boolean().optional(),
+        hasInstagram: z.boolean().optional(),
+        assignee: z.string().uuid().nullable().optional(),
+        discoveredAfter: z.string().optional(),
+        lastInteractionAfter: z.string().optional(),
+        valueMin: z.number().optional(),
+        valueMax: z.number().optional(),
+        search: z.string().max(200).optional(),
+      })
+      .default({}),
+  })
+  .refine((v) => v.fields || v.columns, { message: "fields ou columns é obrigatório." });
+
+export type CreateExportInput = z.infer<typeof CreateExportSchema>;

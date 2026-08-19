@@ -28,14 +28,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { MapIcon, Sunrise, Kanban, BarChart3, Search } from "lucide-react";
+import { MapIcon, Sunrise, Kanban, BarChart3, Search, ShieldCheck } from "lucide-react";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { OnboardingWizard, type OnboardingProgress } from "@/components/app/OnboardingWizard";
-import { ActivationChecklist } from "@/components/app/ActivationChecklist";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import { useLeadsRealtimeSubscription } from "@/hooks/useLeadsQuery";
+import { useIsPlatformAdmin } from "@/hooks/useIsPlatformAdmin";
 import { cn } from "@/lib/utils";
 import { useAuth, preserveReturnTo } from "@/hooks/useAuth";
 import { usePendingInvitation } from "@/hooks/usePendingInvitation";
@@ -114,15 +114,17 @@ function DemoModeBanner() {
 function MobileNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const [searchOpen, setSearchOpen] = useState(false);
+  const isPlatformAdmin = useIsPlatformAdmin();
   const tabs = [
-    { to: "/app/mapa", icon: MapIcon, label: "Mapa" },
+    { to: "/app/mapa", icon: MapIcon, label: "Descobrir" },
     { to: "/app/hoje", icon: Sunrise, label: "Hoje" },
     { to: "/app/kanban", icon: Kanban, label: "Pipeline" },
     { to: "/app/painel", icon: BarChart3, label: "Painel" },
+    ...(isPlatformAdmin ? [{ to: "/app/admin", icon: ShieldCheck, label: "Admin" }] : []),
   ];
   return (
     <nav
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegação principal"
     >
       {tabs.map((t) => {
@@ -167,6 +169,10 @@ function MobileNav() {
 
 function AppLayout() {
   useThemeSync();
+  // Painel de descoberta é escopo de /app/mapa — vazava fixo em TODAS as rotas
+  // (Hoje/Pipeline), cortando a coluna "Ganho" do Kanban em telas de notebook.
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const onMapa = pathname === "/app/mapa";
   // Supabase Realtime: keeps leads in sync across tabs/devices without polling
   useLeadsRealtimeSubscription();
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -272,10 +278,15 @@ function AppLayout() {
           ) : (
             <>
               <NavRail />
-              <AppSidebar />
-              <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 md:pb-0">
+              {/* hidden (nao unmount): SearchForm registra _runSearch em
+                  useSearchSession no mount — CommandPalette/HistoryDrawer chamam
+                  suggestSearch() logo apos navigate({ to: "/app/mapa" }), antes
+                  da rota nova montar. Desmontar aqui quebraria essa chamada. */}
+              <div className={onMapa ? undefined : "hidden"}>
+                <AppSidebar />
+              </div>
+              <main className="flex flex-1 min-w-0 flex-col overflow-hidden pb-14 lg:pb-0">
                 <TopNav />
-                <ActivationChecklist />
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <Outlet />
                 </div>

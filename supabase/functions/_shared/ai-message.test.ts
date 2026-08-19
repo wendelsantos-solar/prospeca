@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { hasEnoughSignal, buildUserPrompt, type LeadSignal } from "./ai-message.ts";
+import { hasEnoughSignal, buildUserPrompt, SYSTEM_PROMPT, type LeadSignal } from "./ai-message.ts";
 
 const base = (o: Partial<LeadSignal>): LeadSignal => ({
   companyName: "Salão da Ana",
@@ -58,4 +58,33 @@ test("buildUserPrompt omits optional fields that are null", () => {
   expect(prompt).not.toContain("Bairro:");
   expect(prompt).not.toContain("Nota:");
   expect(prompt).not.toContain("Número de avaliações:");
+});
+
+// ── Decisor no prompt (People Intelligence) ─────────────────────────────────
+
+test("decisor entra no prompt com nome e cargo", () => {
+  const prompt = buildUserPrompt(
+    base({ decisionMakerName: "MARIA SOUZA", decisionMakerRole: "Sócio-Administrador" }),
+  );
+  expect(prompt).toContain("Decisor: MARIA SOUZA (Sócio-Administrador)");
+});
+
+test("decisor sem cargo não inventa cargo no prompt", () => {
+  const prompt = buildUserPrompt(base({ decisionMakerName: "MARIA SOUZA" }));
+  expect(prompt).toContain("Decisor: MARIA SOUZA");
+  expect(prompt).not.toContain("(");
+});
+
+test("sem decisor o prompt fica idêntico ao anterior", () => {
+  expect(buildUserPrompt(base({}))).toBe(
+    buildUserPrompt(base({ decisionMakerName: null, decisionMakerRole: null })),
+  );
+});
+
+test("o sistema proíbe citar o cargo e proíbe inventar nome", () => {
+  // O dado é contexto do vendedor, não abertura de conversa: dizer "vi que
+  // você é sócio-administrador" numa primeira mensagem soa invasivo.
+  expect(SYSTEM_PROMPT).toContain("PRIMEIRO NOME");
+  expect(SYSTEM_PROMPT).toContain("Nunca cite o cargo societário");
+  expect(SYSTEM_PROMPT).toContain("não invente nome");
 });

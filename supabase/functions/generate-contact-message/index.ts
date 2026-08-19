@@ -7,7 +7,8 @@
 import { z } from "npm:zod@3";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
-import { assertRateLimit } from "../_shared/quota.ts";
+import { assertRateLimit, recordUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import {
   hasEnoughSignal,
   buildUserPrompt,
@@ -15,6 +16,7 @@ import {
   AI_MESSAGE_MODEL,
   type LeadSignal,
 } from "../_shared/ai-message.ts";
+import { pickPrimaryDecisionMaker } from "@leads/domain/decision-maker";
 
 const InputSchema = z.object({ leadId: z.string().uuid() });
 
@@ -30,12 +32,55 @@ Deno.serve(async (req) => {
 
     await assertRateLimit(ctx.adminClient, ctx.organizationId, "ai_message_generate", 10);
 
+    // Fase 7: fecha o ciclo do rate limit (mesmo event_type). Custo do
+    // Anthropic é POR TOKEN e não medimos tokens — DESCONHECIDO (NULL),
+    // nunca 0 (regra dura da fase). Tentativa conta mesmo sem chave.
+    const cost = calculateUsageCost("anthropic", "ai_message_generate", 1);
+    await recordUsage(ctx.adminClient, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      eventType: "ai_message_generate",
+      provider: "anthropic",
+      quantity: 1,
+      estimatedCostUsd: cost.estimatedCostUsd,
+      realCostUsd: cost.realCostUsd,
+      costSource: cost.source,
+    });
+
     const { data: lead } = await ctx.userClient
       .from("leads")
-      .select("id, company_name, category, city, neighborhood, has_website, rating, review_count")
+      .select(
+        "id, company_name, category, city, neighborhood, has_website, rating, review_count, place_id",
+      )
       .eq("id", parsed.data.leadId)
       .maybeSingle();
     if (!lead) throw new AppError("LEAD_NOT_FOUND", "Lead não encontrado.");
+
+    // Decisor (People Intelligence) — lido sob a RLS do usuário, como o resto.
+    // Falha aqui NUNCA impede a geração: a mensagem sem nome continua útil.
+    let decisionMakerName: string | null = null;
+    let decisionMakerRole: string | null = null;
+    if (lead.place_id) {
+      const { data: people } = await ctx.userClient
+        .from("company_people")
+        .select("role, role_band, decision_score, confidence, is_current, people(full_name)")
+        .eq("place_id", lead.place_id)
+        .eq("is_current", true);
+      const primary = pickPrimaryDecisionMaker(
+        (people ?? [])
+          .map((row) => ({
+            name: (row as unknown as { people?: { full_name?: string } }).people?.full_name ?? "",
+            score: (row.decision_score as number | null) ?? 0,
+            dataConfidence: (row.confidence as number | null) ?? 0,
+            band: (row.role_band as "high" | "medium" | "low" | "unknown" | null) ?? "unknown",
+            isCurrent: row.is_current as boolean,
+            role: (row.role as string | null) ?? null,
+          }))
+          .filter((p) => p.name),
+      );
+      decisionMakerName = primary?.name ?? null;
+      decisionMakerRole = primary?.role ?? null;
+    }
 
     const signal: LeadSignal = {
       companyName: lead.company_name,
@@ -45,6 +90,8 @@ Deno.serve(async (req) => {
       hasWebsite: lead.has_website,
       rating: lead.rating,
       reviewCount: lead.review_count,
+      decisionMakerName,
+      decisionMakerRole,
     };
 
     if (!hasEnoughSignal(signal)) {

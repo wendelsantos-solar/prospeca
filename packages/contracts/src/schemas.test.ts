@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   CreateSearchInputSchema,
+  CreateExportSchema,
   ImportSearchResultsSchema,
   FeedbackInputSchema,
   LEAD_STAGES,
@@ -109,5 +110,33 @@ describe("domain constants", () => {
 
   test("DASHBOARD_PERIODS has the expected values", () => {
     expect(DASHBOARD_PERIODS).toEqual(["today", "7d", "30d", "90d", "year", "custom"]);
+  });
+});
+
+describe("CreateExportSchema (V3-F)", () => {
+  test("valid csv request with fields", () => {
+    const r = CreateExportSchema.safeParse({
+      format: "csv",
+      fields: ["company_name", "score", "phone"],
+    });
+    expect(r.success).toBe(true);
+  });
+  test("invalid format → 422 (rejected)", () => {
+    const r = CreateExportSchema.safeParse({ format: "pdf", fields: ["company_name"] });
+    expect(r.success).toBe(false);
+  });
+  test("unknown fields → 422 (rejected, never silently ignored)", () => {
+    const r = CreateExportSchema.safeParse({
+      format: "xlsx",
+      fields: ["company_name", "hacker_field"],
+    });
+    expect(r.success).toBe(false);
+  });
+  test("columns alias (retrocompat) still works", () => {
+    const r = CreateExportSchema.safeParse({ format: "csv", columns: ["company_name"] });
+    expect(r.success).toBe(true);
+  });
+  test("neither fields nor columns → rejected", () => {
+    expect(CreateExportSchema.safeParse({ format: "csv" }).success).toBe(false);
   });
 });

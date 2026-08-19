@@ -1,4 +1,4 @@
-import type { Lead } from "@/types";
+import type { DisplayLead } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
 
 /**
@@ -12,10 +12,15 @@ import type { DiscoveryResult } from "@/repositories/types";
  * place (`get_search_discovery` returns them, parsed in the repository), so the
  * preview shows the same location the map pin does.
  * `stage`/`discoveredAt` are placeholders the readOnly branch never reads.
+ *
+ * Coordenada e distância passam INTACTAS, inclusive NULL: por isso o retorno é
+ * `DisplayLead` e não `Lead`. Antes, o tipo obrigava um número aqui e o NULL
+ * teria que virar 0 — a mentira que o LOTE 3 existe para remover.
  */
-export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
+export function discoveryToPreviewLead(r: DiscoveryResult): DisplayLead {
   return {
     id: r.placeId,
+    placeId: r.placeId,
     companyName: r.name,
     category: r.category ?? "",
     address: r.address ?? "",
@@ -31,6 +36,8 @@ export function discoveryToPreviewLead(r: DiscoveryResult): Lead {
     instagram: r.instagram ?? undefined,
     website: r.website ?? undefined,
     hasWebsite: r.hasWebsite,
+    enrichmentState: r.enrichmentState,
+    enrichmentFields: r.enrichmentFields,
     rating: r.rating ?? undefined,
     reviewCount: r.reviewCount ?? undefined,
     score: r.score,

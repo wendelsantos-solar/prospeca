@@ -4,10 +4,11 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import "leaflet.heat";
 import type { DiscoveryResult } from "@/repositories/types";
 import { useLeadsStore, useSearchDraftStore, useUIStore } from "@/stores";
 import { useSearchSession } from "@/stores/searchSession";
-import { RadarPill } from "./RadarPill";
+import { MapLegend } from "./MapLegend";
 import { useAddToFunnelMutation, discoveryKeys } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,13 +21,14 @@ import {
   Moon,
   Loader2,
   RefreshCw,
-  Info,
-  ChevronUp,
-  ChevronDown,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { toast } from "sonner";
-import { popupHtml, markerVisual, MARKER_HEX } from "./map-popup";
+import { popupHtml, markerVisual, MARKER_HEX, HEAT_GRADIENT } from "./map-popup";
+import { buildHeatPoints } from "@/lib/opportunity-heatmap";
+import type { MapViewMode } from "./MapView";
 
 // Mesma fonte de cor que o Google usa (map-popup.ts) — antes o Leaflet tinha
 // seus próprios valores oklch, divergentes dos hex do Google pra mesma decisão.
@@ -43,13 +45,25 @@ function markerIcon(r: DiscoveryResult, selected: boolean) {
 
 /** OSM/Leaflet renderer (free, no key). Lazy-loaded by MapView only when there
  * is no Google Maps browser key, so Leaflet never ships when Google is used. */
-export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
+export function LeafletMapView({
+  results,
+  mode = "markers",
+}: {
+  results: DiscoveryResult[];
+  mode?: MapViewMode;
+}) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const centerRef = useRef<L.Marker | null>(null);
+  const heatRef = useRef<L.HeatLayer | null>(null);
+  // Última mode lida pelo listener moveend/zoomend (registrado uma vez, no
+  // efeito de init do mapa) sem precisar re-assinar o listener a cada troca de
+  // modo — mesmo padrão do GoogleMapView.
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const currentSearch = useLeadsStore((s) => s.currentSearch);
   const previewLocation = useLeadsStore((s) => s.previewLocation);
   const draft = useSearchDraftStore((s) => s.draft);
@@ -68,6 +82,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
   const setMapDark = useUIStore((s) => s.setMapDark);
   const mapLegendCollapsed = useUIStore((s) => s.mapLegendCollapsed);
   const setMapLegendCollapsed = useUIStore((s) => s.setMapLegendCollapsed);
+  const heatMetric = useUIStore((s) => s.heatMetric);
+  const setMapViewport = useUIStore((s) => s.setMapViewport);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(results.length);
@@ -76,7 +92,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     if (!containerRef.current || mapRef.current) return;
     try {
       const map = L.map(containerRef.current, {
-        zoomControl: true,
+        zoomControl: false, // Fase 90: zoom custom na coluna de controles (mockup)
         // Attribution is mandatory per tile provider TOS — always on.
         attributionControl: true,
       }).setView([currentSearch?.latitude ?? -30.0346, currentSearch?.longitude ?? -51.2177], 13);
@@ -112,6 +128,11 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
       clusterRef.current = cluster;
       const setDraft = useSearchDraftStore.getState().setDraft;
       const updateVisible = () => {
+        // Em heatmap não existem markers (o efeito de troca de modo limpa
+        // markersRef e fixa o badge em results.length) — recontar markersRef
+        // aqui sempre dá 0 e apaga o número correto no primeiro moveend/zoomend.
+        // Mesmo defeito e mesmo fix do GoogleMapView.
+        if (modeRef.current === "heatmap") return;
         const bounds = map.getBounds();
         let count = 0;
         markersRef.current.forEach((m) => {
@@ -133,6 +154,11 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
       };
       map.on("moveend zoomend", updateVisible);
       map.on("moveend", syncCenterToDraft);
+      // Alimenta o 'Buscar nesta área' da BARRA (store transitório) — o pan
+      // só ATUALIZA o estado; busca mesmo, só no clique do botão.
+      map.on("moveend", () =>
+        setMapViewport({ lat: map.getCenter().lat, lng: map.getCenter().lng }),
+      );
       mapRef.current = map;
       return () => {
         map.remove();
@@ -145,6 +171,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         // circle never renders until the user toggles it off and back on.
         circleRef.current = null;
         centerRef.current = null;
+        heatRef.current = null;
       };
     } catch {
       setMapError(true);
@@ -183,14 +210,15 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     const map = mapRef.current;
     if (!map) return;
     const radiusKm = effectiveRadiusKm;
-    // Plain hex (not oklch): Leaflet paints circles as SVG paths and sets stroke/
-    // fill as presentation attributes, where a hex value is guaranteed to render.
+    // Círculo de raio VERDE tracejado (Fase 90 — mockup). O valor do primary
+    // é oklch; Chromium renderiza oklch em atributos SVG de apresentação.
     const circleStyle: L.PathOptions = {
-      color: "#2563eb",
-      fillColor: "#2563eb",
-      fillOpacity: 0.08,
-      weight: 3,
-      opacity: 0.95,
+      color: "oklch(0.58 0.15 152)",
+      fillColor: "oklch(0.58 0.15 152)",
+      fillOpacity: 0.05,
+      weight: 2.5,
+      opacity: 0.9,
+      dashArray: "12 10",
     };
     if (!showCircle) {
       if (circleRef.current) {
@@ -230,8 +258,17 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     if (!map || !cluster) return;
     cluster.clearLayers();
     markersRef.current.clear();
+    // Heatmap mode replaces markers — the heat layer renders instead.
+    if (mode === "heatmap") {
+      setVisibleCount(results.length);
+      prevFocusedRef.current = null;
+      return;
+    }
     const searchId = currentSearch?.id;
     results.forEach((r) => {
+      // Sem coordenada não há onde cravar o pino. Antes o null virava 0 e o
+      // marcador ia parar no Golfo da Guiné; pular é a leitura honesta.
+      if (r.latitude == null || r.longitude == null) return;
       const m = L.marker([r.latitude, r.longitude], {
         icon: markerIcon(r, false), // never selected on build — focus effect handles it
         zIndexOffset: 0,
@@ -241,6 +278,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         // other way to know a focus change originated from a map click vs. a
         // click on the card itself (which is already in view).
         window.dispatchEvent(new CustomEvent("lead-focused-from-map", { detail: r.placeId }));
+        openResultDetails(r);
       });
       m.bindPopup(popupHtml(r));
       m.on("popupopen", () => {
@@ -272,20 +310,7 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
           }
           if (action === "details") {
             // In funnel → full lead drawer; otherwise read-only discovery preview.
-            if (result.importedLeadId != null) {
-              setDetails(result.importedLeadId);
-            } else {
-              setPreview(result);
-              // Lazy enrich a with-site business lacking contact yet.
-              if (result.hasWebsite && !result.email && !result.instagram && !result.whatsapp) {
-                getSearchRepository()
-                  .enrichDiscovery(searchId, result.placeId)
-                  .then(() =>
-                    queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(searchId) }),
-                  )
-                  .catch(() => {});
-              }
-            }
+            openResultDetails(result);
           }
         };
         popupEl.addEventListener("click", handler);
@@ -303,7 +328,35 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
     // Reset focused styling on results change (focus effect will re-apply).
     prevFocusedRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results]);
+  }, [results, mode]);
+
+  // Opportunity heatmap: a weighted density layer (score = heat) that replaces
+  // markers in "heatmap" mode. Rebuilt only when results or mode change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (mode !== "heatmap") {
+      if (heatRef.current) {
+        map.removeLayer(heatRef.current);
+        heatRef.current = null;
+      }
+      return;
+    }
+    const points = buildHeatPoints(results, heatMetric).map(
+      (p) => [p.lat, p.lng, p.weight] as [number, number, number],
+    );
+    if (heatRef.current) {
+      heatRef.current.setLatLngs(points);
+    } else {
+      heatRef.current = L.heatLayer(points, {
+        radius: 30,
+        blur: 18,
+        maxZoom: 17,
+        minOpacity: 0.15,
+        gradient: HEAT_GRADIENT,
+      }).addTo(map);
+    }
+  }, [results, mode, heatMetric]);
 
   // Delta update: just toggle the focused/unfocused marker icons without rebuilding all.
   useEffect(() => {
@@ -342,10 +395,32 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
 
   const fitAll = () => {
     if (!mapRef.current || results.length === 0) return;
-    const bounds = L.latLngBounds(
-      results.map((r) => [r.latitude, r.longitude] as [number, number]),
-    );
-    mapRef.current.fitBounds(bounds, { padding: [40, 40] });
+    // Só enquadra o que tem coordenada — um null virando 0 esticava o
+    // enquadramento até o Atlântico e jogava os pinos reais num canto.
+    const points = results
+      .filter((r) => r.latitude != null && r.longitude != null)
+      .map((r) => [r.latitude, r.longitude] as [number, number]);
+    if (points.length === 0) return;
+    mapRef.current.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
+  };
+
+  // Regra transversal: clique no marker = seleciona o card E abre o detalhe
+  // (mesma lógica da ação "Detalhes" do popup).
+  const openResultDetails = (r: DiscoveryResult) => {
+    if (r.importedLeadId != null) {
+      setDetails(r.importedLeadId);
+      return;
+    }
+    setPreview(r);
+    if (r.hasWebsite && !r.email && !r.instagram && !r.whatsapp) {
+      const searchId = currentSearch?.id;
+      if (searchId) {
+        getSearchRepository()
+          .enrichDiscovery(searchId, r.placeId)
+          .then(() => queryClient.invalidateQueries({ queryKey: discoveryKeys.bySearch(searchId) }))
+          .catch(() => {});
+      }
+    }
   };
 
   const recenter = () => {
@@ -353,16 +428,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
       mapRef.current.setView([currentSearch.latitude, currentSearch.longitude], 13);
   };
 
-  const legend = useMemo(
-    () => [
-      { label: "Quente", color: MARKER_HEX.hot },
-      { label: "Morno", color: MARKER_HEX.warm },
-      { label: "Frio", color: MARKER_HEX.cold },
-      { label: "No funil", color: MARKER_HEX.funnel },
-      { label: "Selecionado", color: MARKER_HEX.selected },
-    ],
-    [],
-  );
+  // Raio para a legenda compartilhada (Fase 90).
+  const legendRadiusKm = currentSearch?.radiusKm ?? draft.radiusKm;
 
   return (
     <div className={`relative isolate h-full w-full ${mapDark ? "map-dark" : ""}`}>
@@ -372,8 +439,6 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
         role="application"
         aria-label="Mapa de leads"
       />
-
-      <RadarPill onSearch={() => useSearchSession.getState().radarSearch()} />
 
       {(searching || !mapReady) && !mapError && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-background/60 backdrop-blur-sm">
@@ -406,6 +471,27 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
       )}
 
       <div className="absolute top-3 right-3 z-10 flex flex-col gap-0.5 rounded-lg border border-border bg-surface/95 p-1 shadow-elevated backdrop-blur">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9"
+          onClick={() => mapRef.current?.zoomIn()}
+          aria-label="Aproximar zoom"
+          title="Aproximar"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9"
+          onClick={() => mapRef.current?.zoomOut()}
+          aria-label="Afastar zoom"
+          title="Afastar"
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+        <div className="my-0.5 h-px bg-border" />
         {results.length > 0 && (
           <Button
             size="icon"
@@ -461,36 +547,8 @@ export function LeafletMapView({ results }: { results: DiscoveryResult[] }) {
           <Moon className="h-4 w-4" />
         </Button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-border bg-surface/95 shadow-elevated backdrop-blur">
-        <button
-          type="button"
-          onClick={() => setMapLegendCollapsed(!mapLegendCollapsed)}
-          aria-expanded={!mapLegendCollapsed}
-          aria-label={mapLegendCollapsed ? "Expandir legenda" : "Recolher legenda"}
-          className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Info className="h-3.5 w-3.5" />
-          Legenda
-          {mapLegendCollapsed ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-        {!mapLegendCollapsed && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2">
-            {legend.map((l) => (
-              <div
-                key={l.label}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-                {l.label}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <MapLegend mode={mode} results={results} radiusKm={legendRadiusKm} />
+
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-lg border bg-surface/95 px-3 py-1.5 text-xs font-medium shadow-elevated backdrop-blur">
         {visibleCount} <span className="text-muted-foreground">de {results.length} no raio</span>
       </div>

@@ -12,6 +12,12 @@
 //     antiabuso (aceitar convite, enviar feedback, criar piloto). Grava o
 //     próprio evento em `rate_limit_events`.
 //
+// ⚠️ Se você está procurando limitar algo ligado a CUSTO/uso faturável
+//   (enrich, AI, export, busca), o limite certo é o OUTRO:
+//   _shared/quota.ts — assertRateLimit(admin, organizationId, eventType,
+//   maxPerMinute) sobre `usage_events` (exige recordUsage com o MESMO
+//   event_type para o contador incrementar).
+//
 // Não unificar as duas sem decidir o que fazer com a base de custo: gravar
 // eventos de throttle em `usage_events` contamina quota e billing.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";

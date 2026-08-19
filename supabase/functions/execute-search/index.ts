@@ -4,15 +4,62 @@
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { isInternalCall } from "../_shared/internal-auth.ts";
-import { recordUsage } from "../_shared/quota.ts";
+import { recordPaidUsage } from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { captureError } from "../_shared/error-tracking.ts";
 import { textSearch, type GooglePlace } from "../_shared/google.ts";
 import { categoryKey, placesCacheKey } from "@leads/domain/cache";
 import { shouldForceRefresh } from "../_shared/refresh.ts";
+import { fireAndForget } from "../_shared/dispatch.ts";
+import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
+import { companyProcessingKey } from "@leads/domain/job";
 import { readPoint } from "@leads/geo";
 import { selectPlaces, buildResultRows } from "../_shared/search-pipeline.ts";
 
 const ABSOLUTE_MAX_PAGES = 3; // hard technical cap per execution
+
+/** Enqueue one OPPORTUNITY_SCORING job per place (tenant-scoped idempotency
+ * key) and wake the worker ONCE. Returns how many jobs were enqueued. */
+async function enqueueScoringJobs(
+  admin: ReturnType<typeof adminClient>,
+  organizationId: string,
+  searchId: string,
+  placeIds: string[],
+): Promise<number> {
+  if (placeIds.length === 0) return 0;
+  const queue = createSupabaseJobQueue(admin);
+  await Promise.all(
+    placeIds.map((placeId) =>
+      queue.enqueue({
+        type: "OPPORTUNITY_SCORING",
+        organizationId,
+        searchId,
+        companyId: placeId,
+        idempotencyKey: companyProcessingKey(organizationId, searchId, placeId),
+        payload: { searchId, placeId },
+      }),
+    ),
+  );
+  fireAndForget("process-jobs", {}); // single wake — the worker drains the queue
+  return placeIds.length;
+}
+
+/** Enqueue ONE TERRITORY_ANALYSIS job per search (spec #37–41). The scoring
+ * enqueue above already woke the worker; a dedicated wake is unnecessary. */
+async function enqueueTerritoryAnalysis(
+  admin: ReturnType<typeof adminClient>,
+  organizationId: string,
+  searchId: string,
+): Promise<void> {
+  const queue = createSupabaseJobQueue(admin);
+  await queue.enqueue({
+    type: "TERRITORY_ANALYSIS",
+    organizationId,
+    searchId,
+    idempotencyKey: `territory-analysis:${organizationId}:${searchId}`,
+    payload: { searchId },
+  });
+}
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -67,6 +114,19 @@ Deno.serve(async (req) => {
         p_search_id: searchId,
       });
       if (typeof reused === "number" && reused > 0) {
+        // V2: score the (copied) places async — per-company jobs, idempotent,
+        // drained by the process-jobs worker (non-blocking).
+        const { data: reusedRows } = await admin
+          .from("search_results")
+          .select("place_id")
+          .eq("search_id", searchId);
+        await enqueueScoringJobs(
+          admin,
+          search.organization_id as string,
+          searchId,
+          (reusedRows ?? []).map((r) => r.place_id as string),
+        );
+        await enqueueTerritoryAnalysis(admin, search.organization_id as string, searchId);
         logEvent({
           requestId,
           searchId,
@@ -76,7 +136,24 @@ Deno.serve(async (req) => {
           durationMs: Date.now() - startedAt,
           status: "completed",
           requestCount: 0,
+          cacheHit: true,
           resultCount: reused,
+        });
+        // P2-4 (Fase 7b): cache HIT também é gravado — zero COMPROVADO
+        // ('measured'), distinguível de desconhecido e de miss pago.
+        const hitCost = calculateUsageCost("google_places", "place_search_request", 1, {
+          cacheHit: true,
+        });
+        await recordPaidUsage(admin, {
+          organizationId: search.organization_id,
+          eventType: "place_search_request",
+          provider: "google_places",
+          quantity: 1,
+          metadata: { searchId, cache: "hit" },
+          estimatedCostUsd: hitCost.estimatedCostUsd,
+          realCostUsd: hitCost.realCostUsd,
+          costSource: hitCost.source,
+          cacheHit: true,
         });
         return json({ searchId, status: "completed", found: reused, reused: true }, 200, {}, req);
       }
@@ -88,7 +165,17 @@ Deno.serve(async (req) => {
     const [centerLng, centerLat] = center;
 
     const maxResults: number = search.max_results ?? 60;
-    const textQuery = search.category ? `${search.query} ${search.category}` : search.query;
+    // Taxonomy-resolved search (GAP #5): use the CANONICAL category persisted by
+    // create-search, and pass the primary Google Places type to the provider as
+    // includedType (restricts results server-side). Unresolved searches keep the
+    // legacy raw concatenation (or query alone).
+    const canonicalCategory = (search.canonical_category as string | null) ?? null;
+    const placesTypes = ((search.places_types as string[] | null) ?? []) as string[];
+    const textQuery =
+      (canonicalCategory ?? search.category)
+        ? `${search.query} ${canonicalCategory ?? search.category}`
+        : search.query;
+    const includedType = placesTypes.length > 0 ? placesTypes[0] : undefined;
     let requestCount = 0;
     let collected: GooglePlace[] = [];
 
@@ -169,10 +256,33 @@ Deno.serve(async (req) => {
     }
 
     if (servedFromCache) {
+      // found_count aqui é PROGRESSO TRANSITÓRIO (pré-filtro): o corte de raio
+      // e o de presença só rodam em processPlaces, adiante. O valor DEFINITIVO
+      // (pós-filtro, = linhas de search_results) é gravado no update final
+      // desta função — veja o comentário "DEFINIÇÃO ÚNICA DE found_count".
+      // A UI de progresso diz "analisadas" justamente porque este número ainda
+      // não é o que a tela vai mostrar.
       await admin
         .from("searches")
         .update({ provider_request_count: 0, found_count: collected.length })
         .eq("id", searchId);
+      // P2 (Motor, Fase 7c): o cache PRIMÁRIO (provider_search_cache — chave
+      // exata ou cobertura geométrica) também grava o HIT — zero COMPROVADO
+      // ('measured'), distinguível de desconhecido e de miss pago.
+      const providerHitCost = calculateUsageCost("google_places", "place_search_request", 1, {
+        cacheHit: true,
+      });
+      await recordPaidUsage(admin, {
+        organizationId: search.organization_id,
+        eventType: "place_search_request",
+        provider: "google_places",
+        quantity: 1,
+        metadata: { searchId, cache: "provider" },
+        estimatedCostUsd: providerHitCost.estimatedCostUsd,
+        realCostUsd: providerHitCost.realCostUsd,
+        costSource: providerHitCost.source,
+        cacheHit: true,
+      });
     } else {
       // Guarda-corpo de budget (Fase 1): se a org definiu um teto mensal e o
       // gasto estimado do mês já estourou, NÃO paga o Google — a busca completa
@@ -206,16 +316,28 @@ Deno.serve(async (req) => {
             longitude: centerLng,
             radiusMeters: search.radius_meters,
             pageToken,
+            includedType,
           });
           requestCount++;
-          await recordUsage(admin, {
+          // Fase 7: custo REAL do Google (SKU 0.035) — PÓS-trabalho pago:
+          // registro fora de banda (nunca derruba a resposta nem induz retry).
+          const searchCost = calculateUsageCost("google_places", "place_search_request", 1);
+          await recordPaidUsage(admin, {
             organizationId: search.organization_id,
             eventType: "place_search_request",
             provider: "google_places",
             quantity: 1,
             metadata: { searchId, page, forced: doForce },
+            estimatedCostUsd: searchCost.estimatedCostUsd,
+            realCostUsd: searchCost.realCostUsd,
+            costSource: searchCost.source,
+            cacheHit: false,
           });
           collected = collected.concat(res.places);
+          // PROGRESSO TRANSITÓRIO (pré-filtro), mesma razão do bloco de cache
+          // acima: a cada página o que existe é o retorno cru do provider. O
+          // valor definitivo é gravado no update final ("DEFINIÇÃO ÚNICA DE
+          // found_count").
           await admin
             .from("searches")
             .update({ provider_request_count: requestCount, found_count: collected.length })
@@ -237,16 +359,31 @@ Deno.serve(async (req) => {
         };
         if (doForce) {
           cacheRow.last_forced_at = new Date().toISOString();
-          await recordUsage(admin, {
+          const refreshCost = calculateUsageCost("google_places", "place_search_refresh", 1);
+          await recordPaidUsage(admin, {
             organizationId: search.organization_id,
             eventType: "place_search_refresh",
             provider: "google_places",
             quantity: 1,
             metadata: { searchId },
+            estimatedCostUsd: refreshCost.estimatedCostUsd,
+            realCostUsd: refreshCost.realCostUsd,
+            costSource: refreshCost.source,
+            cacheHit: false,
           });
         }
         await admin.from("provider_search_cache").upsert(cacheRow, { onConflict: "cache_key" });
       }
+    }
+
+    // Taxonomy type refinement: when the taxonomy resolved, keep only places
+    // whose Google `types` intersect the taxonomy's places_types. Lenient: a
+    // place without type data is kept (coverage-cache payloads may lack it).
+    if (placesTypes.length > 0) {
+      collected = collected.filter((p) => {
+        const types = p.types ?? [];
+        return types.length === 0 || types.some((t) => placesTypes.includes(t));
+      });
     }
 
     collected = collected.slice(0, maxResults);
@@ -295,14 +432,46 @@ Deno.serve(async (req) => {
       await admin.from("search_results").upsert(resultRows, { onConflict: "search_id,place_id" });
     }
 
+    // DEFINIÇÃO ÚNICA DE found_count (LOTE 3): linhas persistidas em
+    // search_results para esta busca — o conjunto que a descoberta REALMENTE
+    // devolve (get_search_discovery lê search_results ⋈ places).
+    //
+    // Antes era `collected.length`: o retorno CRU do provider, ANTES do corte
+    // de raio e ANTES do filtro de presença. Isso fazia o contador prometer
+    // empresas que a tela nunca mostrava — a mesma divergência do P0 do raio,
+    // em outra roupa.
+    //
+    // Esta é a MESMA definição que o caminho de reuso de busca já usava
+    // (migration 20260723000014_search_level_reuse.sql:56,
+    // `count(*) from search_results where search_id = ...`). Havia DUAS
+    // definições concorrentes do mesmo campo no produto; ficou UMA.
+    // Conta no banco (não `resultRows.length`) porque numa re-execução com
+    // forceRefresh o upsert convive com linhas anteriores desta busca, e quem
+    // manda é o que a descoberta vai ler.
+    const { count: persistedCount } = await admin
+      .from("search_results")
+      .select("id", { count: "exact", head: true })
+      .eq("search_id", searchId);
+
     await admin
       .from("searches")
       .update({
         status: "completed",
-        found_count: collected.length,
+        found_count: persistedCount ?? resultRows.length,
         completed_at: new Date().toISOString(),
       })
       .eq("id", searchId);
+
+    // V2: score the discovered places async — per-company OPPORTUNITY_SCORING
+    // jobs, idempotent (unique key), drained by the process-jobs worker.
+    // The frontend reads company_opportunity_scores via RLS and falls back to
+    // client-side calculation until the scores land. TERRITORY_ANALYSIS is
+    // enqueued as a per-search job and feeds favorability back into the score.
+    const discoveredPlaceIds = [...idByProviderPlaceId.values()];
+    await enqueueScoringJobs(admin, search.organization_id as string, searchId, discoveredPlaceIds);
+    if (discoveredPlaceIds.length > 0) {
+      await enqueueTerritoryAnalysis(admin, search.organization_id as string, searchId);
+    }
 
     // Descoberta NÃO materializa leads. O funil é povoado por ação explícita
     // do usuário (+Funil / WhatsApp / disparo em massa), via import-search-results.
@@ -316,6 +485,7 @@ Deno.serve(async (req) => {
       durationMs: Date.now() - startedAt,
       status: "completed",
       requestCount,
+      cacheHit: requestCount === 0,
       resultCount: collected.length,
       insideRadius: insideCount,
     });

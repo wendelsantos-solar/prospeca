@@ -1,30 +1,17 @@
-import { useMemo, useState } from "react";
-import { useLeadsStore, usePeriodStore } from "@/stores";
+import { useMemo } from "react";
+import { usePeriodStore } from "@/stores";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { DashboardCityTable } from "./DashboardCityTable";
 import { formatBRL, formatNumber, formatPercent, formatDecimal } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, PERIOD_OPTIONS } from "@/lib/constants";
-import { resolvePeriod, previousWindow, leadsInWindow, deltaPct, inWindow } from "@/lib/period";
+import { deltaPct } from "@/lib/period";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  CartesianGrid,
-} from "recharts";
-import type { Lead, LeadStage, DashboardPeriod } from "@/types";
+import { MiniBarChart, MiniLineChart, MiniDonutChart } from "@/components/app/MiniCharts";
+import type { DashboardPeriod } from "@/types";
+import type { DashboardOverview } from "@/repositories/types";
 
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, BarChart3, TrendingUp, TrendingDown, Info } from "lucide-react";
@@ -40,12 +27,6 @@ import {
 const PRIMARY = "var(--color-primary)";
 const INFO = "var(--color-info)";
 const NEUTRAL = "var(--color-muted-foreground)";
-const TOOLTIP_STYLE = {
-  fontSize: 12,
-  borderRadius: 8,
-  border: "1px solid var(--color-border)",
-} as const;
-const AXIS_PROPS = { fontSize: 11, stroke: "var(--color-muted-foreground)" } as const;
 
 interface StageAgg {
   total: number;
@@ -56,61 +37,26 @@ interface StageAgg {
   distSum: number;
 }
 
-function aggregate(leads: Lead[]) {
-  const byStage: Record<LeadStage, Lead[]> = {
-    new: [],
-    qualified: [],
-    contacted: [],
-    won: [],
-    discarded: [],
-  };
-  leads.forEach((l) => byStage[l.stage].push(l));
-  const total = leads.length;
-  const enriched = leads.filter((l) => l.phone || l.whatsapp || l.email).length;
-  const revenue = byStage.won.reduce((s, l) => s + (l.closedValue ?? 0), 0);
-  const pipeline = leads.filter((l) => l.stage !== "discarded" && l.stage !== "won");
-  const pipelineValue = pipeline.reduce((s, l) => s + (l.estimatedValue ?? 0), 0);
-  const conv = total ? (byStage.won.length / total) * 100 : 0;
-  const avgTicket = byStage.won.length ? revenue / byStage.won.length : 0;
-  const convDays = byStage.won
-    .filter((l) => l.closedAt)
-    .map((l) => (new Date(l.closedAt!).getTime() - new Date(l.discoveredAt).getTime()) / 86400000);
-  const avgConvDays = convDays.length
-    ? convDays.reduce((a, b) => a + b, 0) / convDays.length
-    : null;
-  const responses = leads.filter((lead) => lead.respondedAt).length;
-  const meetings = leads.filter((lead) => lead.meetingAt).length;
-  const proposals = leads.filter((lead) => lead.proposalAt).length;
-  return {
-    byStage,
-    total,
-    enriched,
-    revenue,
-    pipelineValue,
-    pipelineCount: pipeline.length,
-    conv,
-    avgTicket,
-    avgConvDays,
-    responses,
-    meetings,
-    proposals,
-  };
-}
-
-function groupBy(leads: Lead[], key: (l: Lead) => string): Record<string, StageAgg> {
+/**
+ * Fase 4.2 — o painel agora consome get_dashboard_overview (agregação
+ * SERVER-SIDE com membership check). Nada aqui deriva do array truncado de
+ * 50 leads. `distSum` permanece 0: leads de funil não têm distância no banco
+ * (distanceKm é sempre 0 — ver SORT_ORDER em supabase.ts).
+ */
+function groupAgg<
+  T extends { count: number; won: number; qualified: number; contacted: number; revenue: number },
+>(entries: T[], key: (e: T) => string): Record<string, StageAgg> {
   const out: Record<string, StageAgg> = {};
-  leads.forEach((l) => {
-    const k = key(l);
-    out[k] ??= { total: 0, qualified: 0, contacted: 0, won: 0, revenue: 0, distSum: 0 };
-    out[k].total++;
-    out[k].distSum += l.distanceKm;
-    if (l.stage === "qualified") out[k].qualified++;
-    if (l.stage === "contacted") out[k].contacted++;
-    if (l.stage === "won") {
-      out[k].won++;
-      out[k].revenue += l.closedValue ?? 0;
-    }
-  });
+  for (const e of entries) {
+    out[key(e)] = {
+      total: e.count,
+      qualified: e.qualified,
+      contacted: e.contacted,
+      won: e.won,
+      revenue: e.revenue,
+      distSum: 0,
+    };
+  }
   return out;
 }
 
@@ -191,10 +137,10 @@ function LocalMetricCard({
           </TooltipProvider>
         )}
       </div>
-      <div className="mt-1 flex items-end justify-between gap-2">
+      <div className="mt-1 flex min-w-0 flex-wrap items-end justify-between gap-x-2 gap-y-1">
         <div
           className={cn(
-            "font-semibold leading-none tabular-nums",
+            "min-w-0 break-words font-semibold leading-none tabular-nums",
             size === "lg" ? "text-[26px]" : "text-[20px]",
             accent === "hot" && "text-hot",
             accent === "success" && "text-success",
@@ -222,80 +168,55 @@ function LocalMetricCard({
   );
 }
 
-export function Dashboard({ leads }: { leads: Lead[] }) {
+export function Dashboard({
+  current,
+  previous,
+}: {
+  current: DashboardOverview;
+  previous: DashboardOverview;
+}) {
   const period = usePeriodStore((s) => s.period);
   const setPeriod = usePeriodStore((s) => s.setPeriod);
   const customFrom = usePeriodStore((s) => s.customFrom);
   const customTo = usePeriodStore((s) => s.customTo);
   const setCustomRange = usePeriodStore((s) => s.setCustomRange);
-  const history = useLeadsStore((s) => s.history);
 
-  const win = useMemo(
-    () => resolvePeriod(period, customFrom, customTo),
-    [period, customFrom, customTo],
-  );
-  const prevWin = useMemo(() => previousWindow(win), [win]);
-  const current = useMemo(() => leadsInWindow(leads, win), [leads, win]);
-  const previous = useMemo(() => leadsInWindow(leads, prevWin), [leads, prevWin]);
-  const a = useMemo(() => aggregate(current), [current]);
-  const p = useMemo(() => aggregate(previous), [previous]);
-  const searchesInWin = useMemo(
-    () => history.filter((h) => inWindow(h.createdAt, win)).length,
-    [history, win],
-  );
-  const searchesInPrev = useMemo(
-    () => history.filter((h) => inWindow(h.createdAt, prevWin)).length,
-    [history, prevWin],
-  );
+  // Tudo vem do servidor (agregação sobre a carteira inteira, nunca array
+  // truncado). a = janela atual, p = janela anterior (para deltas).
+  const a = current;
+  const p = previous;
 
-  const daySeries = useMemo(() => {
-    const byDay: Record<string, { leads: number; revenue: number; won: number }> = {};
-    current.forEach((l) => {
-      const d = new Date(l.discoveredAt).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      });
-      byDay[d] ??= { leads: 0, revenue: 0, won: 0 };
-      byDay[d].leads++;
-    });
-    current
-      .filter((l) => l.stage === "won" && l.closedAt)
-      .forEach((l) => {
-        const d = new Date(l.closedAt!).toLocaleDateString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-        });
-        byDay[d] ??= { leads: 0, revenue: 0, won: 0 };
-        byDay[d].revenue += l.closedValue ?? 0;
-        byDay[d].won++;
-      });
-    return Object.entries(byDay)
-      .map(([date, v]) => ({ date, ...v, conv: v.leads ? Math.round((v.won / v.leads) * 100) : 0 }))
-      .slice(-30);
-  }, [current]);
+  const daySeries = useMemo(
+    () =>
+      a.dailySeries.map((d) => ({
+        ...d,
+        conv: d.leads ? Math.round((d.won / d.leads) * 100) : 0,
+      })),
+    [a.dailySeries],
+  );
 
   const tempSeries = useMemo(
     () =>
       (["hot", "warm", "cold"] as const).map((t) => ({
         name: t === "hot" ? "Quente" : t === "warm" ? "Morno" : "Frio",
-        value: current.filter((l) => l.temperature === t).length,
+        value: a.byTemperature[t] ?? 0,
       })),
-    [current],
+    [a.byTemperature],
   );
 
   const channelSeries = useMemo(
     () => [
-      { name: "WhatsApp", value: current.filter((l) => l.whatsapp).length },
-      { name: "Telefone", value: current.filter((l) => l.phone).length },
-      { name: "Instagram", value: current.filter((l) => l.instagram).length },
-      { name: "E-mail", value: current.filter((l) => l.email).length },
-      { name: "Site", value: current.filter((l) => l.hasWebsite).length },
+      { name: "WhatsApp", value: a.channels.whatsapp },
+      { name: "Telefone", value: a.channels.phone },
+      { name: "Instagram", value: a.channels.instagram },
+      { name: "E-mail", value: a.channels.email },
+      { name: "Site", value: a.channels.site },
     ],
-    [current],
+    [a.channels],
   );
 
-  const byNiche = useMemo(() => groupBy(current, (l) => l.category), [current]);
-  const byCity = useMemo(() => groupBy(current, (l) => l.city), [current]);
+  const byNiche = useMemo(() => groupAgg(a.byCategory, (e) => e.category), [a.byCategory]);
+  const byCity = useMemo(() => groupAgg(a.byCity, (e) => e.city), [a.byCity]);
 
   const nicheConvSeries = useMemo(
     () =>
@@ -396,14 +317,14 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
       },
     ];
   }, [byNiche]);
-  const empty = current.length === 0;
+  const empty = a.totalLeads === 0;
 
   return (
     <div className="min-h-full bg-surface-2 p-4 md:p-6">
       <div className="mx-auto max-w-[1400px] space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[18px] font-semibold">Painel de conversão</h1>
+            <h2 className="text-[18px] font-semibold">Painel de conversão</h2>
             <p className="text-[12.5px] text-muted-foreground">
               Acompanhe métricas de leads, funil e receita no período.
             </p>
@@ -459,15 +380,15 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
               <LocalMetricCard
                 size="lg"
                 label="Total de leads"
-                value={formatNumber(a.total)}
-                delta={deltaPct(a.total, p.total)}
+                value={formatNumber(a.totalLeads)}
+                delta={deltaPct(a.totalLeads, p.totalLeads)}
                 tooltip="Leads descobertos dentro do período selecionado."
               />
               <LocalMetricCard
                 size="lg"
                 label="Ganhos"
-                value={formatNumber(a.byStage.won.length)}
-                delta={deltaPct(a.byStage.won.length, p.byStage.won.length)}
+                value={formatNumber(a.byStage.won ?? 0)}
+                delta={deltaPct(a.byStage.won ?? 0, p.byStage.won ?? 0)}
                 accent="success"
                 highlight
                 tooltip="Negócios fechados."
@@ -475,15 +396,15 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
               <LocalMetricCard
                 size="lg"
                 label="Conversão"
-                value={formatPercent(a.conv / 100)}
-                delta={deltaPct(a.conv, p.conv)}
+                value={formatPercent(a.conversionRate / 100)}
+                delta={deltaPct(a.conversionRate, p.conversionRate)}
                 tooltip="Ganhos sobre o total de leads do período."
               />
               <LocalMetricCard
                 size="lg"
                 label="Receita fechada"
-                value={formatBRL(a.revenue)}
-                delta={deltaPct(a.revenue, p.revenue)}
+                value={formatBRL(a.wonValue)}
+                delta={deltaPct(a.wonValue, p.wonValue)}
                 accent="success"
                 highlight
                 tooltip="Soma dos valores fechados no período."
@@ -494,50 +415,50 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <LocalMetricCard
                 label="Enriquecidos"
-                value={formatNumber(a.enriched)}
-                delta={deltaPct(a.enriched, p.enriched)}
+                value={formatNumber(a.enrichedCount)}
+                delta={deltaPct(a.enrichedCount, p.enrichedCount)}
                 tooltip="Leads com pelo menos um canal de contato encontrado."
               />
               <LocalMetricCard
                 label="Qualificados"
-                value={formatNumber(a.byStage.qualified.length)}
-                delta={deltaPct(a.byStage.qualified.length, p.byStage.qualified.length)}
+                value={formatNumber(a.byStage.qualified ?? 0)}
+                delta={deltaPct(a.byStage.qualified ?? 0, p.byStage.qualified ?? 0)}
                 tooltip="Leads no estágio Qualificado."
               />
               <LocalMetricCard
                 label="Contatados"
-                value={formatNumber(a.byStage.contacted.length)}
-                delta={deltaPct(a.byStage.contacted.length, p.byStage.contacted.length)}
+                value={formatNumber(a.byStage.contacted ?? 0)}
+                delta={deltaPct(a.byStage.contacted ?? 0, p.byStage.contacted ?? 0)}
                 tooltip="Leads no estágio Contatado."
               />
               <LocalMetricCard
                 label="Respostas"
-                value={formatNumber(a.responses)}
-                delta={deltaPct(a.responses, p.responses)}
+                value={formatNumber(a.respondedCount)}
+                delta={deltaPct(a.respondedCount, p.respondedCount)}
                 tooltip="Leads do período com resposta confirmada pelo usuário."
               />
               <LocalMetricCard
                 label="Reuniões"
-                value={formatNumber(a.meetings)}
-                delta={deltaPct(a.meetings, p.meetings)}
+                value={formatNumber(a.meetingCount)}
+                delta={deltaPct(a.meetingCount, p.meetingCount)}
                 tooltip="Leads do período com reunião registrada."
               />
               <LocalMetricCard
                 label="Propostas"
-                value={formatNumber(a.proposals)}
-                delta={deltaPct(a.proposals, p.proposals)}
+                value={formatNumber(a.proposalCount)}
+                delta={deltaPct(a.proposalCount, p.proposalCount)}
                 tooltip="Leads do período com proposta registrada."
               />
               <LocalMetricCard
                 label="Descartados"
-                value={formatNumber(a.byStage.discarded.length)}
-                delta={deltaPct(a.byStage.discarded.length, p.byStage.discarded.length)}
+                value={formatNumber(a.byStage.discarded ?? 0)}
+                delta={deltaPct(a.byStage.discarded ?? 0, p.byStage.discarded ?? 0)}
                 tooltip="Leads descartados no período."
               />
               <LocalMetricCard
                 label="Buscas"
-                value={formatNumber(searchesInWin)}
-                delta={deltaPct(searchesInWin, searchesInPrev)}
+                value={formatNumber(a.searchCount)}
+                delta={deltaPct(a.searchCount, p.searchCount)}
                 tooltip="Buscas realizadas no período."
               />
               <LocalMetricCard
@@ -548,8 +469,8 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
               />
               <LocalMetricCard
                 label="Valor em negociação"
-                value={formatBRL(a.pipelineValue)}
-                delta={deltaPct(a.pipelineValue, p.pipelineValue)}
+                value={formatBRL(a.pipelineValueWindowed)}
+                delta={deltaPct(a.pipelineValueWindowed, p.pipelineValueWindowed)}
                 tooltip="Soma dos valores estimados dos leads ativos."
               />
               <LocalMetricCard
@@ -560,18 +481,18 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
               />
               <LocalMetricCard
                 label="Tempo médio conv."
-                value={a.avgConvDays != null ? `${formatDecimal(a.avgConvDays)} dias` : "—"}
+                value={a.avgDaysToClose > 0 ? `${formatDecimal(a.avgDaysToClose)} dias` : "—"}
                 delta={
-                  a.avgConvDays != null && p.avgConvDays != null
-                    ? deltaPct(a.avgConvDays, p.avgConvDays)
+                  a.avgDaysToClose > 0 && p.avgDaysToClose > 0
+                    ? deltaPct(a.avgDaysToClose, p.avgDaysToClose)
                     : undefined
                 }
                 tooltip="Média de dias entre a descoberta e o fechamento."
               />
               <LocalMetricCard
                 label="Taxa de conversão"
-                value={formatPercent(a.conv / 100)}
-                delta={deltaPct(a.conv, p.conv)}
+                value={formatPercent(a.conversionRate / 100)}
+                delta={deltaPct(a.conversionRate, p.conversionRate)}
                 tooltip="Percentual de leads que chegaram a Ganho."
               />
             </div>
@@ -582,28 +503,22 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 <div className="text-[11.5px] text-muted-foreground">Etapas até o fechamento</div>
               </div>
               <div className="space-y-2">
-                {STAGE_ORDER.map((s, i) => {
-                  const count = a.byStage[s].length;
-                  const prev = i > 0 ? a.byStage[STAGE_ORDER[i - 1]].length : a.total;
-                  const pass = prev ? (count / prev) * 100 : 0;
-                  const value = a.byStage[s].reduce(
-                    (sum, l) =>
-                      sum + (s === "won" ? (l.closedValue ?? 0) : (l.estimatedValue ?? 0)),
-                    0,
-                  );
+                {STAGE_ORDER.map((s) => {
+                  const count = a.byStage[s] ?? 0;
+                  const value = a.byStageValue[s] ?? 0;
                   return (
                     <div key={s} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-medium">{STAGE_LABELS[s]}</span>
                         <span className="text-muted-foreground tabular-nums">
-                          {count} ({a.total ? ((count / a.total) * 100).toFixed(0) : 0}%) •{" "}
-                          {formatBRL(value)}
-                          {i > 0 && (
-                            <span className="ml-2 text-[10px]">({pass.toFixed(0)}% passagem)</span>
-                          )}
+                          {count} ({a.totalLeads ? ((count / a.totalLeads) * 100).toFixed(0) : 0}%)
+                          • {formatBRL(value)}
                         </span>
                       </div>
-                      <Progress value={a.total ? (count / a.total) * 100 : 0} className="h-2" />
+                      <Progress
+                        value={a.totalLeads ? (count / a.totalLeads) * 100 : 0}
+                        className="h-2"
+                      />
                     </div>
                   );
                 })}
@@ -616,43 +531,24 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Novos leads capturados ao longo do tempo"
                 empty={daySeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <LineChart data={daySeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line
-                      type="monotone"
-                      dataKey="leads"
-                      name="Leads"
-                      stroke={PRIMARY}
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <MiniLineChart
+                  data={daySeries.map((d) => ({ label: d.date, value: d.leads }))}
+                  color={PRIMARY}
+                />
               </ChartCard>
 
               <ChartCard
                 title="Leads por estágio"
                 subtitle="Volume em cada etapa do funil"
-                empty={a.total === 0}
+                empty={a.totalLeads === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart
-                    data={STAGE_ORDER.map((s) => ({
-                      name: STAGE_LABELS[s],
-                      value: a.byStage[s].length,
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="name" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" name="Leads" fill={PRIMARY} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={STAGE_ORDER.map((s) => ({
+                    label: STAGE_LABELS[s],
+                    value: a.byStage[s] ?? 0,
+                  }))}
+                  color={PRIMARY}
+                />
               </ChartCard>
 
               <ChartCard
@@ -660,68 +556,33 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Evolução da taxa de fechamento"
                 empty={daySeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <LineChart data={daySeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} unit="%" />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="conv"
-                      name="Conversão"
-                      stroke={INFO}
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <MiniLineChart
+                  data={daySeries.map((d) => ({ label: d.date, value: d.conv }))}
+                  color={INFO}
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
 
               <ChartCard
                 title="Leads por temperatura"
                 subtitle="Onde estão suas melhores oportunidades"
-                empty={a.total === 0}
+                empty={a.totalLeads === 0}
               >
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={tempSeries}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={80}
-                      paddingAngle={2}
-                    >
-                      {tempSeries.map((_, i) => (
-                        <Cell key={i} fill={[PRIMARY, INFO, NEUTRAL][i]} />
-                      ))}
-                    </Pie>
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <MiniDonutChart
+                  data={tempSeries.map((t) => ({ label: t.name, value: t.value }))}
+                  colors={[PRIMARY, INFO, NEUTRAL]}
+                />
               </ChartCard>
 
               <ChartCard
                 title="Distribuição por canal encontrado"
                 subtitle="Canais de contato disponíveis"
-                empty={a.total === 0}
+                empty={a.totalLeads === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={channelSeries}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="name" {...AXIS_PROPS} />
-                    <YAxis {...AXIS_PROPS} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" name="Leads" fill={INFO} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={channelSeries.map((c) => ({ label: c.name, value: c.value }))}
+                  color={INFO}
+                />
               </ChartCard>
 
               <ChartCard
@@ -729,22 +590,13 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Faturamento gerado ao longo do tempo"
                 empty={daySeries.every((d) => d.revenue === 0)}
               >
-                <ResponsiveContainer>
-                  <BarChart data={daySeries.filter((d) => d.revenue > 0)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="date" {...AXIS_PROPS} />
-                    <YAxis
-                      {...AXIS_PROPS}
-                      tickFormatter={(v: number) => formatBRL(v).replace(",00", "")}
-                      width={80}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [formatBRL(v), "Receita"]}
-                    />
-                    <Bar dataKey="revenue" name="Receita" fill={PRIMARY} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={daySeries
+                    .filter((d) => d.revenue > 0)
+                    .map((d) => ({ label: d.date, value: d.revenue }))}
+                  color={PRIMARY}
+                  formatValue={formatBRL}
+                />
               </ChartCard>
 
               <ChartCard
@@ -752,18 +604,12 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Ranking por desempenho"
                 empty={nicheConvSeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={nicheConvSeries} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
-                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Bar dataKey="conv" name="Conversão" fill={INFO} radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={nicheConvSeries.map((n) => ({ label: n.name, value: n.conv }))}
+                  color={INFO}
+                  horizontal
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
 
               <ChartCard
@@ -771,18 +617,12 @@ export function Dashboard({ leads }: { leads: Lead[] }) {
                 subtitle="Onde você tem mais tração"
                 empty={cityConvSeries.length === 0}
               >
-                <ResponsiveContainer>
-                  <BarChart data={cityConvSeries} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis type="number" {...AXIS_PROPS} unit="%" />
-                    <YAxis type="category" dataKey="name" {...AXIS_PROPS} width={110} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v: number) => [`${v}%`, "Conversão"]}
-                    />
-                    <Bar dataKey="conv" name="Conversão" fill={PRIMARY} radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <MiniBarChart
+                  data={cityConvSeries.map((c) => ({ label: c.name, value: c.conv }))}
+                  color={PRIMARY}
+                  horizontal
+                  formatValue={(v) => `${v}%`}
+                />
               </ChartCard>
             </div>
 

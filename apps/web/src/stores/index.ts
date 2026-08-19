@@ -12,6 +12,8 @@ import type {
   DashboardPeriod,
 } from "@/types";
 import type { DiscoveryResult } from "@/repositories/types";
+import type { AdvancedDiscoveryFilters } from "@/lib/filters";
+import type { DiscoverySortBy } from "@/lib/discovery-sort";
 import {
   DEFAULT_MESSAGE_TEMPLATE,
   STORAGE_KEY,
@@ -19,6 +21,7 @@ import {
   type SortValue,
 } from "@/lib/constants";
 import { isDemoMode } from "@/lib/env";
+import { MAX_RADIUS_KM } from "@/lib/nearest-outside";
 import { track } from "@/lib/analytics";
 import { seedDemoLeads } from "@/repositories";
 import { useActivationStore } from "@/stores/activation";
@@ -53,8 +56,34 @@ interface UIState {
   mapShowCircle: boolean;
   mapDark: boolean;
   mapLegendCollapsed: boolean;
-  /** Discovery workspace view: the map, or a full-width results list. */
-  discoveryView: "map" | "list";
+  /** Discovery workspace view: the map, a full-width results list, or the
+   * opportunity heatmap. ("territories" removido no LOTE 2, Tarefa 4 — a
+   * view/tab saiu da UI na Fase remoção; TerritoriesView.tsx era órfão desde
+   * então. O domínio/backend de territórios continuam intocados, só
+   * desacoplados desta store.) */
+  discoveryView: "map" | "list" | "heatmap";
+  /** Heatmap metric (spec #38). */
+  heatMetric: "opportunity" | "density" | "weak_digital" | "segment_concentration";
+  /** Advanced discovery filters (V3-A progressive disclosure). */
+  advancedFilters: AdvancedDiscoveryFilters;
+  /** FASE C2: ordenação dos resultados de descoberta — ÚNICA fonte, lida
+   * pelo painel (AppSidebar) E pela lista principal (ResultsList via
+   * app.mapa.tsx), para as duas superfícies nunca mais divergirem na ordem
+   * da MESMA busca. TRANSITÓRIO como advancedFilters e pelo mesmo motivo:
+   * um critério de ordenação de uma sessão antiga reordenando uma busca
+   * nova, sem aviso, é a mesma classe de bug de estado preso do navMode. */
+  resultSortBy: DiscoverySortBy;
+  /** NavRail: 'auto' = default responsivo (>=1536 expandida, <1536 colapsada).
+   * DECISÃO (P3-4 do gate): o default responsivo vale enquanto o usuário NUNCA
+   * tocou no toggle — 'auto' persiste como 'auto' (sem preferência). O
+   * PRIMEIRO clique no toggle grava 'expanded'/'collapsed' EXPLÍCITO, e a
+   * partir daí a escolha do usuário MANDA em qualquer viewport. */
+  navMode: "auto" | "expanded" | "collapsed";
+  /** Centro atual do viewport do mapa — alimenta o 'Buscar nesta área' da
+   * barra (Fase final). TRANSITÓRIO: nunca persistido. */
+  mapViewport: { lat: number; lng: number } | null;
+  setMapViewport: (v: { lat: number; lng: number } | null) => void;
+  setNavMode: (v: "auto" | "expanded" | "collapsed") => void;
   toggleTheme: () => void;
   setDensity: (d: "compact" | "comfortable") => void;
   setSidebarCollapsed: (v: boolean) => void;
@@ -62,7 +91,12 @@ interface UIState {
   setMapShowCircle: (v: boolean) => void;
   setMapDark: (v: boolean) => void;
   setMapLegendCollapsed: (v: boolean) => void;
-  setDiscoveryView: (v: "map" | "list") => void;
+  setDiscoveryView: (v: "map" | "list" | "heatmap") => void;
+  setHeatMetric: (v: "opportunity" | "density" | "weak_digital" | "segment_concentration") => void;
+  setAdvancedFilters: (patch: Partial<AdvancedDiscoveryFilters>) => void;
+  /** Limpa TODOS os filtros avançados/locais (merge com {} não limpa nada). */
+  resetAdvancedFilters: () => void;
+  setResultSortBy: (v: DiscoverySortBy) => void;
 }
 export const useUIStore = create<UIState>()(
   persist(
@@ -74,7 +108,19 @@ export const useUIStore = create<UIState>()(
       mapShowCircle: true,
       mapDark: false,
       mapLegendCollapsed: false,
-      discoveryView: "map",
+      // FASE C: default para quem NUNCA usou o produto (storage limpo) — a
+      // promessa da landing é "quem abordar primeiro e por quê" (priorização
+      // + explicação), que a LISTA responde e o mapa não (score em anel,
+      // badge de decisor, confiança e status de enriquecimento não cabem num
+      // pino). Só afeta hidratação sem blob persistido: quem já tem
+      // discoveryView salvo (qualquer versão ≤3) carrega o PRÓPRIO valor via
+      // migrate() abaixo, nunca este literal — ver nota em migrate.
+      discoveryView: "list",
+      heatMetric: "opportunity",
+      advancedFilters: {},
+      resultSortBy: "score",
+      navMode: "auto",
+      mapViewport: null,
       toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
       setDensity: (density) => set({ density }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
@@ -88,8 +134,53 @@ export const useUIStore = create<UIState>()(
       setMapDark: (mapDark) => set({ mapDark }),
       setMapLegendCollapsed: (mapLegendCollapsed) => set({ mapLegendCollapsed }),
       setDiscoveryView: (discoveryView) => set({ discoveryView }),
+      setNavMode: (navMode) => set({ navMode }),
+      setMapViewport: (mapViewport) => set({ mapViewport }),
+      setHeatMetric: (heatMetric) => set({ heatMetric }),
+      setAdvancedFilters: (patch) =>
+        set((s) => ({ advancedFilters: { ...s.advancedFilters, ...patch } })),
+      resetAdvancedFilters: () => set({ advancedFilters: {} }),
+      setResultSortBy: (resultSortBy) => set({ resultSortBy }),
     }),
-    { name: `${STORAGE_KEY}:ui`, storage: createJSONStorage(() => safeStorage()) },
+    {
+      name: `${STORAGE_KEY}:ui`,
+      version: 3,
+      storage: createJSONStorage(() => safeStorage()),
+      // Persiste SÓ o que faz sentido entre sessões (Fase 6b): estado de
+      // apresentação e preferências explícitas. advancedFilters fica de fora —
+      // filtros velhos de uma sessão antiga filtram silenciosamente uma busca
+      // nova (mesma classe de bug de estado preso do navMode).
+      partialize: (s) => ({
+        theme: s.theme,
+        density: s.density,
+        sidebarCollapsed: s.sidebarCollapsed,
+        mapShowCircle: s.mapShowCircle,
+        mapDark: s.mapDark,
+        mapLegendCollapsed: s.mapLegendCollapsed,
+        discoveryView: s.discoveryView,
+        heatMetric: s.heatMetric,
+        navMode: s.navMode,
+      }),
+      // Hidratação de blob antigo/corrompido NUNCA pode travar a UI: qualquer
+      // navMode ausente ou fora do contrato cai em 'auto' (default seguro).
+      migrate: (persisted) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        if (p.navMode !== "expanded" && p.navMode !== "collapsed" && p.navMode !== "auto") {
+          p.navMode = "auto";
+        }
+        // v2→v3 (LOTE 2, Tarefa 4): "territories" saiu do tipo — quem tinha
+        // essa view persistida (ou qualquer valor fora do contrato atual)
+        // cai em "map", não numa tela em branco.
+        if (
+          p.discoveryView !== "map" &&
+          p.discoveryView !== "list" &&
+          p.discoveryView !== "heatmap"
+        ) {
+          p.discoveryView = "map";
+        }
+        return p as never;
+      },
+    },
   ),
 );
 
@@ -116,9 +207,31 @@ export const useSettingsStore = create<SettingsState>()(
       defaultSort: "relevance",
       signature: "",
       senderName: "",
-      set: (patch) => set(patch),
+      // Clamp aqui, não só na migração: é o único setter (MotorSettings), mas
+      // defensivo é mais barato que outro F3 (estado salvo virando estado
+      // inválido silencioso).
+      set: (patch) =>
+        set(
+          patch.defaultRadius != null
+            ? { ...patch, defaultRadius: Math.min(patch.defaultRadius, MAX_RADIUS_KM) }
+            : patch,
+        ),
     }),
-    { name: `${STORAGE_KEY}:settings`, storage: createJSONStorage(() => safeStorage()) },
+    {
+      name: `${STORAGE_KEY}:settings`,
+      storage: createJSONStorage(() => safeStorage()),
+      version: 1,
+      // v0 (pré-LOTE 2) podia ter defaultRadius até 100 — o slider hoje vai
+      // só até MAX_RADIUS_KM (50, teto real do provider). Sem isto, blob
+      // antigo hidrata um raio que nenhum controle da UI consegue exibir.
+      migrate: (persisted) => {
+        const state = persisted as Partial<SettingsState>;
+        if (state && typeof state.defaultRadius === "number") {
+          state.defaultRadius = Math.min(state.defaultRadius, MAX_RADIUS_KM);
+        }
+        return state as SettingsState;
+      },
+    },
   ),
 );
 
@@ -149,6 +262,9 @@ interface LeadsState {
   setSearching: (v: boolean) => void;
   setSearchError: (msg: string | null) => void;
   setLeads: (leads: Lead[], search: Search) => void;
+  /** Open a previously-run (or saved) search's results WITHOUT re-running it —
+   * sets the search context so `useDiscoveryResults` reads its persisted rows. */
+  openSearch: (search: Search) => void;
   setPreviewLocation: (p: LeadsState["previewLocation"]) => void;
   reset: () => void;
   updateLead: (id: string, patch: Partial<Lead>) => void;
@@ -229,6 +345,19 @@ export const useLeadsStore = create<LeadsState>()(
           focusedId: null,
           kanbanOrder: {},
         }));
+        useSearchDraftStore.getState().resetDraftTo(search);
+      },
+      openSearch: (search) => {
+        set({
+          currentSearch: search,
+          loaded: true,
+          searching: false,
+          searchError: null,
+          previewLocation: null,
+          selectedIds: [],
+          focusedId: null,
+          kanbanOrder: {},
+        });
         useSearchDraftStore.getState().resetDraftTo(search);
       },
       setPreviewLocation: (previewLocation) => set({ previewLocation }),
@@ -503,11 +632,15 @@ export interface SearchDraft {
   coords: { lat: number; lng: number };
   radiusKm: number;
   presence: PresenceFilter;
+  /** Quantidade de empresas a encontrar (V3-A; 10/25/50/100). Default 25. */
+  maxResults?: number;
 }
 interface SearchDraftState {
   draft: SearchDraft;
   setDraft: (patch: Partial<SearchDraft>) => void;
   resetDraftTo: (search: Search) => void;
+  /** Zera o rascunho (chip de intenção "limpar") — volta aos defaults iniciais. */
+  reset: () => void;
 }
 const initialDraft: SearchDraft = {
   niche: "",
@@ -515,6 +648,7 @@ const initialDraft: SearchDraft = {
   coords: { lat: 0, lng: 0 },
   radiusKm: 10,
   presence: "all",
+  maxResults: 25,
 };
 export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
   draft: initialDraft,
@@ -525,10 +659,14 @@ export const useSearchDraftStore = create<SearchDraftState>()((set) => ({
         niche: search.niche,
         location: search.location,
         coords: { lat: search.latitude, lng: search.longitude },
-        radiusKm: search.radiusKm,
+        // Missão salva antes do LOTE 2 pode ter raio > MAX_RADIUS_KM (teto
+        // era 100). Sem o clamp, o slider herdava um valor fora do seu
+        // próprio range — mesma classe de estado inválido silencioso do F3.
+        radiusKm: Math.min(search.radiusKm, MAX_RADIUS_KM),
         presence: search.presence,
       },
     }),
+  reset: () => set({ draft: { ...initialDraft } }),
 }));
 
 export function applyPresenceFilter(presence: PresenceFilter, leads: Lead[]) {

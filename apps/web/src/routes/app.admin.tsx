@@ -14,19 +14,12 @@ import {
   Activity,
   FileSearch,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import { MiniLineChart } from "@/components/app/MiniCharts";
 import { invokeFunction } from "@/lib/supabase";
 import { isRealMode } from "@/lib/env";
 import { DataTable, type DataTableColumn } from "@/components/shared/DataTable";
 import { PilotManagement } from "@/components/app/PilotManagement";
+import { ProcessingAdmin } from "@/components/app/ProcessingAdmin";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({
@@ -415,36 +408,13 @@ function AdminPage() {
 
         <Section title="Consumo" desc={`Buscas realizadas nos últimos ${days} dias`}>
           <div className="rounded-xl border border-border bg-surface p-4">
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={consumo} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="fillC" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="d" fontSize={11} stroke="var(--color-muted-foreground)" />
-                <YAxis fontSize={11} stroke="var(--color-muted-foreground)" />
-                <Tooltip
-                  contentStyle={{
-                    fontSize: 12,
-                    borderRadius: 8,
-                    border: "1px solid var(--color-border)",
-                  }}
-                  formatter={(value: number, name: string) =>
-                    name === "buscas" ? [value, "Buscas"] : [`US$ ${value}`, "Custo"]
-                  }
-                />
-                <Area
-                  type="monotone"
-                  dataKey="buscas"
-                  stroke="var(--color-primary)"
-                  strokeWidth={2}
-                  fill="url(#fillC)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="h-[220px]">
+              <MiniLineChart
+                data={consumo.map((s) => ({ label: s.d, value: s.buscas }))}
+                color="var(--color-primary)"
+                area
+              />
+            </div>
           </div>
         </Section>
 
@@ -491,6 +461,13 @@ function AdminPage() {
               }
             />
           </div>
+        </Section>
+
+        <Section
+          title="Processamento"
+          desc="Pipeline assíncrono de enriquecimento — fila, falhas e reprocessamento (dead-letter)"
+        >
+          <ProcessingAdmin />
         </Section>
       </div>
     </div>

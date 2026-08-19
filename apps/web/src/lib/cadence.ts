@@ -1,4 +1,5 @@
 import type { Lead } from "@/types";
+import { CADENCE_STEP_DEFS } from "@leads/domain";
 
 export interface CadenceStep {
   id: string;
@@ -12,44 +13,24 @@ export interface CadenceStep {
   messageOpener: string;
 }
 
+// Step definition comes from the DOMAIN (single source of truth —
+// CADENCE_STEP_DEFS in @leads/domain next-best-action.ts); the web layer only
+// adds the message openers (UI copy).
+const OPENERS: Record<string, string> = {
+  "followup-1": "Passando rapidinho para saber se você chegou a ver minha mensagem.",
+  "call-1": "",
+  "followup-2":
+    "Sei que a rotina é corrida — trouxe um outro ângulo que pode fazer sentido pra vocês.",
+  "last-attempt":
+    "Essa é minha última tentativa de contato por aqui — se não for o momento certo, sem problemas.",
+};
+
 // D+2/D+4/D+7/D+14, alternating WhatsApp/call — the cadence found to be
 // standard practice for BR B2B follow-up (see docs/FEATURE_ROADMAP_2026-08.md).
-export const CADENCE_STEPS: CadenceStep[] = [
-  {
-    id: "followup-1",
-    order: 1,
-    dueAtDay: 2,
-    channel: "whatsapp",
-    label: "Follow-up curto",
-    messageOpener: "Passando rapidinho para saber se você chegou a ver minha mensagem.",
-  },
-  {
-    id: "call-1",
-    order: 2,
-    dueAtDay: 4,
-    channel: "call",
-    label: "Ligação de clareza",
-    messageOpener: "",
-  },
-  {
-    id: "followup-2",
-    order: 3,
-    dueAtDay: 7,
-    channel: "whatsapp",
-    label: "Novo argumento",
-    messageOpener:
-      "Sei que a rotina é corrida — trouxe um outro ângulo que pode fazer sentido pra vocês.",
-  },
-  {
-    id: "last-attempt",
-    order: 4,
-    dueAtDay: 14,
-    channel: "whatsapp",
-    label: "Última tentativa",
-    messageOpener:
-      "Essa é minha última tentativa de contato por aqui — se não for o momento certo, sem problemas.",
-  },
-];
+export const CADENCE_STEPS: CadenceStep[] = CADENCE_STEP_DEFS.map((def) => ({
+  ...def,
+  messageOpener: OPENERS[def.id] ?? "",
+}));
 
 type CadenceLead = Pick<Lead, "stage" | "cadenceStartedAt" | "cadenceStep" | "cadenceCompletedAt">;
 

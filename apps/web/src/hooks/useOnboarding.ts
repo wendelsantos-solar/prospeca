@@ -34,11 +34,13 @@ function saveLocal(progress: OnboardingProgress): void {
 }
 
 export function useOnboarding() {
-  const [progress, setProgress] = useState<OnboardingProgress | null>(() =>
-    isDemoMode ? loadLocal() : null,
-  );
-  // Demo mode reads localStorage synchronously — nothing to await.
-  const [loaded, setLoaded] = useState(isDemoMode);
+  // Start "not loaded" on BOTH server and client. Demo mode previously read
+  // localStorage inside the useState initializer, which diverged between SSR
+  // (no localStorage → null) and the browser (real value) and caused a React
+  // hydration mismatch on returning users. Reading in an effect keeps the
+  // first client render identical to the server's, so React can hydrate cleanly.
+  const [progress, setProgress] = useState<OnboardingProgress | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const progressRef = useRef(progress);
 
   useEffect(() => {
@@ -46,7 +48,11 @@ export function useOnboarding() {
   }, [progress]);
 
   useEffect(() => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setProgress(loadLocal());
+      setLoaded(true);
+      return;
+    }
     let cancelled = false;
     fetchOnboardingProgress()
       .then((p) => {

@@ -8,7 +8,7 @@
  * focus that gets trapped.
  */
 import { useState } from "react";
-import type { Lead, ActivityType } from "@/types";
+import type { ActivityType, DisplayLead, Lead } from "@/types";
 import { useAddActivityMutation } from "@/hooks/useLeadsQuery";
 import {
   useConnectGoogleCalendar,
@@ -110,7 +110,7 @@ interface NewActivity {
   addToGoogleCalendar: boolean;
 }
 
-export function LeadActivitiesTab({ lead, readOnly }: { lead: Lead; readOnly?: boolean }) {
+export function LeadActivitiesTab({ lead, readOnly }: { lead: DisplayLead; readOnly?: boolean }) {
   const addActivityMut = useAddActivityMutation();
   const calendarQuery = useGoogleCalendarStatus();
   const connectCalendarMut = useConnectGoogleCalendar();

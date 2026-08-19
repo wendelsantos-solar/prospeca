@@ -24,6 +24,14 @@ const base: DiscoveryResult = {
   score: 55,
   temperature: "warm",
   importedLeadId: null,
+  enrichmentState: "enriched",
+  enrichmentFields: null,
+  primaryCnae: null,
+  cnaeDescription: null,
+  secondaryCnaes: null,
+  decisionMakerCount: 0,
+  topDecisionMakerBand: null,
+  topDecisionMakerScore: null,
 };
 
 test("maps discovery fields onto a lead-shaped preview object", () => {
@@ -98,4 +106,20 @@ test("website present sets hasWebsite-consistent fields", () => {
   });
   expect(lead.website).toBe("https://ex.com");
   expect(lead.hasWebsite).toBe(true);
+});
+
+// LOTE 3 — o preview não pode inventar posição nem distância.
+test("coordenada e distância desconhecidas passam como null, nunca como 0", () => {
+  const lead = discoveryToPreviewLead({
+    ...base,
+    latitude: null,
+    longitude: null,
+    distanceKm: null,
+  });
+  expect(lead.latitude).toBeNull();
+  expect(lead.longitude).toBeNull();
+  expect(lead.distanceKm).toBeNull();
+  // 0 seria o Golfo da Guiné e "bem aqui" — as duas mentiras que o LOTE 3 remove.
+  expect(lead.latitude).not.toBe(0);
+  expect(lead.distanceKm).not.toBe(0);
 });

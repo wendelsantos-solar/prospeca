@@ -1,11 +1,15 @@
-import type { Lead } from "@/types";
+// NBA mapper — Fase 6. The decision tree now lives in the pure domain
+// (packages/domain/src/next-best-action.ts#recommendNextBestAction); this file
+// is a THIN adapter: maps the web `Lead` onto the domain input and translates
+// the domain result into the web `Nba` shape (pt-BR action/cta + the cadence
+// step object for progress UI). No business rules here.
+import type { DisplayLead, Lead } from "@/types";
 import {
-  CADENCE_STEPS,
-  currentCadenceStep,
-  nextCadenceStep,
-  cadenceStepDueDate,
-  type CadenceStep,
-} from "./cadence";
+  recommendNextBestAction,
+  type DecisionMakerHint,
+  type NextBestActionInput,
+} from "@leads/domain";
+import { CADENCE_STEPS, type CadenceStep } from "./cadence";
 
 export type NbaPriority = "high" | "medium" | "low";
 export type NbaChannel = "whatsapp" | "call" | "email" | "system";
@@ -17,134 +21,61 @@ export interface Nba {
   priority: NbaPriority;
   daysSinceContact: number | null;
   cta: string;
-  /** Set only in the "contacted" cadence branch — lets the UI show step
-   * progress and pre-fill the draft with the step's opening line. */
+  /** Set only when a cadence step is due — lets the UI show step progress and
+   * pre-fill the draft with the step's opening line. */
   cadenceStep?: CadenceStep;
+  /** Decisor que a ação manda procurar, quando identificado. */
+  decisionMaker?: DecisionMakerHint | null;
 }
 
-function daysSince(iso?: string): number | null {
+function daysSince(iso?: string | null): number | null {
   if (!iso) return null;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-export function computeNba(lead: Lead): Nba {
-  const days = daysSince(lead.lastInteractionAt);
-  const noChannels = !lead.whatsapp && !lead.phone && !lead.email;
-
-  if (lead.stage === "won") {
-    return {
-      action: "Registrar próximos passos",
-      reason: "Negócio ganho. Documente entregas e agende o kickoff.",
-      channel: "system",
-      priority: "low",
-      daysSinceContact: days,
-      cta: "Criar atividade",
-    };
-  }
-  if (lead.stage === "discarded") {
-    return {
-      action: "Revisar motivo do descarte",
-      reason: "Lead descartado. Confirme se há espaço para reativação futura.",
-      channel: "system",
-      priority: "low",
-      daysSinceContact: days,
-      cta: "Abrir detalhes",
-    };
-  }
-
-  if (noChannels) {
-    return {
-      action: "Buscar outro canal",
-      reason: "Nenhum canal de contato encontrado. Enriqueça o cadastro antes de abordar.",
-      channel: "system",
-      priority: "medium",
-      daysSinceContact: days,
-      cta: "Editar dados",
-    };
-  }
-
-  if (lead.stage === "new") {
-    if (days === null) {
-      return {
-        action: "Enviar primeira abordagem",
-        reason: lead.whatsapp
-          ? "Lead novo com WhatsApp disponível. Faça o primeiro contato agora."
-          : "Lead novo. Faça a primeira abordagem pelo canal disponível.",
-        channel: lead.whatsapp ? "whatsapp" : lead.phone ? "call" : "email",
-        priority: "high",
-        daysSinceContact: null,
-        cta: "Preparar abordagem",
-      };
-    }
-    if (days < 2) {
-      return {
-        action: "Aguardar retorno",
-        reason: `Abordado há ${days} dia${days === 1 ? "" : "s"}. Dê tempo antes do próximo toque.`,
-        channel: "system",
-        priority: "low",
-        daysSinceContact: days,
-        cta: "Agendar follow-up",
-      };
-    }
-  }
-
-  if (lead.stage === "contacted") {
-    if ((lead.cadenceStep ?? 0) >= CADENCE_STEPS.length || lead.cadenceCompletedAt) {
-      return {
-        action: "Definir próximo passo",
-        reason:
-          "A cadência foi concluída. Registre a resposta ou decida se a oportunidade continua.",
-        channel: "system",
-        priority: "medium",
-        daysSinceContact: days,
-        cta: "Abrir detalhes",
-      };
-    }
-
-    const step = currentCadenceStep(lead);
-    if (!step) {
-      const next = nextCadenceStep(lead);
-      const nextDueAt = next ? cadenceStepDueDate(lead, next) : null;
-      return {
-        action: lead.cadenceStartedAt ? "Aguardar resposta" : "Confirmar primeiro contato",
-        reason: nextDueAt
-          ? `Próximo toque em ${new Date(nextDueAt).toLocaleDateString("pt-BR")}.`
-          : "A cadência só começa depois que o primeiro contato é confirmado.",
-        channel: "system",
-        priority: "low",
-        daysSinceContact: days,
-        cta: lead.cadenceStartedAt ? "Agendar retorno" : "Abrir detalhes",
-      };
-    }
-    const isLast = step.order === CADENCE_STEPS.length;
-    return {
-      action: step.label,
-      reason: `${days} dias sem resposta — toque ${step.order} de ${CADENCE_STEPS.length} da cadência (${step.label.toLowerCase()}).`,
-      channel: step.channel === "call" ? "call" : lead.whatsapp ? "whatsapp" : "call",
-      priority: isLast ? "medium" : "high",
-      daysSinceContact: days,
-      cta: step.channel === "call" ? "Ligar agora" : "Preparar follow-up",
-      cadenceStep: step,
-    };
-  }
-
-  if (lead.stage === "qualified") {
-    return {
-      action: "Agendar reunião ou enviar proposta",
-      reason: "Lead qualificado. Avance para o próximo passo comercial concreto.",
-      channel: lead.whatsapp ? "whatsapp" : "call",
-      priority: "high",
-      daysSinceContact: days,
-      cta: "Agendar reunião",
-    };
-  }
-
+/**
+ * Lead → domain input. Pure shape mapping, no decisions.
+ *
+ * O decisor chega por FORA do Lead: ele vive em `company_people`, ligado ao
+ * place, e é carregado sob demanda por quem renderiza (useCompanyPeople). Não
+ * é campo de Lead e não deve virar um — a mesma empresa pode estar em várias
+ * buscas e o decisor pertence à empresa, não ao lead.
+ */
+export function leadToNbaInput(
+  lead: DisplayLead,
+  decisionMaker?: DecisionMakerHint | null,
+): NextBestActionInput {
   return {
-    action: "Revisar próximo passo",
-    reason: "Defina uma próxima ação para não perder o lead de vista.",
-    channel: "system",
-    priority: "medium",
-    daysSinceContact: days,
-    cta: "Criar atividade",
+    hasWebsite: lead.hasWebsite,
+    hasEmail: !!lead.email,
+    hasPhone: !!lead.phone,
+    whatsappStatus: lead.whatsapp ? "verified" : "unknown",
+    rating: lead.rating ?? null,
+    reviewCount: lead.reviewCount ?? null,
+    temperature: lead.temperature,
+    score: lead.score,
+    crmStage: lead.stage,
+    lastContactDays: daysSince(lead.lastInteractionAt),
+    cadenceStartedDays: daysSince(lead.cadenceStartedAt),
+    cadenceStep: lead.cadenceStep ?? 0,
+    cadenceCompleted: !!lead.cadenceCompletedAt,
+    decisionMaker: decisionMaker ?? null,
+  };
+}
+
+export function computeNba(lead: DisplayLead, decisionMaker?: DecisionMakerHint | null): Nba {
+  const input = leadToNbaInput(lead, decisionMaker);
+  const rec = recommendNextBestAction(input);
+  return {
+    action: rec.recommendation,
+    reason: rec.reason,
+    channel: rec.channel === "phone" ? "call" : rec.channel === "none" ? "system" : rec.channel,
+    priority: rec.urgency,
+    daysSinceContact: input.lastContactDays ?? null,
+    cta: rec.ctaHint ?? "Abrir detalhes",
+    cadenceStep: rec.cadenceStepId
+      ? CADENCE_STEPS.find((s) => s.id === rec.cadenceStepId)
+      : undefined,
+    decisionMaker: rec.decisionMaker ?? null,
   };
 }

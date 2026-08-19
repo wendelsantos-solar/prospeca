@@ -16,7 +16,7 @@ async function isReachable(): Promise<boolean> {
   try {
     const response = await fetch(`${API_URL}/rest/v1/`, {
       headers: { apikey: ANON_KEY },
-      signal: AbortSignal.timeout(2_000),
+      signal: AbortSignal.timeout(5_000),
     });
     return response.status < 500;
   } catch {

@@ -4,10 +4,19 @@ import { CreateSearchInputSchema } from "@leads/contracts/schemas";
 import { AppError, handleOptions, json, logEvent, newRequestId } from "../_shared/http.ts";
 import { requireAuth } from "../_shared/auth.ts";
 import { captureError } from "../_shared/error-tracking.ts";
-import { assertRateLimit, assertSearchQuota, recordUsage, writeAudit } from "../_shared/quota.ts";
+import {
+  assertRateLimit,
+  assertSearchQuota,
+  recordPaidUsage,
+  recordUsage,
+  writeAudit,
+} from "../_shared/quota.ts";
+import { calculateUsageCost } from "@leads/domain/cost-model";
 import { assertUsageAvailable, recordEntitlementUsage } from "../_shared/entitlements.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
 import { geocode } from "../_shared/google.ts";
+import { resolveSearchTaxonomy } from "../_shared/taxonomy.ts";
+import { estimateSearchCost } from "@leads/domain/estimate";
 import { readPoint } from "@leads/geo";
 
 const InputSchema = CreateSearchInputSchema;
@@ -82,11 +91,17 @@ Deno.serve(async (req) => {
             if (!geo) throw new AppError("INVALID_LOCATION", "Localização não encontrada.");
             latitude = geo.latitude;
             longitude = geo.longitude;
-            await recordUsage(ctx.adminClient, {
+            // Fase 7: custo do geocode (SKU 0.005) — PÓS-chamada paga → fora de banda.
+            const geoC = calculateUsageCost("google_geocoding", "geocode_request", 1);
+            await recordPaidUsage(ctx.adminClient, {
               organizationId: ctx.organizationId,
               userId: ctx.userId,
               eventType: "geocode_request",
               provider: "google_geocoding",
+              estimatedCostUsd: geoC.estimatedCostUsd,
+              realCostUsd: geoC.realCostUsd,
+              costSource: geoC.source,
+              cacheHit: false,
             });
             await ctx.adminClient.from("geocode_cache").upsert(
               {
@@ -99,6 +114,52 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Taxonomy resolution (GAP #5): resolve the user's term to the canonical
+        // category + Google Places types so execute-search can refine the
+        // provider query (includedType + type post-filter) instead of raw
+        // concatenation. Non-blocking when unresolved — the raw term stays.
+        const tax = await resolveSearchTaxonomy(ctx.adminClient, input.category ?? input.query);
+
+        // ── Pre-flight estimate (Fase 7, honest range) ────────────────────
+        // A covering provider cache (same category, circle contained) means
+        // zero paid pages; otherwise 1..3 pages. The range is persisted and
+        // returned — never a promised exact value.
+        const maxResults = (() => {
+          const cap = Number(Deno.env.get("SEARCH_MAX_RESULTS") ?? 60);
+          return Math.min(input.maxResults ?? cap, cap);
+        })();
+        const { data: covering } = await ctx.adminClient.rpc("find_covering_cache", {
+          p_category: input.category ?? input.query,
+          p_lng: longitude,
+          p_lat: latitude,
+          p_radius: input.radiusMeters,
+        });
+        const cacheHit = Array.isArray(covering) ? covering.length > 0 : covering != null;
+        const estimate = estimateSearchCost({ maxResults, cacheHit });
+
+        // Budget guard (same pattern as execute-search's backstop): a monthly
+        // cap that is already spent (or would be exceeded by the max estimate)
+        // blocks NEW paid searches — the org keeps serving cache only.
+        const { data: orgBudget } = await ctx.adminClient
+          .from("organizations")
+          .select("monthly_api_budget_usd")
+          .eq("id", ctx.organizationId)
+          .maybeSingle();
+        const budget = orgBudget?.monthly_api_budget_usd;
+        if (budget != null) {
+          const { data: mtd } = await ctx.adminClient.rpc("org_mtd_api_cost_usd", {
+            p_organization_id: ctx.organizationId,
+          });
+          const spent = typeof mtd === "number" ? mtd : 0;
+          if (spent + estimate.costUsdMax > Number(budget)) {
+            throw new AppError(
+              "PLAN_LIMIT_REACHED",
+              "Orçamento mensal de API atingido — novas buscas pagas estão bloqueadas.",
+              { budgetUsd: Number(budget), spentUsd: spent },
+            );
+          }
+        }
+
         const { data: search, error } = await ctx.adminClient
           .from("searches")
           .insert({
@@ -106,18 +167,21 @@ Deno.serve(async (req) => {
             created_by: ctx.userId,
             query: input.query,
             category: input.category ?? null,
+            canonical_category: tax.canonicalCategory,
+            places_types: tax.placesTypes,
+            taxonomy_id: tax.taxonomyId,
+            taxonomy_resolved: tax.resolved,
             location_label: input.location.label,
             center: `POINT(${longitude} ${latitude})`,
             radius_meters: input.radiusMeters,
             presence_filter: input.presenceFilter,
             status: "queued",
             provider: "google_places",
+            estimated_cost: estimate.costUsdMax,
+            estimated_results: estimate.resultsMax,
             // Google Text Search bills per page (pageSize 20, 3 pages = 60).
             // Cap at 60; override with SEARCH_MAX_RESULTS.
-            max_results: (() => {
-              const cap = Number(Deno.env.get("SEARCH_MAX_RESULTS") ?? 60);
-              return Math.min(input.maxResults ?? cap, cap);
-            })(),
+            max_results: maxResults,
           })
           .select("id, status")
           .single();
@@ -184,7 +248,7 @@ Deno.serve(async (req) => {
         if (edge?.waitUntil) edge.waitUntil(dispatch);
         else void dispatch;
 
-        return { searchId: search.id, status: "queued" };
+        return { searchId: search.id, status: "queued", estimate };
       },
     );
 

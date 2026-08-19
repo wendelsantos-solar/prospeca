@@ -1,59 +1,25 @@
-import { useMemo, useState } from "react";
-import { Bell, Check, Trash2, AlertCircle, Clock, Trophy } from "lucide-react";
+import { Bell, Check, Trash2, AlertCircle, Clock, Trophy, TrendingUp } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useLeadsList } from "@/hooks/useLeadsQuery";
 import { useLeadsStore } from "@/stores";
-import {
-  generateNotifications,
-  type AppNotification,
-  type NotificationKind,
-} from "@/lib/notifications";
+import { useNotifications, type NotificationItem } from "@/hooks/useNotifications";
+import type { NotificationKind } from "@/lib/notifications";
 
 const ICON: Record<NotificationKind, React.ComponentType<{ className?: string }>> = {
   overdue_activity: AlertCircle,
   stalled_lead: Clock,
   unanswered_proposal: Clock,
   deal_won: Trophy,
+  intent_signal: TrendingUp,
   info: Bell,
 };
 
 export function NotificationsPopover() {
-  const { data } = useLeadsList({ quick: [] });
-  const items = useMemo(() => data?.items ?? [], [data]);
   const setDetails = useLeadsStore((s) => s.setDetails);
+  const { items, unread, markRead, markAllRead, dismissAll } = useNotifications();
 
-  const notifications = useMemo(() => generateNotifications(items), [items]);
-
-  // Read/dismissed state is session-local — there is no persisted notifications
-  // store in this repo (unlike the prototype's zustand actions); notifications
-  // are regenerated from the funnel on every render.
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-
-  const visible = useMemo(
-    () => notifications.filter((n) => !dismissedIds.has(n.id)),
-    [notifications, dismissedIds],
-  );
-  const unread = useMemo(
-    () => visible.filter((n) => !readIds.has(n.id)).length,
-    [visible, readIds],
-  );
-
-  function handleSelect(n: AppNotification) {
-    setReadIds((prev) => new Set(prev).add(n.id));
+  function handleSelect(n: NotificationItem) {
+    markRead(n.id);
     if (n.leadId) setDetails(n.leadId);
-  }
-
-  function markAllRead() {
-    setReadIds(new Set(visible.map((n) => n.id)));
-  }
-
-  function clearAll() {
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
-      for (const n of visible) next.add(n.id);
-      return next;
-    });
   }
 
   return (
@@ -90,7 +56,7 @@ export function NotificationsPopover() {
               <Check className="h-3 w-3" /> Marcar todas
             </button>
             <button
-              onClick={clearAll}
+              onClick={dismissAll}
               aria-label="Limpar notificações"
               className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
@@ -99,15 +65,16 @@ export function NotificationsPopover() {
           </div>
         </div>
         <div className="max-h-[420px] overflow-y-auto">
-          {visible.length === 0 ? (
+          {items.length === 0 ? (
             <div className="px-4 py-10 text-center text-[12.5px] text-muted-foreground">
               Nenhuma notificação por aqui.
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {visible.map((n) => {
+              {items.map((n) => {
                 const Icon = ICON[n.kind] ?? Bell;
-                const isRead = readIds.has(n.id);
+                const isRead = n.readAt != null;
+                const isIntent = n.kind === "intent_signal";
                 return (
                   <li key={n.id}>
                     <button
@@ -116,18 +83,29 @@ export function NotificationsPopover() {
                     >
                       <div
                         className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${
-                          isRead ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"
+                          isRead
+                            ? "bg-muted text-muted-foreground"
+                            : isIntent
+                              ? "bg-warning-soft text-warning-foreground"
+                              : "bg-primary-soft text-primary"
                         }`}
                       >
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div
-                          className={`text-[12.5px] ${
-                            isRead ? "text-muted-foreground" : "font-semibold text-foreground"
-                          }`}
-                        >
-                          {n.title}
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={`text-[12.5px] ${
+                              isRead ? "text-muted-foreground" : "font-semibold text-foreground"
+                            }`}
+                          >
+                            {n.title}
+                          </div>
+                          {isIntent && (
+                            <span className="shrink-0 rounded bg-warning-soft px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-warning-foreground">
+                              Sinal
+                            </span>
+                          )}
                         </div>
                         {n.description && (
                           <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">

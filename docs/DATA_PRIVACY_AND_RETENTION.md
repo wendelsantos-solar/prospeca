@@ -19,16 +19,18 @@
 
 ### Dados de terceiros (empresas prospectadas)
 
-| Dado            | Tabela                                        | Fonte         | Retenção                       |
-| --------------- | --------------------------------------------- | ------------- | ------------------------------ |
-| Nome da empresa | `places.name`, `leads.company_name`           | Google Places | Até deleção                    |
-| Endereço        | `places.formatted_address`, `leads.address`   | Google Places | Até deleção                    |
-| Telefone        | `places.national_phone_number`, `leads.phone` | Google Places | Até deleção ou suppression     |
-| Website         | `places.website_uri`, `leads.website`         | Google Places | Até deleção                    |
-| E-mail          | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
-| Instagram       | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
-| WhatsApp        | Extraído do website da empresa                | Enricher      | 90 dias (stale) ou suppression |
-| Avaliações      | `places.rating`, `places.user_rating_count`   | Google Places | Até deleção                    |
+| Dado                        | Tabela                                              | Fonte                            | Retenção                       |
+| --------------------------- | --------------------------------------------------- | -------------------------------- | ------------------------------ |
+| Nome da empresa             | `places.name`, `leads.company_name`                 | Google Places                    | Até deleção                    |
+| Endereço                    | `places.formatted_address`, `leads.address`         | Google Places                    | Até deleção                    |
+| Telefone                    | `places.national_phone_number`, `leads.phone`       | Google Places                    | Até deleção ou suppression     |
+| Website                     | `places.website_uri`, `leads.website`               | Google Places                    | Até deleção                    |
+| E-mail                      | Extraído do website da empresa                      | Enricher                         | 90 dias (stale) ou suppression |
+| Instagram                   | Extraído do website da empresa                      | Enricher                         | 90 dias (stale) ou suppression |
+| WhatsApp                    | Extraído do website da empresa                      | Enricher                         | 90 dias (stale) ou suppression |
+| Avaliações                  | `places.rating`, `places.user_rating_count`         | Google Places                    | Até deleção                    |
+| Nome de sócio/administrador | `places.qsa` (bruto), `people.full_name` (derivado) | Cadastro público (BrasilAPI/RFB) | 90 dias (stale)                |
+| Papel societário            | `company_people.role` / `role_code` / `started_at`  | Cadastro público (BrasilAPI/RFB) | 90 dias (stale)                |
 
 ### Dados operacionais
 
@@ -49,6 +51,34 @@
 
 - **PII de places não convertidos em lead:** Purgado após 90 dias via
   `purge_stale_discovery_pii()` (pg_cron, diário 03:00 UTC).
+- **PII de registro (QSA — nomes de sócios/administradores, e-mail e telefone
+  do cadastro público):** mesmo tratamento do contato — purgada após 90 dias
+  em places não convertidos, regida pelo próprio marcador temporal
+  (`registration_fetched_at`, independente de `enriched_at`); places
+  convertidos em lead permanecem (base legal de relacionamento).
+- **People Intelligence (`people`, `company_people`):** as pessoas e relações
+  DERIVADAS do QSA seguem exatamente o destino do QSA bruto. Quando o registro
+  de um place não convertido vence os 90 dias, `purge_stale_discovery_pii()`
+  apaga as relações daquele place e, em seguida, as pessoas que ficaram sem
+  nenhuma relação. Uma pessoa que ainda é sócia de outra empresa dentro da
+  janela permanece — aquela base legal continua válida. Órfãs criadas há menos
+  de 90 dias são preservadas para não competir com um enrichment em curso.
+  Coberto por teste real em `supabase/tests/purge-registry-pii.test.ts`.
+
+### Minimização na origem (dados que NUNCA entram)
+
+O adapter do cadastro público descarta, antes de qualquer persistência:
+
+| Campo da fonte                         | Por que não é retido                                            |
+| -------------------------------------- | --------------------------------------------------------------- |
+| `cnpj_cpf_do_socio`                    | Identificador fiscal de pessoa física; sem finalidade comercial |
+| `cpf_representante_legal`              | Idem                                                            |
+| `faixa_etaria` / `codigo_faixa_etaria` | Dado pessoal sem utilidade para qualificação comercial          |
+
+Não há mascaramento nem desanonimização: os campos simplesmente não atravessam
+o mapper (`packages/domain/src/business-registry.ts`), e há teste que falha se
+algum deles aparecer no DTO.
+
 - **PII de leads:** Mantido até que o lead seja deletado ou o contato seja
   suprimido via opt-out.
 - **Opt-out (suppression):** Contatos suprimidos via `suppression_list` são

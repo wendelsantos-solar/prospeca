@@ -25,7 +25,9 @@ import { useSearchMutation } from "@/hooks/useSearchMutation";
 import type { OnboardingProgress } from "@/hooks/useOnboarding";
 import { track } from "@/lib/analytics";
 import { categoryLabel } from "@/lib/category";
-import { CITY_SUGGESTIONS, NICHES } from "@/lib/constants";
+import { isFiniteNumber } from "@/lib/geo";
+import { NICHES } from "@/lib/constants";
+import { suggestCities } from "@/lib/local-geocoding";
 import { geocodeLocationText, reverseGeocodeCoords } from "@/lib/reverse-geocode";
 import { cn } from "@/lib/utils";
 import { useActivationStore } from "@/stores/activation";
@@ -46,7 +48,9 @@ interface ResultPreview {
   name: string;
   category: string | null;
   score: number;
-  distanceKm: number;
+  /** NULL = distância desconhecida (lugar sem coordenada). Nunca 0: 0 significa
+   * "comprovadamente aqui", e mentir nessa direção foi o defeito do LOTE 3. */
+  distanceKm: number | null;
   hasWebsite: boolean;
   hasWhatsapp: boolean;
   hasPhone: boolean;
@@ -70,7 +74,10 @@ function scoreReasons(result: ResultPreview): string[] {
   if (!result.hasWebsite) reasons.push("sem site");
   if (result.hasWhatsapp) reasons.push("WhatsApp disponível");
   else if (result.hasPhone) reasons.push("telefone disponível");
-  if (result.distanceKm <= 5) reasons.push(`${result.distanceKm.toFixed(1)} km de distância`);
+  // Distância desconhecida não é motivo de nada. Sem o guard, NULL <= 5 é
+  // verdadeiro em JS e a tela afirmaria "0.0 km de distância".
+  if (isFiniteNumber(result.distanceKm) && result.distanceKm <= 5)
+    reasons.push(`${result.distanceKm.toFixed(1)} km de distância`);
   return reasons.slice(0, 3);
 }
 
@@ -514,21 +521,23 @@ export function OnboardingWizard({
                     </p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {CITY_SUGGESTIONS.slice(0, 6).map((city) => (
-                      <button
-                        key={city.label}
-                        type="button"
-                        onClick={() => applyLocation(city.label, city.lat, city.lng)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                          location === city.label
-                            ? "border-primary bg-primary-soft text-primary"
-                            : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-                        )}
-                      >
-                        {city.label.split(",")[0]}
-                      </button>
-                    ))}
+                    {suggestCities("")
+                      .slice(0, 6)
+                      .map((city) => (
+                        <button
+                          key={city.label}
+                          type="button"
+                          onClick={() => applyLocation(city.label, city.lat, city.lng)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                            location === city.label
+                              ? "border-primary bg-primary-soft text-primary"
+                              : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+                          )}
+                        >
+                          {city.label.split(",")[0]}
+                        </button>
+                      ))}
                   </div>
                 </div>
 

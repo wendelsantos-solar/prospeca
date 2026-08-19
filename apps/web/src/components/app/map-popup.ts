@@ -50,7 +50,7 @@ export function popupHtml(r: DiscoveryResult): string {
         <div style="min-width:0;">
           <div style="font-weight:600;font-size:13.5px;letter-spacing:-.01em;">${esc(r.name)}</div>
           <div style="color:var(--color-muted-foreground);font-size:11.5px;margin-top:2px;">
-            ${esc(categoryLabel(r.category))} · ${TEMPERATURE_LABELS[r.temperature]} · ${r.distanceKm.toFixed(1)} km
+            ${esc(categoryLabel(r.category))} · ${TEMPERATURE_LABELS[r.temperature]}${r.distanceKm != null ? ` · ${r.distanceKm.toFixed(1)} km` : ""}
           </div>
         </div>
       </div>
@@ -90,6 +90,31 @@ export const MARKER_HEX = {
   funnel: "#16a34a",
   selected: "#2563eb",
 } as const;
+
+/** Opportunity-density heatmap gradient — a real thermal ramp (cool → hot), not
+ * the marker temperature colors: low density reads as cool blue (≈ "Frio") and
+ * high density as hot orange (≈ "Quente"), which is both the universal heatmap
+ * convention and consistent with the product's temperature language. Shared by
+ * the Leaflet (object stops) and Google (array) renderers so the heat reads the
+ * same on both. */
+export const HEAT_GRADIENT: Record<number, string> = {
+  0.0: "#2563eb", // frio → azul
+  0.45: "#22c55e", // médio → verde
+  0.75: "#eab308", // morno → amarelo
+  0.9: "#f97316", // quente → laranja
+  1.0: "#dc2626", // muito quente → vermelho (maior oportunidade)
+};
+export const HEAT_GRADIENT_ARRAY: string[] = [
+  "#2563eb",
+  "#22c55e",
+  "#eab308",
+  "#f97316",
+  "#dc2626",
+];
+
+/** CSS linear-gradient for the heatmap legend bar, built from the same thermal
+ * stops the renderers use, so the legend always matches the actual heat. */
+export const HEAT_GRADIENT_CSS = `linear-gradient(to right, ${HEAT_GRADIENT_ARRAY.join(", ")})`;
 
 export function markerColor(r: DiscoveryResult, selected: boolean): string {
   if (selected) return MARKER_HEX.selected;

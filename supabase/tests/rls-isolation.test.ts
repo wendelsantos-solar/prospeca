@@ -31,7 +31,7 @@ async function isReachable(): Promise<boolean> {
   try {
     const res = await fetch(`${API_URL}/rest/v1/`, {
       headers: { apikey: ANON_KEY },
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(5000),
     });
     return res.status < 500;
   } catch {
@@ -111,6 +111,8 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
   let templateIdA: string;
   let searchIdA: string;
   let feedbackObjectPathA: string | undefined;
+  let placeIdA: string;
+  let personIdA: string;
 
   beforeAll(async () => {
     orgA = await createActor("a");
@@ -158,16 +160,69 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
       .single();
     if (searchError) throw new Error(`insert search A: ${searchError.message}`);
     searchIdA = search.id;
+
+    // People Intelligence (20260818000023). Escrita por service_role — as
+    // tabelas não têm policy de INSERT, exatamente como jobs/company_sources.
+    const { data: place, error: placeError } = await admin
+      .from("places")
+      .insert({
+        organization_id: orgA.organizationId,
+        provider: "google_places",
+        provider_place_id: `iso-people-${RUN}`,
+        name: `Empresa Confidencial A ${RUN}`,
+      })
+      .select("id")
+      .single();
+    if (placeError) throw new Error(`insert place A: ${placeError.message}`);
+    placeIdA = place.id;
+
+    const { data: person, error: personError } = await admin
+      .from("people")
+      .insert({
+        organization_id: orgA.organizationId,
+        full_name: `Decisor Confidencial A ${RUN}`,
+        normalized_name: `decisor confidencial a ${RUN}`.toLowerCase(),
+      })
+      .select("id")
+      .single();
+    if (personError) throw new Error(`insert person A: ${personError.message}`);
+    personIdA = person.id;
+
+    const { error: relError } = await admin.from("company_people").insert({
+      organization_id: orgA.organizationId,
+      place_id: placeIdA,
+      person_id: personIdA,
+      role: "Sócio-Administrador",
+      role_code: "49",
+      role_band: "high",
+      decision_score: 100,
+      member_type: "person",
+      source: "qsa",
+    });
+    if (relError) throw new Error(`insert company_people A: ${relError.message}`);
   });
 
   afterAll(async () => {
-    // Limpeza via service_role. Apagar o usuário cascateia organização
-    // (organizations.owner_user_id) e o resto por ON DELETE CASCADE.
+    // Limpeza via service_role. organizations.owner_user_id referencia
+    // auth.users SEM on delete cascade — apagar a org ANTES do usuário
+    // (senão o deleteUser falha e os fixtures acumulam, degradando o
+    // PostgREST local — P1-f do gate).
     if (feedbackObjectPathA) {
       await admin.storage.from("feedback-attachments").remove([feedbackObjectPathA]);
     }
-    if (orgA?.userId) await admin.auth.admin.deleteUser(orgA.userId);
-    if (orgB?.userId) await admin.auth.admin.deleteUser(orgB.userId);
+    for (const actor of [orgA, orgB]) {
+      if (!actor?.userId) continue;
+      try {
+        await admin.from("organizations").delete().eq("owner_user_id", actor.userId);
+      } catch {
+        /* melhor esforço */
+      }
+      try {
+        await admin.auth.admin.deleteUser(actor.userId);
+      } catch {
+        /* melhor esforço */
+      }
+    }
   });
 
   // ── Leitura ────────────────────────────────────────────────────────────
@@ -620,5 +675,73 @@ describeIfDb("cross-tenant isolation (Postgres + RLS)", () => {
     const { data, error } = await admin.from("error_events").select("id").limit(1);
     expect(error).toBeNull();
     expect(Array.isArray(data)).toBe(true);
+  });
+
+  // ── People Intelligence (nomes de sócios = PII) ─────────────────────────
+
+  test("ISO-036: usuário de B não lê pessoas de A (listagem)", async () => {
+    const { data, error } = await orgB.client.from("people").select("id, full_name");
+    expect(error).toBeNull();
+    expect((data ?? []).some((p) => p.id === personIdA)).toBe(false);
+  });
+
+  test("ISO-037: usuário de B não lê pessoa de A por UUID conhecido", async () => {
+    const { data } = await orgB.client.from("people").select("id").eq("id", personIdA);
+    expect((data ?? []).length).toBe(0);
+  });
+
+  test("ISO-038: usuário de B não lê decisores de A", async () => {
+    const { data } = await orgB.client
+      .from("company_people")
+      .select("id, decision_score")
+      .eq("place_id", placeIdA);
+    expect((data ?? []).length).toBe(0);
+  });
+
+  test("ISO-039: usuário de A LÊ os próprios decisores (a policy não é bloqueio geral)", async () => {
+    const { data, error } = await orgA.client
+      .from("company_people")
+      .select("id, decision_score, role_band, people(full_name)")
+      .eq("place_id", placeIdA);
+    expect(error).toBeNull();
+    expect((data ?? []).length).toBe(1);
+    expect(data![0].decision_score).toBe(100);
+  });
+
+  test("ISO-040: usuário de B não insere decisor na organização de A", async () => {
+    const { error } = await orgB.client.from("company_people").insert({
+      organization_id: orgA.organizationId,
+      place_id: placeIdA,
+      person_id: personIdA,
+      role: "Invasor",
+      member_type: "person",
+      source: "qsa",
+    });
+    expect(error).not.toBeNull();
+  });
+
+  test("ISO-041: nem o dono escreve direto — escrita é exclusiva do service role", async () => {
+    // As tabelas não têm policy de INSERT/UPDATE: só as edge functions gravam.
+    const { error } = await orgA.client.from("people").insert({
+      organization_id: orgA.organizationId,
+      full_name: `Forjado ${RUN}`,
+      normalized_name: `forjado ${RUN}`,
+    });
+    expect(error).not.toBeNull();
+  });
+
+  test("ISO-042: usuário de B não apaga decisor de A", async () => {
+    await orgB.client.from("company_people").delete().eq("place_id", placeIdA);
+    const { count } = await admin
+      .from("company_people")
+      .select("id", { count: "exact", head: true })
+      .eq("place_id", placeIdA);
+    expect(count).toBe(1);
+  });
+
+  test("ISO-043: usuário anônimo não lê pessoa nenhuma", async () => {
+    const anon = createClient(API_URL, ANON_KEY, { auth: { persistSession: false } });
+    const { data } = await anon.from("people").select("id");
+    expect((data ?? []).length).toBe(0);
   });
 });

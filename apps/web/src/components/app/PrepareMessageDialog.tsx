@@ -16,7 +16,7 @@ import { buildContactMessage } from "@/lib/message-fill";
 import { whatsappDisplay } from "@/lib/whatsapp";
 import { useOutbound } from "@/hooks/useOutbound";
 import { generateContactMessage } from "@/lib/ai-message";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { track } from "@/lib/analytics";
 import { useActivationStore } from "@/stores/activation";
 
@@ -32,7 +32,7 @@ export function PrepareMessageDialog({
   materialize,
   autoGenerate = false,
 }: {
-  lead: Lead;
+  lead: DisplayLead;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   /** Set when the target is a discovery result not yet in the funnel. */

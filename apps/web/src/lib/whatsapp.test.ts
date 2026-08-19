@@ -1,10 +1,11 @@
 import { test, expect } from "bun:test";
 import { whatsappDisplay } from "./whatsapp";
 
-test("returns scraped/verified whatsapp as-is (not probable)", () => {
+test("número raspado do site vem com source=site — evidência mais forte, mas NÃO verificado", () => {
   expect(whatsappDisplay("5521999998888", null)).toEqual({
     value: "5521999998888",
     probable: false,
+    source: "site",
   });
 });
 
@@ -24,5 +25,5 @@ test("no whatsapp and no phone → null", () => {
 
 test("scraped value wins even when a mobile phone exists", () => {
   const r = whatsappDisplay("5511888887777", "+55 21 99189-8369");
-  expect(r).toEqual({ value: "5511888887777", probable: false });
+  expect(r).toEqual({ value: "5511888887777", probable: false, source: "site" });
 });

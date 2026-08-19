@@ -56,6 +56,9 @@ export default tseslint.config(
       "src/components/ui/**/*.tsx",
       "src/components/app/KanbanBoard.tsx",
       "src/components/app/AppSidebar.tsx",
+      "src/components/app/DiscoveryCard.tsx",
+      "src/components/app/CompanyIntelligenceCard.tsx",
+      "src/components/shared/Badges.tsx",
     ],
     rules: {
       "react-refresh/only-export-components": "off",

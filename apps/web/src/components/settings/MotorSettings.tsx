@@ -146,11 +146,11 @@ export function MotorSettings() {
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
               className="resize-none"
-              placeholder="Olá {{nome_do_lead}}, tudo bem? Meu nome é {{meu_nome}}..."
+              placeholder="Olá {{empresa}}, tudo bem? Meu nome é {{meu_nome}}..."
             />
             <p className="text-[11px] text-muted-foreground">
-              Use{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-[10px]">{`{{nome_do_lead}}`}</code>{" "}
+              Use <code className="rounded bg-muted px-1 py-0.5 text-[10px]">{`{{empresa}}`}</code>,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[10px]">{`{{razao_contato}}`}</code>{" "}
               e <code className="rounded bg-muted px-1 py-0.5 text-[10px]">{`{{meu_nome}}`}</code>.
             </p>
           </div>

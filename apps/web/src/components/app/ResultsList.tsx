@@ -1,12 +1,24 @@
 import { memo } from "react";
 import type { DiscoveryResult } from "@/repositories/types";
-import { Phone, Globe, GlobeLock, MessageCircle, Star, Plus, Eye, Flame } from "lucide-react";
+import {
+  Phone,
+  Globe,
+  GlobeLock,
+  MessageCircle,
+  Star,
+  Plus,
+  Eye,
+  Flame,
+  UserCheck,
+} from "lucide-react";
 import { useLeadsStore } from "@/stores";
 import { useAddToFunnelMutation, useEnrichDiscoveryMutation } from "@/hooks/useLeadsQuery";
 import { useOutbound } from "@/hooks/useOutbound";
 import { hasWhatsAppTarget } from "@/lib/outbound";
 import { formatDistance } from "@/lib/format";
 import { categoryLabel } from "@/lib/category";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import { ConfidenceBadge } from "@/components/shared/Badges";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -110,7 +122,43 @@ const Row = memo(function Row({ result, searchId }: { result: DiscoveryResult; s
         <div className="flex items-center gap-3">
           <ScoreRing score={result.score} temperature={result.temperature} />
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold text-foreground">{result.name}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-[13px] font-semibold text-foreground">
+                {result.name}
+              </span>
+              {isFeatureEnabled("v2ScoringInDiscovery") && result.opportunityConfidence != null && (
+                <ConfidenceBadge confidence={result.opportunityConfidence} />
+              )}
+              {/* FASE C2: motivo — mesmo sinal que o card do painel mostra
+               * (DiscoveryCard), agora também na tabela principal, para a
+               * copy "quem abordar primeiro e por quê" valer aqui também.
+               * Só nome nenhum aqui: a triagem precisa saber ONDE há decisor
+               * forte, não quem é (o nome aparece ao abrir os detalhes). */}
+              {result.decisionMakerCount > 0 && (
+                <span
+                  title={
+                    result.topDecisionMakerBand === "high"
+                      ? `Decisor de alta influência identificado no quadro societário${
+                          result.topDecisionMakerScore != null
+                            ? ` (score ${result.topDecisionMakerScore})`
+                            : ""
+                        }`
+                      : "Decisor identificado no quadro societário"
+                  }
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                    result.topDecisionMakerBand === "high"
+                      ? "bg-hot-soft text-hot"
+                      : "bg-warning-soft text-warning-foreground",
+                  )}
+                >
+                  <UserCheck className="h-2.5 w-2.5" aria-hidden />
+                  {result.decisionMakerCount > 1
+                    ? `${result.decisionMakerCount} decisores`
+                    : "Decisor"}
+                </span>
+              )}
+            </div>
             <div className="truncate text-[11.5px] text-muted-foreground">
               {categoryLabel(result.category)}
             </div>

@@ -8,6 +8,9 @@ import { isInternalCall } from "../_shared/internal-auth.ts";
 import { readPoint } from "@leads/geo";
 import { writeAudit } from "../_shared/quota.ts";
 import { withIdempotency } from "../_shared/idempotency.ts";
+import { fireAndForget } from "../_shared/dispatch.ts";
+import { createSupabaseJobQueue } from "../_shared/job-queue.ts";
+import { companyProcessingKey } from "@leads/domain/job";
 import { scoreInputFromRow, type PlaceRow } from "@leads/domain/score-input";
 import {
   hasRealWebsite,
@@ -17,7 +20,8 @@ import {
   normalizePhone,
   type NormalizedPhone,
 } from "@leads/domain/normalize";
-import { calculateScore, temperatureFromScore, SCORE_RULE_VERSION } from "@leads/domain/score";
+import { calculateScore, temperatureFromScore } from "@leads/domain/score";
+import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain/opportunity-score";
 import { parseAddress } from "@leads/domain/address";
 
 const InputSchema = ImportSearchResultsSchema;
@@ -229,6 +233,20 @@ Deno.serve(async (req) => {
           const breakdown = calculateScore(
             scoreInputFromRow(place as PlaceRow, row.distance_meters),
           );
+
+          // Fase 3 (unificação de score): o lead nasce com o V2 quando ele já
+          // existe para (org, place) — senão, mantém o v3 como LEGADO marcado
+          // (nunca 0) preservado em score_legacy_v3; o job OPPORTUNITY_SCORING
+          // enfileirado abaixo converge o número para o V2 em seguida.
+          const { data: v2Row } = await ctx.adminClient
+            .from("company_opportunity_scores")
+            .select("score, temperature, rule_version, breakdown")
+            .eq("organization_id", ctx.organizationId)
+            .eq("place_id", row.place_id)
+            .order("calculated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const hasV2 = v2Row?.score != null && v2Row?.rule_version === OPPORTUNITY_SCORE_VERSION;
           const addressParts = parseAddress(
             place.formatted_address as string | null,
             place.address_components,
@@ -253,20 +271,26 @@ Deno.serve(async (req) => {
               whatsapp:
                 (place.whatsapp as string | null) ??
                 (meta.phone?.type === "mobile" ? meta.phone.e164 : null),
-              whatsapp_status: place.whatsapp
-                ? "verified"
-                : meta.phone?.type === "mobile"
-                  ? "possible"
-                  : "unknown",
+              // Tanto o número raspado quanto o móvel inferido são CANDIDATOS
+              // ('possible'). 'verified' exige confirmação por provider externo
+              // (WHATSAPP_VALIDATION), que ainda não está configurado.
+              whatsapp_status:
+                place.whatsapp || meta.phone?.type === "mobile" ? "possible" : "unknown",
               website: meta.website,
               website_domain: meta.domain,
               has_website: meta.websiteReal,
               rating: place.rating ?? null,
               review_count: place.user_rating_count ?? null,
-              score: breakdown.total,
-              score_breakdown: breakdown,
-              score_rule_version: SCORE_RULE_VERSION,
-              temperature: temperatureFromScore(breakdown.total),
+              score: hasV2 ? (v2Row.score as number) : breakdown.total,
+              score_breakdown: hasV2 ? (v2Row.breakdown as unknown) : breakdown,
+              score_rule_version: hasV2 ? (v2Row.rule_version as string) : "legacy-v3.0.0",
+              // O v3 SEMPRE é calculado aqui (breakdown.total) e sempre vale como
+              // referência de rollback — mesmo quando o V2 vence o campo `score`.
+              // Antes gravava null quando havia V2, jogando fora o v3 recém-computado.
+              score_legacy_v3: breakdown.total,
+              temperature: hasV2
+                ? ((v2Row.temperature as string | null) ?? "cold")
+                : temperatureFromScore(breakdown.total),
               stage: input.stage,
               source: "search",
               source_search_id: input.searchId,
@@ -315,6 +339,30 @@ Deno.serve(async (req) => {
         };
       },
     );
+
+    // V2: ensure the persisted opportunity score exists for every place in this
+    // search — per-company OPPORTUNITY_SCORING jobs, idempotent (unique key),
+    // drained by the process-jobs worker. Newly imported places may not have
+    // been scored at search time (reuse path, cache hits, backfilled searches).
+    const { data: scoreRows } = await ctx.adminClient
+      .from("search_results")
+      .select("place_id")
+      .eq("search_id", input.searchId);
+    const queue = createSupabaseJobQueue(ctx.adminClient);
+    const placeIds = (scoreRows ?? []).map((r) => r.place_id as string);
+    await Promise.all(
+      placeIds.map((placeId) =>
+        queue.enqueue({
+          type: "OPPORTUNITY_SCORING",
+          organizationId: ctx.organizationId,
+          searchId: input.searchId,
+          companyId: placeId,
+          idempotencyKey: companyProcessingKey(ctx.organizationId, input.searchId, placeId),
+          payload: { searchId: input.searchId, placeId },
+        }),
+      ),
+    );
+    if (placeIds.length > 0) fireAndForget("process-jobs", {}); // single wake
 
     logEvent({ requestId, operation: "import-search-results", status: "ok", ...result });
     return json(result, 200, {}, req);
