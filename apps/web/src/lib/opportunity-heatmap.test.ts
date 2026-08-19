@@ -147,3 +147,34 @@ describe("heatSummaryHtml", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 });
+
+// LOTE 3 — coordenada desconhecida (NULL) nunca vira um ponto no mapa.
+// O guard já existia como `Number.isFinite`, mas `Number.isFinite` não é type
+// predicate: depois que o tipo virou nullable ele parou de compilar e foi
+// trocado por `isFiniteNumber`, que tem a MESMA semântica e estreita o tipo.
+// Estes testes travam a semântica para que a troca não possa regredir.
+describe("coordenada desconhecida (LOTE 3)", () => {
+  test("buildHeatPoints ignora lugar sem coordenada em vez de aquecer (0,0)", () => {
+    const points = buildHeatPoints([
+      result({ placeId: "com-coord", score: 80 }),
+      result({ placeId: "sem-lat", latitude: null, score: 80 }),
+      result({ placeId: "sem-lng", longitude: null, score: 80 }),
+      result({ placeId: "sem-nada", latitude: null, longitude: null, score: 80 }),
+    ]);
+    expect(points).toHaveLength(1);
+    expect(points[0].lat).toBe(-22.9);
+    expect(points[0].lng).toBe(-43.1);
+    // Nenhum ponto no Golfo da Guiné.
+    expect(points.some((p) => p.lat === 0 && p.lng === 0)).toBe(false);
+  });
+
+  test("findNearbyCompanies não devolve lugar sem coordenada, nem buscando em (0,0)", () => {
+    const semCoord = result({ placeId: "sem-coord", latitude: null, longitude: null });
+    // Perto do ponto real: só o que tem coordenada aparece.
+    expect(
+      findNearbyCompanies([result({}), semCoord], -22.9, -43.1, 500).map((r) => r.placeId),
+    ).toEqual(["p"]);
+    // E buscando exatamente em (0,0) — onde o NULL cairia se virasse zero — nada aparece.
+    expect(findNearbyCompanies([semCoord], 0, 0, 500)).toEqual([]);
+  });
+});

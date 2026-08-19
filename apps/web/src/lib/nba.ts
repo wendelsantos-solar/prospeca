@@ -3,7 +3,7 @@
 // is a THIN adapter: maps the web `Lead` onto the domain input and translates
 // the domain result into the web `Nba` shape (pt-BR action/cta + the cadence
 // step object for progress UI). No business rules here.
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import {
   recommendNextBestAction,
   type DecisionMakerHint,
@@ -42,7 +42,7 @@ function daysSince(iso?: string | null): number | null {
  * buscas e o decisor pertence à empresa, não ao lead.
  */
 export function leadToNbaInput(
-  lead: Lead,
+  lead: DisplayLead,
   decisionMaker?: DecisionMakerHint | null,
 ): NextBestActionInput {
   return {
@@ -63,7 +63,7 @@ export function leadToNbaInput(
   };
 }
 
-export function computeNba(lead: Lead, decisionMaker?: DecisionMakerHint | null): Nba {
+export function computeNba(lead: DisplayLead, decisionMaker?: DecisionMakerHint | null): Nba {
   const input = leadToNbaInput(lead, decisionMaker);
   const rec = recommendNextBestAction(input);
   return {

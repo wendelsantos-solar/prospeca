@@ -25,6 +25,7 @@ import { useSearchMutation } from "@/hooks/useSearchMutation";
 import type { OnboardingProgress } from "@/hooks/useOnboarding";
 import { track } from "@/lib/analytics";
 import { categoryLabel } from "@/lib/category";
+import { isFiniteNumber } from "@/lib/geo";
 import { NICHES } from "@/lib/constants";
 import { suggestCities } from "@/lib/local-geocoding";
 import { geocodeLocationText, reverseGeocodeCoords } from "@/lib/reverse-geocode";
@@ -47,7 +48,9 @@ interface ResultPreview {
   name: string;
   category: string | null;
   score: number;
-  distanceKm: number;
+  /** NULL = distância desconhecida (lugar sem coordenada). Nunca 0: 0 significa
+   * "comprovadamente aqui", e mentir nessa direção foi o defeito do LOTE 3. */
+  distanceKm: number | null;
   hasWebsite: boolean;
   hasWhatsapp: boolean;
   hasPhone: boolean;
@@ -71,7 +74,10 @@ function scoreReasons(result: ResultPreview): string[] {
   if (!result.hasWebsite) reasons.push("sem site");
   if (result.hasWhatsapp) reasons.push("WhatsApp disponível");
   else if (result.hasPhone) reasons.push("telefone disponível");
-  if (result.distanceKm <= 5) reasons.push(`${result.distanceKm.toFixed(1)} km de distância`);
+  // Distância desconhecida não é motivo de nada. Sem o guard, NULL <= 5 é
+  // verdadeiro em JS e a tela afirmaria "0.0 km de distância".
+  if (isFiniteNumber(result.distanceKm) && result.distanceKm <= 5)
+    reasons.push(`${result.distanceKm.toFixed(1)} km de distância`);
   return reasons.slice(0, 3);
 }
 

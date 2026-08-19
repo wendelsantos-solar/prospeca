@@ -256,6 +256,12 @@ Deno.serve(async (req) => {
     }
 
     if (servedFromCache) {
+      // found_count aqui é PROGRESSO TRANSITÓRIO (pré-filtro): o corte de raio
+      // e o de presença só rodam em processPlaces, adiante. O valor DEFINITIVO
+      // (pós-filtro, = linhas de search_results) é gravado no update final
+      // desta função — veja o comentário "DEFINIÇÃO ÚNICA DE found_count".
+      // A UI de progresso diz "analisadas" justamente porque este número ainda
+      // não é o que a tela vai mostrar.
       await admin
         .from("searches")
         .update({ provider_request_count: 0, found_count: collected.length })
@@ -328,6 +334,10 @@ Deno.serve(async (req) => {
             cacheHit: false,
           });
           collected = collected.concat(res.places);
+          // PROGRESSO TRANSITÓRIO (pré-filtro), mesma razão do bloco de cache
+          // acima: a cada página o que existe é o retorno cru do provider. O
+          // valor definitivo é gravado no update final ("DEFINIÇÃO ÚNICA DE
+          // found_count").
           await admin
             .from("searches")
             .update({ provider_request_count: requestCount, found_count: collected.length })
@@ -422,11 +432,32 @@ Deno.serve(async (req) => {
       await admin.from("search_results").upsert(resultRows, { onConflict: "search_id,place_id" });
     }
 
+    // DEFINIÇÃO ÚNICA DE found_count (LOTE 3): linhas persistidas em
+    // search_results para esta busca — o conjunto que a descoberta REALMENTE
+    // devolve (get_search_discovery lê search_results ⋈ places).
+    //
+    // Antes era `collected.length`: o retorno CRU do provider, ANTES do corte
+    // de raio e ANTES do filtro de presença. Isso fazia o contador prometer
+    // empresas que a tela nunca mostrava — a mesma divergência do P0 do raio,
+    // em outra roupa.
+    //
+    // Esta é a MESMA definição que o caminho de reuso de busca já usava
+    // (migration 20260723000014_search_level_reuse.sql:56,
+    // `count(*) from search_results where search_id = ...`). Havia DUAS
+    // definições concorrentes do mesmo campo no produto; ficou UMA.
+    // Conta no banco (não `resultRows.length`) porque numa re-execução com
+    // forceRefresh o upsert convive com linhas anteriores desta busca, e quem
+    // manda é o que a descoberta vai ler.
+    const { count: persistedCount } = await admin
+      .from("search_results")
+      .select("id", { count: "exact", head: true })
+      .eq("search_id", searchId);
+
     await admin
       .from("searches")
       .update({
         status: "completed",
-        found_count: collected.length,
+        found_count: persistedCount ?? resultRows.length,
         completed_at: new Date().toISOString(),
       })
       .eq("id", searchId);

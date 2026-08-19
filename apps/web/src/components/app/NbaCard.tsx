@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MessageCircle, PhoneCall, Mail, Sparkles, Clock, ArrowRight } from "lucide-react";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { computeNba, type NbaChannel, type NbaPriority } from "@/lib/nba";
 import { CADENCE_STEPS } from "@/lib/cadence";
 import { buildContactMessage } from "@/lib/message-fill";
@@ -29,7 +29,7 @@ const PRIORITY_LABEL: Record<NbaPriority, string> = {
   low: "Baixa",
 };
 
-export function NbaCard({ lead }: { lead: Lead }) {
+export function NbaCard({ lead }: { lead: DisplayLead }) {
   const setDetails = useLeadsStore((s) => s.setDetails);
   const { openWhatsApp } = useOutbound();
   const template = useMessageStore((s) => s.template);

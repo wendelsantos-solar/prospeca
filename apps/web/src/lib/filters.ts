@@ -23,13 +23,22 @@ export const QUICK_FILTERS = [
 /** Hard filter: only items inside the live search radius are ever shown — map,
  * list, and counts must all agree, matching the reference product's behavior
  * (radius = what you get, not a dimmed preview of what you'd get). Generic over
- * anything with lat/lng (Lead or DiscoveryResult). */
-export function filterByRadius<T extends { latitude: number; longitude: number }>(
+ * anything with lat/lng (Lead or DiscoveryResult).
+ *
+ * Coordenada NULL (desconhecida) fica de FORA, explicitamente: não dá para
+ * provar que está dentro do raio, e o raio é filtro duro. É a mesma decisão do
+ * servidor (`inside = false` quando não há distância, em search-pipeline.ts).
+ * O ponto é que agora isso é uma escolha declarada, e não o efeito colateral de
+ * um null virar 0 dentro do haversine e cair no Golfo da Guiné. */
+export function filterByRadius<T extends { latitude: number | null; longitude: number | null }>(
   items: T[],
   center: LatLng,
   radiusKm: number,
 ): T[] {
-  return items.filter((i) => distanceKm(center, { lat: i.latitude, lng: i.longitude }) <= radiusKm);
+  return items.filter((i) => {
+    if (i.latitude == null || i.longitude == null) return false;
+    return distanceKm(center, { lat: i.latitude, lng: i.longitude }) <= radiusKm;
+  });
 }
 
 export function applyFilters(leads: Lead[], filters: LeadFilters): Lead[] {

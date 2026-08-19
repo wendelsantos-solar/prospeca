@@ -126,6 +126,29 @@ export interface Lead {
   timeline: TimelineEvent[];
 }
 
+/** A forma de `Lead` usada para EXIBIR: coordenada e distância podem ser
+ * desconhecidas (NULL).
+ *
+ * Existe porque descoberta e funil têm garantias diferentes. Um `Lead`
+ * materializado no funil sempre tem posição; um resultado de descoberta pode
+ * chegar sem `location` (o campo não é garantido pelo contrato da Places API),
+ * e o LOTE 3 proibiu transformar esse desconhecido em 0 — (0,0) é o Golfo da
+ * Guiné e `distanceKm: 0` afirma "bem aqui".
+ *
+ * `Lead` é atribuível a `DisplayLead` (alargamento seguro), então componentes
+ * de exibição que nunca leem posição declaram `DisplayLead` e continuam
+ * aceitando leads reais sem nenhuma mudança de comportamento.
+ *
+ * NOTA DE ESCOPO: o certo a longo prazo é o próprio `Lead` admitir posição
+ * desconhecida. Isso exige mudar `services/index.ts`, que está fora do LOTE 3
+ * (reservado ao LOTE 4). Este tipo mantém a honestidade no único caminho que
+ * hoje produz o dado nulo, sem deixar a migração pela metade. */
+export type DisplayLead = Omit<Lead, "latitude" | "longitude" | "distanceKm"> & {
+  latitude: number | null;
+  longitude: number | null;
+  distanceKm: number | null;
+};
+
 /** A ocorrência mais próxima que ficou FORA do raio buscado.
  *
  * Vive em campo SEPARADO de propósito: misturar esses registros no array de

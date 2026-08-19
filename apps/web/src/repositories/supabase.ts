@@ -910,8 +910,13 @@ export class SupabaseSearchRepository implements SearchRepository {
         placeId: r.place_id as string,
         name: r.name as string,
         category: (r.category as string) ?? null,
-        latitude: r.latitude as number,
-        longitude: r.longitude as number,
+        // O RPC devolve NULL quando places.location é NULL (st_y/st_x de NULL).
+        // O cast direto `as number` de antes deixava esse null tipado como
+        // number: o haversine tratava null como 0 (null*n === 0) e o resultado
+        // era idêntico a (0,0) — 5.670 km, descartado em silêncio pelo filtro
+        // de raio. Agora desconhecido continua desconhecido.
+        latitude: (r.latitude as number | null) ?? null,
+        longitude: (r.longitude as number | null) ?? null,
         address: addr.street,
         neighborhood: addr.neighborhood,
         city: addr.city ?? (searchLabel || null),
@@ -924,7 +929,9 @@ export class SupabaseSearchRepository implements SearchRepository {
         whatsapp: (r.whatsapp as string) ?? null,
         rating: (r.rating as number) ?? null,
         reviewCount: (r.review_count as number) ?? null,
-        distanceKm: ((r.distance_meters as number) ?? 0) / 1000,
+        // Sem coordenada não há distância: `?? 0` dizia "bem aqui" para o que
+        // é desconhecido — a mesma mentira, na direção oposta.
+        distanceKm: r.distance_meters != null ? (r.distance_meters as number) / 1000 : null,
         // Single display source: search_results.score IS the V2 opportunity
         // score (written by score-company); no overlay, no dual source.
         score: (r.score as number) ?? 0,

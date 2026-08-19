@@ -71,8 +71,16 @@ export interface DiscoveryResult {
   placeId: string;
   name: string;
   category: string | null;
-  latitude: number;
-  longitude: number;
+  /** NULL = coordenada desconhecida (o provider pode omitir `location`; o
+   * banco guarda places.location NULLABLE e o RPC devolve NULL via st_y/st_x).
+   *
+   * NUNCA use 0 como ausência: 0,0 é o Golfo da Guiné, a 5.670 km de São
+   * Paulo — o haversine calcula essa distância honestamente e o filtro de raio
+   * descarta o lugar em silêncio, sem que ninguém saiba que a coordenada era
+   * desconhecida. É a mesma regra que a Fase 7 fixou para custo: NULL é
+   * desconhecido, 0 só quando comprovadamente zero. */
+  latitude: number | null;
+  longitude: number | null;
   address: string | null;
   neighborhood: string | null;
   city: string | null;
@@ -85,7 +93,9 @@ export interface DiscoveryResult {
   whatsapp: string | null;
   rating: number | null;
   reviewCount: number | null;
-  distanceKm: number;
+  /** NULL = sem coordenada, logo sem distância calculável. Nunca 0 para
+   * ausência — 0 significaria "no centro exato da busca". */
+  distanceKm: number | null;
   /** Single display source for the discovery list: search_results.score holds
    * the V2 opportunity score written by score-company (RPC get_search_discovery
    * serves it unchanged). The funnel (leads.score) stays v3.0.0. */

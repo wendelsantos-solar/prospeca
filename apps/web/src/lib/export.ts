@@ -33,7 +33,9 @@ export function exportDiscoveryCSV(results: DiscoveryResult[]) {
     r.hasWebsite ? "Sim" : "Não",
     r.rating ?? "",
     r.reviewCount ?? "",
-    r.distanceKm.toFixed(1),
+    // Célula VAZIA quando não há coordenada — "0,0" numa planilha seria lido
+    // como "está no centro exato da busca".
+    r.distanceKm != null ? r.distanceKm.toFixed(1) : "",
     r.temperature,
     r.score,
     r.importedLeadId != null ? "Sim" : "Não",
@@ -94,7 +96,7 @@ export const DISCOVERY_EXPORT_FIELDS: DiscoveryExportFieldDef[] = [
     key: "distance_km",
     label: "Distância (km)",
     group: "básicos",
-    value: (r) => r.distanceKm.toFixed(1),
+    value: (r) => (r.distanceKm != null ? r.distanceKm.toFixed(1) : ""),
   },
   { key: "phone", label: "Telefone", group: "contato", value: (r) => r.phone ?? "" },
   {

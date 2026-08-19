@@ -256,6 +256,9 @@ export function LeafletMapView({
     }
     const searchId = currentSearch?.id;
     results.forEach((r) => {
+      // Sem coordenada não há onde cravar o pino. Antes o null virava 0 e o
+      // marcador ia parar no Golfo da Guiné; pular é a leitura honesta.
+      if (r.latitude == null || r.longitude == null) return;
       const m = L.marker([r.latitude, r.longitude], {
         icon: markerIcon(r, false), // never selected on build — focus effect handles it
         zIndexOffset: 0,
@@ -382,10 +385,13 @@ export function LeafletMapView({
 
   const fitAll = () => {
     if (!mapRef.current || results.length === 0) return;
-    const bounds = L.latLngBounds(
-      results.map((r) => [r.latitude, r.longitude] as [number, number]),
-    );
-    mapRef.current.fitBounds(bounds, { padding: [40, 40] });
+    // Só enquadra o que tem coordenada — um null virando 0 esticava o
+    // enquadramento até o Atlântico e jogava os pinos reais num canto.
+    const points = results
+      .filter((r) => r.latitude != null && r.longitude != null)
+      .map((r) => [r.latitude, r.longitude] as [number, number]);
+    if (points.length === 0) return;
+    mapRef.current.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
   };
 
   // Regra transversal: clique no marker = seleciona o card E abre o detalhe

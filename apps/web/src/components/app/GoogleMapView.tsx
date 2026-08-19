@@ -590,6 +590,8 @@ export function GoogleMapView({
     }
     const markers: google.maps.Marker[] = [];
     results.forEach((r) => {
+      // Sem coordenada não há onde cravar o pino (mesma regra do LeafletMapView).
+      if (r.latitude == null || r.longitude == null) return;
       const visual = markerVisual(r, false); // never selected on build — focus effect handles it
       const m = new google.maps.Marker({
         position: { lat: r.latitude, lng: r.longitude },
@@ -693,7 +695,14 @@ export function GoogleMapView({
     const map = mapRef.current;
     if (!map || results.length === 0) return;
     const bounds = new google.maps.LatLngBounds();
-    results.forEach((r) => bounds.extend({ lat: r.latitude, lng: r.longitude }));
+    let extended = 0;
+    results.forEach((r) => {
+      // Só enquadra o que tem coordenada (mesma regra do LeafletMapView).
+      if (r.latitude == null || r.longitude == null) return;
+      bounds.extend({ lat: r.latitude, lng: r.longitude });
+      extended++;
+    });
+    if (extended === 0) return;
     map.fitBounds(bounds, 40);
   };
 

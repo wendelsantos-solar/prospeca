@@ -1,13 +1,13 @@
 import { TrendingUp, Check } from "lucide-react";
 import { deriveIntentSignals } from "@leads/domain";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 
 /**
  * "Sinais de intenção" — discrete, honest flags that answer "why approach this
  * business NOW" (distinct from the opportunity score, which ranks *who* is an
  * opportunity). Derived only from observed data via the shared domain rule.
  */
-export function IntentSignals({ lead }: { lead: Lead }) {
+export function IntentSignals({ lead }: { lead: DisplayLead }) {
   const signals = deriveIntentSignals({
     hasWebsite: lead.hasWebsite,
     enrichmentState: lead.enrichmentState,

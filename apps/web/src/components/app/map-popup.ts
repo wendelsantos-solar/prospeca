@@ -50,7 +50,7 @@ export function popupHtml(r: DiscoveryResult): string {
         <div style="min-width:0;">
           <div style="font-weight:600;font-size:13.5px;letter-spacing:-.01em;">${esc(r.name)}</div>
           <div style="color:var(--color-muted-foreground);font-size:11.5px;margin-top:2px;">
-            ${esc(categoryLabel(r.category))} · ${TEMPERATURE_LABELS[r.temperature]} · ${r.distanceKm.toFixed(1)} km
+            ${esc(categoryLabel(r.category))} · ${TEMPERATURE_LABELS[r.temperature]}${r.distanceKm != null ? ` · ${r.distanceKm.toFixed(1)} km` : ""}
           </div>
         </div>
       </div>

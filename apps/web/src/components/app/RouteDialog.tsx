@@ -13,6 +13,7 @@ import {
   buildWazeNavigationUrl,
   type OrderedStop,
 } from "@/lib/route";
+import { isFiniteNumber } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -69,7 +70,14 @@ export function RouteDialog({
     return selected
       .map((id): RouteTarget | null => {
         const r = byPlace.get(id);
-        if (r)
+        if (r) {
+          // Sem coordenada não há parada: uma rota é uma sequência de posições
+          // reais. Antes o NULL virava 0 dentro do haversine e a parada ia
+          // parar no Golfo da Guiné, corrompendo ordem e quilometragem de TODA
+          // a rota. Cair fora aqui não é silencioso: o alerta
+          // `targets.length < selected.length` logo abaixo já conta e mostra os
+          // selecionados que não viraram parada.
+          if (!isFiniteNumber(r.latitude) || !isFiniteNumber(r.longitude)) return null;
           return {
             id: r.placeId,
             name: r.name,
@@ -77,6 +85,7 @@ export function RouteDialog({
             lat: r.latitude,
             lng: r.longitude,
           };
+        }
         const l = byLead.get(id);
         if (l)
           return {

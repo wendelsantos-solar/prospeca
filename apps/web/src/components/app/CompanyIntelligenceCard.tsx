@@ -1,6 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { OPPORTUNITY_SCORE_VERSION } from "@leads/domain";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { useCompanyIntelligence, type CompanyIntelligence } from "@/hooks/useCompanyIntelligence";
 import { ScorePill } from "@/components/shared/Badges";
 import { cn } from "@/lib/utils";
@@ -111,7 +111,7 @@ export function CompanyIntelligenceCard({
   lead,
   showNba = true,
 }: {
-  lead: Lead;
+  lead: DisplayLead;
   showNba?: boolean;
 }) {
   const { score, temperature, scoreState, evidence, nba, version } = useCompanyIntelligence(lead);

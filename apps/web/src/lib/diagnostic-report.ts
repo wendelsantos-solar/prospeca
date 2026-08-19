@@ -1,4 +1,4 @@
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { categoryLabel } from "./category";
 import { contactReason, buildContactMessage, type MessageContact } from "./message-fill";
 import { computeNba } from "./nba";
@@ -71,13 +71,13 @@ const TEMPERATURE_INFO: Record<"hot" | "warm" | "cold", { label: string; hint: s
   },
 };
 
-function formatRating(lead: Lead): string | null {
+function formatRating(lead: DisplayLead): string | null {
   if (lead.rating == null) return null;
   return `${lead.rating.toFixed(1)} ★`;
 }
 
 export function buildDiagnosticReport(
-  lead: Lead,
+  lead: DisplayLead,
   opts: { branding?: ReportBranding; template?: string } = {},
 ): DiagnosticReport {
   const branding = opts.branding ?? {};

@@ -11,7 +11,7 @@ import {
   type SignalEvidence,
   type NextBestAction,
 } from "@leads/domain";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { useOpportunityScore } from "@/hooks/useLeadsQuery";
 
 /** Normalize a persisted evidence array into the typed domain shape. Honest:
@@ -71,7 +71,7 @@ export interface CompanyIntelligence {
  * CompanyIntelligenceCard (aba Oportunidade) e o card Reputação (Visão geral)
  * sem duplicar chamadas de domínio.
  */
-export function useCompanyIntelligence(lead: Lead): CompanyIntelligence {
+export function useCompanyIntelligence(lead: DisplayLead): CompanyIntelligence {
   const { data: persisted } = useOpportunityScore(lead.placeId);
 
   const intelligence = useMemo(() => {

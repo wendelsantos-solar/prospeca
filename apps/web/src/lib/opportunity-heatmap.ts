@@ -1,5 +1,6 @@
 import type { DiscoveryResult } from "@leads/contracts";
 import { heatMetricWeight, type HeatMetric } from "@leads/domain";
+import { isFiniteNumber } from "@/lib/geo";
 
 export interface HeatPoint {
   lat: number;
@@ -35,7 +36,7 @@ export function buildHeatPoints(
 
   const points: HeatPoint[] = [];
   for (const r of results) {
-    if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) continue;
+    if (!isFiniteNumber(r.latitude) || !isFiniteNumber(r.longitude)) continue;
     const key = (r.category ?? "").trim().toLowerCase() || "unknown";
     const segmentShare = total > 0 ? (countByCategory.get(key) ?? 0) / total : 0;
     const weight = heatMetricWeight(metric, {
@@ -125,7 +126,7 @@ export function findNearbyCompanies(
 ): DiscoveryResult[] {
   return results
     .filter((r) => {
-      if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) return false;
+      if (!isFiniteNumber(r.latitude) || !isFiniteNumber(r.longitude)) return false;
       return haversineMeters(lat, lng, r.latitude, r.longitude) <= radiusMeters;
     })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))

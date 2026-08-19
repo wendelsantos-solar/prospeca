@@ -95,7 +95,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { ContactOutcome, Lead } from "@/types";
+import type { ContactOutcome, Lead, DisplayLead } from "@/types";
 import { cn } from "@/lib/utils";
 
 // Lazy tab — only downloaded when the user clicks "Atividades".
@@ -762,7 +762,7 @@ function ContactCard({
   readOnly,
   openWhats,
 }: {
-  lead: Lead;
+  lead: DisplayLead;
   readOnly: boolean;
   openWhats: () => void;
 }) {
@@ -895,7 +895,7 @@ function ContactCard({
 
 /** REPUTAÇÃO — rating real + sinais REAIS com severidade/confiança/fonte.
  * Nunca frases inventadas ("Atendimento excelente" não existe). */
-function ReputationCard({ lead }: { lead: Lead }) {
+function ReputationCard({ lead }: { lead: DisplayLead }) {
   const { evidence } = useCompanyIntelligence(lead);
   const reputationSignals = evidence.filter((e) =>
     ["HIGH_RATING", "LOW_REVIEW_COUNT", "WEAK_REPUTATION"].includes(e.signal),
@@ -933,7 +933,7 @@ function ReputationCard({ lead }: { lead: Lead }) {
 
 /** PRESENÇA DIGITAL — derivada dos dados reais. Sem "GMB sem perfil" (decisão
  * 4); no lugar de timestamp fake, o ESTADO DE ENRICHMENT real (decisão 5). */
-function PresenceCard({ lead }: { lead: Lead }) {
+function PresenceCard({ lead }: { lead: DisplayLead }) {
   const socialCount = [!!lead.instagram, !!lead.whatsapp].filter(Boolean).length;
   const socialLabel =
     socialCount === 2 ? "Ativas" : socialCount === 1 ? "Parciais" : "Não encontradas";
@@ -1003,7 +1003,7 @@ function PresenceCard({ lead }: { lead: Lead }) {
 /** DADOS DA EMPRESA — endereço/distância + cadastro público completo (CNAE,
  * razão social, situação, porte, capital, abertura, Simples, MEI). O cadastro
  * carrega SOZINHO (progressive) — nunca bloqueia o painel. */
-function CompanyDataCard({ lead }: { lead: Lead }) {
+function CompanyDataCard({ lead }: { lead: DisplayLead }) {
   const addressText = [lead.address, lead.neighborhood].filter(Boolean).join(", ");
   const hasCoords = Boolean(lead.latitude && lead.longitude);
 
@@ -1048,7 +1048,7 @@ function CommercialCard({
   membersQ,
   assignMut,
 }: {
-  lead: Lead;
+  lead: DisplayLead;
   membersQ: ReturnType<typeof useOrganizationMembers>;
   assignMut: ReturnType<typeof useAssignLeadMutation>;
 }) {
@@ -1102,7 +1102,7 @@ function CommercialCard({
 
 /** True quando há pelo menos um sinal de intenção derivado (mesma regra do
  * IntentSignals — empty state honesto no card "Por que é uma oportunidade"). */
-function hasIntentSignals(lead: Lead): boolean {
+function hasIntentSignals(lead: DisplayLead): boolean {
   return (
     deriveIntentSignals({
       hasWebsite: lead.hasWebsite,
@@ -1158,7 +1158,7 @@ function FunnelGate({ feature }: { feature: string }) {
  * hasn't been checked yet.
  */
 function enrichmentEmpty(
-  lead: Lead,
+  lead: DisplayLead,
   field: EnrichmentFieldKey,
   hasValue: boolean,
 ): { emptyLabel?: string; emptyTone: "muted" | "info" | "error" } {
@@ -1202,7 +1202,7 @@ function ActionBtn({
 
 /** "Resumo da oportunidade" card — shown in both funnel and readOnly preview
  * modes, derived purely from lead fields (no mutations). */
-function OpportunitySummaryCard({ lead }: { lead: Lead }) {
+function OpportunitySummaryCard({ lead }: { lead: DisplayLead }) {
   const reviewCount = lead.reviewCount ?? 0;
   const rating = lead.rating;
   const scoreItems = lead.scoreBreakdown?.items.filter((item) => item.points > 0) ?? [];
@@ -1284,7 +1284,7 @@ const OUTCOME_ACTIONS: Array<{
   { outcome: "proposal", label: "Proposta enviada", icon: FileCheck2 },
 ];
 
-function ContactOutcomeBar({ lead }: { lead: Lead }) {
+function ContactOutcomeBar({ lead }: { lead: DisplayLead }) {
   const mutation = useRecordContactMutation();
   const channel = lead.whatsapp ? "whatsapp" : lead.phone ? "call" : "email";
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Printer, X } from "lucide-react";
-import type { Lead } from "@/types";
+import type { DisplayLead, Lead } from "@/types";
 import { buildDiagnosticReport } from "@/lib/diagnostic-report";
 import { DiagnosticReportView } from "./DiagnosticReport";
 import { useSettingsStore, useMessageStore } from "@/stores";
@@ -18,7 +18,7 @@ export function DiagnosticReportDialog({
   open,
   onClose,
 }: {
-  lead: Lead | null;
+  lead: DisplayLead | null;
   open: boolean;
   onClose: () => void;
 }) {
