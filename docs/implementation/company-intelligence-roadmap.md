@@ -4,7 +4,7 @@ Status:
 DONE (Fases 0–9 concluídas)
 
 Current Phase:
-12 (encerrada)
+13 (encerrada)
 
 Última atualização: 2026-08-18
 Branch: `feat/discovery-intelligence-v2`
@@ -456,3 +456,16 @@ utilidade comercial — **não mapear**.
   explícito, que ignora o filtro de frescor).
 - Sites com proteção anti-bot (403) não entregam HTML — nem contato, nem CNPJ.
   Limitação pré-existente do enricher, não introduzida aqui.
+
+## 14. Nota de ambiente local (não é defeito de código)
+
+O edge runtime local degrada após várias execuções pesadas da suíte: a
+`cost-observability` passou de 4s/8-verdes para 213s/5-falhas na terceira
+rodada seguida, com o PostgREST devolvendo _"An invalid response was received
+from the upstream server"_ até num INSERT direto do próprio teste. O banco tinha
+98 linhas e os containers estavam ociosos — o gargalo é acúmulo de isolates no
+edge runtime (`policy = "per_worker"`) contra o limite de memória do Docker.
+
+`supabase stop && supabase start` restaura (4s, 8/8). Vale rodar isso antes de
+um `verify:pilot` que precise ser confiável, e desconfiar de falha em
+`cost-observability`/`job-liveness` que apareça só depois de várias rodadas.

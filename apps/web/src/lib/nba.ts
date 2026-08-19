@@ -4,7 +4,11 @@
 // the domain result into the web `Nba` shape (pt-BR action/cta + the cadence
 // step object for progress UI). No business rules here.
 import type { Lead } from "@/types";
-import { recommendNextBestAction, type NextBestActionInput } from "@leads/domain";
+import {
+  recommendNextBestAction,
+  type DecisionMakerHint,
+  type NextBestActionInput,
+} from "@leads/domain";
 import { CADENCE_STEPS, type CadenceStep } from "./cadence";
 
 export type NbaPriority = "high" | "medium" | "low";
@@ -20,6 +24,8 @@ export interface Nba {
   /** Set only when a cadence step is due — lets the UI show step progress and
    * pre-fill the draft with the step's opening line. */
   cadenceStep?: CadenceStep;
+  /** Decisor que a ação manda procurar, quando identificado. */
+  decisionMaker?: DecisionMakerHint | null;
 }
 
 function daysSince(iso?: string | null): number | null {
@@ -27,8 +33,18 @@ function daysSince(iso?: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-/** Lead → domain input. Pure shape mapping, no decisions. */
-export function leadToNbaInput(lead: Lead): NextBestActionInput {
+/**
+ * Lead → domain input. Pure shape mapping, no decisions.
+ *
+ * O decisor chega por FORA do Lead: ele vive em `company_people`, ligado ao
+ * place, e é carregado sob demanda por quem renderiza (useCompanyPeople). Não
+ * é campo de Lead e não deve virar um — a mesma empresa pode estar em várias
+ * buscas e o decisor pertence à empresa, não ao lead.
+ */
+export function leadToNbaInput(
+  lead: Lead,
+  decisionMaker?: DecisionMakerHint | null,
+): NextBestActionInput {
   return {
     hasWebsite: lead.hasWebsite,
     hasEmail: !!lead.email,
@@ -43,11 +59,12 @@ export function leadToNbaInput(lead: Lead): NextBestActionInput {
     cadenceStartedDays: daysSince(lead.cadenceStartedAt),
     cadenceStep: lead.cadenceStep ?? 0,
     cadenceCompleted: !!lead.cadenceCompletedAt,
+    decisionMaker: decisionMaker ?? null,
   };
 }
 
-export function computeNba(lead: Lead): Nba {
-  const input = leadToNbaInput(lead);
+export function computeNba(lead: Lead, decisionMaker?: DecisionMakerHint | null): Nba {
+  const input = leadToNbaInput(lead, decisionMaker);
   const rec = recommendNextBestAction(input);
   return {
     action: rec.recommendation,
@@ -59,5 +76,6 @@ export function computeNba(lead: Lead): Nba {
     cadenceStep: rec.cadenceStepId
       ? CADENCE_STEPS.find((s) => s.id === rec.cadenceStepId)
       : undefined,
+    decisionMaker: rec.decisionMaker ?? null,
   };
 }

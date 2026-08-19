@@ -9,6 +9,22 @@
 // NextBestActionInput + pt-BR text). Callers that only pass channels/signals
 // (CompanyIntelligenceCard) keep the legacy behavior unchanged.
 
+/**
+ * O decisor a ser abordado, quando conhecido (People Intelligence).
+ *
+ * Opcional de propósito: chamadores antigos (discovery, testes) continuam
+ * passando o mesmo input e recebem o mesmo resultado. A personalização é uma
+ * CAMADA sobre a árvore de decisão, não uma reescrita dela — quem decide o
+ * canal e a urgência continua sendo a mesma lógica de sempre.
+ */
+export interface DecisionMakerHint {
+  name: string;
+  role: string | null;
+  /** 0..100 do calculateDecisionMakerScore. */
+  score: number;
+  band: "high" | "medium" | "low" | "unknown";
+}
+
 export interface NextBestActionInput {
   hasWebsite: boolean;
   hasEmail: boolean;
@@ -28,6 +44,8 @@ export interface NextBestActionInput {
   cadenceStep?: number | null;
   /** Whether the cadence was explicitly completed. */
   cadenceCompleted?: boolean;
+  /** Decisor identificado para esta empresa, quando houver. */
+  decisionMaker?: DecisionMakerHint | null;
 }
 
 export interface NextBestAction {
@@ -41,6 +59,8 @@ export interface NextBestAction {
   cadenceStepId?: string;
   /** pt-BR label for the action button. */
   ctaHint?: string;
+  /** Decisor que a recomendação está mandando procurar, quando houver. */
+  decisionMaker?: DecisionMakerHint | null;
 }
 
 // ── Cadence definition (single source of truth — the web cadence.ts maps
@@ -103,7 +123,7 @@ function upcomingCadenceStep(input: NextBestActionInput): CadenceStepDef | null 
   return pending && days < pending.dueAtDay ? pending : null;
 }
 
-export function recommendNextBestAction(input: NextBestActionInput): NextBestAction {
+function decideNextBestAction(input: NextBestActionInput): NextBestAction {
   // ── Funnel-terminal stages (migrated from web computeNba) ────────────────
   if (input.crmStage === "won") {
     return {
@@ -280,4 +300,69 @@ export function recommendNextBestAction(input: NextBestActionInput): NextBestAct
           : "Faça uma ligação de qualificação.";
 
   return { channel, recommendation, reason, urgency, messageSignals: signals };
+}
+
+// ── Decisor → abordagem (People Intelligence) ───────────────────────────────
+
+/** Canais em que existe alguém do outro lado para procurar pelo nome. */
+const OUTREACH_CHANNELS = new Set(["whatsapp", "email", "phone", "call"]);
+
+/** Primeiro nome, para o texto não ficar burocrático ("procure por Maria"). */
+function firstName(fullName: string): string {
+  const first = fullName.trim().split(/\s+/)[0] ?? fullName;
+  // Nome em CAIXA ALTA é a norma do QSA; TitleCase lê melhor na interface.
+  return first.length > 1 && first === first.toUpperCase()
+    ? first[0] + first.slice(1).toLowerCase()
+    : first;
+}
+
+/**
+ * Acrescenta o decisor à recomendação, sem mexer em canal, urgência ou regra.
+ *
+ * Só age em canal de abordagem: "revisar motivo do descarte" não melhora
+ * sabendo quem é o sócio. E só com banda `high`/`medium` — apontar um analista
+ * como a pessoa a procurar seria pior que não apontar ninguém.
+ *
+ * O papel entra no motivo, não na ação: o vendedor precisa saber POR QUE
+ * aquele nome, senão o dado vira um nome solto na tela.
+ */
+export function withDecisionMaker(
+  action: NextBestAction,
+  decisionMaker: DecisionMakerHint | null | undefined,
+): NextBestAction {
+  if (!decisionMaker) return action;
+  if (decisionMaker.band !== "high" && decisionMaker.band !== "medium") return action;
+  if (!OUTREACH_CHANNELS.has(action.channel)) return action;
+
+  const who = firstName(decisionMaker.name);
+  const role = decisionMaker.role?.trim();
+  // Parte da árvore devolve frase ("Inicie uma conversa…"), parte devolve
+  // rótulo de botão ("Enviar primeira abordagem"). Emendar os dois do mesmo
+  // jeito produz "Enviar primeira abordagem Procure por Daniel."
+  const endsSentence = /[.!?]$/.test(action.recommendation.trim());
+  const recommendation = endsSentence
+    ? `${action.recommendation} Procure por ${who}.`
+    : `${action.recommendation} — procure por ${who}`;
+  return {
+    ...action,
+    decisionMaker,
+    recommendation,
+    reason: role
+      ? `${action.reason} ${decisionMaker.name} aparece no quadro societário como ${role}.`
+      : `${action.reason} ${decisionMaker.name} aparece no quadro societário da empresa.`,
+    // O gerador de mensagem lê estes sinais; sem isto a mensagem continuaria
+    // impessoal mesmo com o decisor conhecido na tela.
+    messageSignals: [
+      ...action.messageSignals,
+      role ? `decisor: ${decisionMaker.name} (${role})` : `decisor: ${decisionMaker.name}`,
+    ],
+  };
+}
+
+/**
+ * Próxima melhor ação. A árvore de decisão (canal, urgência, cadência) decide
+ * primeiro; o decisor, quando conhecido, personaliza o resultado.
+ */
+export function recommendNextBestAction(input: NextBestActionInput): NextBestAction {
+  return withDecisionMaker(decideNextBestAction(input), input.decisionMaker);
 }

@@ -235,3 +235,135 @@ describe("recommendNextBestAction — funnel branches (migrated from web compute
     expect(cadence.recommendation).toBe("Follow-up curto");
   });
 });
+
+// ── Decisor → abordagem (People Intelligence) ───────────────────────────────
+
+import {
+  withDecisionMaker,
+  type DecisionMakerHint,
+  type NextBestAction,
+} from "./next-best-action.ts";
+
+const decisor = (o: Partial<DecisionMakerHint> = {}): DecisionMakerHint => ({
+  name: "MARIA SOUZA",
+  role: "Sócio-Administrador",
+  score: 100,
+  band: "high",
+  ...o,
+});
+
+const outreach = (): NextBestAction => ({
+  channel: "whatsapp",
+  recommendation: "Inicie uma conversa via WhatsApp com uma abordagem consultiva.",
+  reason: "Oportunidade por não ter site.",
+  urgency: "high",
+  messageSignals: ["sem site"],
+});
+
+test("decisor conhecido entra na recomendação pelo primeiro nome", () => {
+  const result = withDecisionMaker(outreach(), decisor());
+  expect(result.recommendation).toContain("Procure por Maria.");
+  // CAIXA ALTA do QSA não vaza para a interface.
+  expect(result.recommendation).not.toContain("MARIA");
+});
+
+test("o motivo explica POR QUE aquele nome", () => {
+  const result = withDecisionMaker(outreach(), decisor());
+  expect(result.reason).toContain("quadro societário");
+  expect(result.reason).toContain("Sócio-Administrador");
+});
+
+test("decisor vira sinal para o gerador de mensagem", () => {
+  const result = withDecisionMaker(outreach(), decisor());
+  expect(result.messageSignals).toContain("decisor: MARIA SOUZA (Sócio-Administrador)");
+  // Os sinais anteriores continuam.
+  expect(result.messageSignals).toContain("sem site");
+});
+
+test("sem decisor, a ação sai idêntica", () => {
+  const base = outreach();
+  expect(withDecisionMaker(base, null)).toEqual(base);
+  expect(withDecisionMaker(base, undefined)).toEqual(base);
+});
+
+test("banda baixa/indefinida NÃO é apontada como quem procurar", () => {
+  // Mandar o vendedor procurar um analista é pior que não sugerir ninguém.
+  const base = outreach();
+  expect(withDecisionMaker(base, decisor({ band: "low", role: "Analista" }))).toEqual(base);
+  expect(withDecisionMaker(base, decisor({ band: "unknown", role: null }))).toEqual(base);
+});
+
+test("banda média é apontada (gerente decide em empresa pequena)", () => {
+  const result = withDecisionMaker(outreach(), decisor({ band: "medium", role: "Gerente" }));
+  expect(result.recommendation).toContain("Procure por");
+});
+
+test("canal que não é abordagem fica intocado", () => {
+  // Saber quem é o sócio não melhora "revisar motivo do descarte".
+  const system: NextBestAction = {
+    channel: "system",
+    recommendation: "Revisar motivo do descarte",
+    reason: "Lead descartado.",
+    urgency: "low",
+    messageSignals: [],
+  };
+  expect(withDecisionMaker(system, decisor())).toEqual(system);
+
+  const none: NextBestAction = { ...system, channel: "none" };
+  expect(withDecisionMaker(none, decisor())).toEqual(none);
+});
+
+test("decisor sem cargo informado não inventa cargo", () => {
+  const result = withDecisionMaker(outreach(), decisor({ role: null, band: "high" }));
+  expect(result.reason).toContain("quadro societário da empresa");
+  expect(result.messageSignals).toContain("decisor: MARIA SOUZA");
+});
+
+test("rótulo de botão não vira frase emendada", () => {
+  // "Enviar primeira abordagem" não termina em ponto — juntar com "Procure
+  // por X." produziria "Enviar primeira abordagem Procure por Maria."
+  const label: NextBestAction = {
+    channel: "whatsapp",
+    recommendation: "Enviar primeira abordagem",
+    reason: "Lead novo com WhatsApp disponível.",
+    urgency: "high",
+    messageSignals: [],
+  };
+  const result = withDecisionMaker(label, decisor());
+  expect(result.recommendation).toBe("Enviar primeira abordagem — procure por Maria");
+  expect(result.recommendation).not.toContain("abordagem Procure");
+});
+
+test("canal e urgência NUNCA mudam por causa do decisor", () => {
+  const base = outreach();
+  const result = withDecisionMaker(base, decisor());
+  expect(result.channel).toBe(base.channel);
+  expect(result.urgency).toBe(base.urgency);
+});
+
+test("recommendNextBestAction aplica a personalização ponta a ponta", () => {
+  const withoutDm = recommendNextBestAction({
+    hasWebsite: false,
+    hasEmail: false,
+    hasPhone: true,
+    whatsappStatus: "possible",
+    rating: null,
+    reviewCount: null,
+    temperature: "hot",
+    score: 90,
+  });
+  const withDm = recommendNextBestAction({
+    hasWebsite: false,
+    hasEmail: false,
+    hasPhone: true,
+    whatsappStatus: "possible",
+    rating: null,
+    reviewCount: null,
+    temperature: "hot",
+    score: 90,
+    decisionMaker: decisor(),
+  });
+  expect(withoutDm.recommendation.toLowerCase()).not.toContain("procure por");
+  expect(withDm.recommendation.toLowerCase()).toContain("procure por maria");
+  expect(withDm.channel).toBe(withoutDm.channel);
+});

@@ -143,3 +143,52 @@ test("ordenação de abordagem: score, depois confiança, depois nome", () => {
     "Bruno",
   ]);
 });
+
+// ── Quem abordar primeiro ───────────────────────────────────────────────────
+
+import { pickPrimaryDecisionMaker } from "./decision-maker.ts";
+
+const cand = (o: Partial<Parameters<typeof pickPrimaryDecisionMaker>[0][number]> = {}) => ({
+  name: "Maria",
+  score: 100,
+  dataConfidence: 1,
+  band: "high" as const,
+  isCurrent: true,
+  ...o,
+});
+
+test("escolhe o maior score entre os elegíveis", () => {
+  const chosen = pickPrimaryDecisionMaker([
+    cand({ name: "Ana", score: 70, band: "medium" }),
+    cand({ name: "Bruno", score: 100 }),
+    cand({ name: "Carla", score: 95 }),
+  ]);
+  expect(chosen?.name).toBe("Bruno");
+});
+
+test("ignora relação que não é vigente", () => {
+  const chosen = pickPrimaryDecisionMaker([
+    cand({ name: "Ex-sócio", score: 100, isCurrent: false }),
+    cand({ name: "Atual", score: 65, band: "medium" }),
+  ]);
+  expect(chosen?.name).toBe("Atual");
+});
+
+test("banda low/unknown não é apontada como decisor", () => {
+  // Melhor dizer "não sei quem decide" do que mandar procurar o estagiário.
+  expect(pickPrimaryDecisionMaker([cand({ band: "low", score: 5 })])).toBeNull();
+  expect(pickPrimaryDecisionMaker([cand({ band: "unknown", score: 20 })])).toBeNull();
+});
+
+test("lista vazia devolve null", () => {
+  expect(pickPrimaryDecisionMaker([])).toBeNull();
+});
+
+test("empate de score desempata por confiança, depois por nome", () => {
+  const chosen = pickPrimaryDecisionMaker([
+    cand({ name: "Zeca", score: 100, dataConfidence: 1 }),
+    cand({ name: "Ana", score: 100, dataConfidence: 1 }),
+    cand({ name: "Bia", score: 100, dataConfidence: 0.5 }),
+  ]);
+  expect(chosen?.name).toBe("Ana");
+});

@@ -215,6 +215,29 @@ export function calculateDecisionMakerScore(
   };
 }
 
+/**
+ * Quem abordar primeiro, entre as pessoas conhecidas de uma empresa.
+ *
+ * Só devolve alguém que a fonte diz ser VIGENTE e que a classificação coloca
+ * em `high` ou `medium`. Um "analista" no topo de uma lista curta não é o
+ * decisor — é o único nome que apareceu, e apontá-lo como decisor faria o
+ * vendedor gastar a primeira abordagem com quem não decide. Nesse caso a
+ * resposta honesta é null: "não sei quem decide".
+ */
+export function pickPrimaryDecisionMaker<
+  T extends {
+    name: string;
+    score: number;
+    dataConfidence: number;
+    band: DecisionRoleBand;
+    isCurrent: boolean;
+  },
+>(people: readonly T[]): T | null {
+  const eligible = people.filter((p) => p.isCurrent && (p.band === "high" || p.band === "medium"));
+  if (eligible.length === 0) return null;
+  return [...eligible].sort(compareDecisionMakers)[0];
+}
+
 /** Ordena decisores para abordagem: score desc, depois confiança, depois nome. */
 export function compareDecisionMakers(
   a: { score: number; dataConfidence: number; name: string },

@@ -71,3 +71,35 @@ describe("nba mapper (Fase 6 — thin adapter over the domain)", () => {
     expect(input.lastContactDays).toBe(5);
   });
 });
+
+// ── Decisor no NBA (People Intelligence) ────────────────────────────────────
+
+test("decisor identificado aparece na ação e no motivo do card", () => {
+  const target = base({ stage: "new", hasWebsite: false, whatsapp: "5551999999999" });
+  const semDecisor = computeNba(target);
+  const comDecisor = computeNba(target, {
+    name: "MARIA SOUZA",
+    role: "Sócio-Administrador",
+    score: 100,
+    band: "high",
+  });
+
+  expect(semDecisor.action.toLowerCase()).not.toContain("procure por");
+  expect(comDecisor.action.toLowerCase()).toContain("procure por maria");
+  expect(comDecisor.reason).toContain("Sócio-Administrador");
+  expect(comDecisor.decisionMaker?.name).toBe("MARIA SOUZA");
+});
+
+test("decisor não altera canal, prioridade nem CTA do card", () => {
+  const target = base({ stage: "new", hasWebsite: false, whatsapp: "5551999999999" });
+  const a = computeNba(target);
+  const b = computeNba(target, { name: "Maria", role: "Diretor", score: 95, band: "high" });
+  expect(b.channel).toBe(a.channel);
+  expect(b.priority).toBe(a.priority);
+  expect(b.cta).toBe(a.cta);
+});
+
+test("sem decisor o card fica exatamente como antes", () => {
+  const target = base({ stage: "new" });
+  expect(computeNba(target, null)).toEqual(computeNba(target));
+});

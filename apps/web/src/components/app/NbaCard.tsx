@@ -6,6 +6,7 @@ import { CADENCE_STEPS } from "@/lib/cadence";
 import { buildContactMessage } from "@/lib/message-fill";
 import { PrepareMessageDialog } from "@/components/app/PrepareMessageDialog";
 import { useOutbound } from "@/hooks/useOutbound";
+import { usePrimaryDecisionMaker } from "@/hooks/usePrimaryDecisionMaker";
 import { useLeadsStore, useMessageStore, useSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,10 @@ export function NbaCard({ lead }: { lead: Lead }) {
   const senderName = useSettingsStore((s) => s.senderName);
   const userName = useSettingsStore((s) => s.userName);
   const signature = useSettingsStore((s) => s.signature);
-  const nba = computeNba(lead);
+  // O decisor vem da empresa (company_people), não do lead — carregado aqui
+  // para a recomendação dizer COM QUEM falar, não só por qual canal.
+  const decisionMaker = usePrimaryDecisionMaker(lead.placeId);
+  const nba = computeNba(lead, decisionMaker);
   const Icon = CHANNEL_ICON[nba.channel];
   const [dialogOpen, setDialogOpen] = useState(false);
   // Only the very first touch gets AI generation (roadmap 3.5) — cadence

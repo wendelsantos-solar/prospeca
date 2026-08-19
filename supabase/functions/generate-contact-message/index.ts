@@ -16,6 +16,7 @@ import {
   AI_MESSAGE_MODEL,
   type LeadSignal,
 } from "../_shared/ai-message.ts";
+import { pickPrimaryDecisionMaker } from "@leads/domain/decision-maker";
 
 const InputSchema = z.object({ leadId: z.string().uuid() });
 
@@ -48,10 +49,38 @@ Deno.serve(async (req) => {
 
     const { data: lead } = await ctx.userClient
       .from("leads")
-      .select("id, company_name, category, city, neighborhood, has_website, rating, review_count")
+      .select(
+        "id, company_name, category, city, neighborhood, has_website, rating, review_count, place_id",
+      )
       .eq("id", parsed.data.leadId)
       .maybeSingle();
     if (!lead) throw new AppError("LEAD_NOT_FOUND", "Lead não encontrado.");
+
+    // Decisor (People Intelligence) — lido sob a RLS do usuário, como o resto.
+    // Falha aqui NUNCA impede a geração: a mensagem sem nome continua útil.
+    let decisionMakerName: string | null = null;
+    let decisionMakerRole: string | null = null;
+    if (lead.place_id) {
+      const { data: people } = await ctx.userClient
+        .from("company_people")
+        .select("role, role_band, decision_score, confidence, is_current, people(full_name)")
+        .eq("place_id", lead.place_id)
+        .eq("is_current", true);
+      const primary = pickPrimaryDecisionMaker(
+        (people ?? [])
+          .map((row) => ({
+            name: (row as unknown as { people?: { full_name?: string } }).people?.full_name ?? "",
+            score: (row.decision_score as number | null) ?? 0,
+            dataConfidence: (row.confidence as number | null) ?? 0,
+            band: (row.role_band as "high" | "medium" | "low" | "unknown" | null) ?? "unknown",
+            isCurrent: row.is_current as boolean,
+            role: (row.role as string | null) ?? null,
+          }))
+          .filter((p) => p.name),
+      );
+      decisionMakerName = primary?.name ?? null;
+      decisionMakerRole = primary?.role ?? null;
+    }
 
     const signal: LeadSignal = {
       companyName: lead.company_name,
@@ -61,6 +90,8 @@ Deno.serve(async (req) => {
       hasWebsite: lead.has_website,
       rating: lead.rating,
       reviewCount: lead.review_count,
+      decisionMakerName,
+      decisionMakerRole,
     };
 
     if (!hasEnoughSignal(signal)) {
