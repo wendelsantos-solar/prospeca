@@ -1035,7 +1035,7 @@ function CompanyDataCard({ lead }: { lead: Lead }) {
       </div>
       {isFeatureEnabled("cnaeIntelligenceEnabled") && lead.placeId && (
         <div className="mt-2">
-          <BusinessRegistrySection placeId={lead.placeId} />
+          <BusinessRegistrySection placeId={lead.placeId} hasWebsite={lead.hasWebsite} />
         </div>
       )}
     </InfoCard>

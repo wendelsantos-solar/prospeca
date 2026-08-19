@@ -184,7 +184,7 @@ export function CompanyPeopleSection({
         <p className="mt-1 text-[11.5px] text-muted-foreground">Identificando decisores…</p>
       ) : !hasBeenLookedUp ? (
         <p className="mt-1 text-[11.5px] text-muted-foreground">
-          Ainda não consultado — consulte o CNPJ acima.
+          Identificamos os decisores a partir do CNPJ. Informe o CNPJ abaixo para consultar.
         </p>
       ) : rows.length === 0 ? (
         <p className="mt-1 text-[11.5px] text-muted-foreground">

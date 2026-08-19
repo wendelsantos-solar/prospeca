@@ -18,6 +18,19 @@
         "NODE_NO_WARNINGS": "1"
       },
       "port": 3031
+    },
+    {
+      "name": "dev:local-db",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["vite", "dev", "--port", "3032", "--strictPort", "--host", "127.0.0.1"],
+      "cwd": "apps/web",
+      "env": {
+        "VITE_DATA_MODE": "real",
+        "VITE_SUPABASE_URL": "http://127.0.0.1:54321",
+        "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
+        "NODE_NO_WARNINGS": "1"
+      },
+      "port": 3032
     }
   ]
 }

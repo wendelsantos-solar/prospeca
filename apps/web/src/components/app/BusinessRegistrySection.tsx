@@ -40,7 +40,15 @@ function Row({ label, value }: { label: string; value: string | null | undefined
  * O cache/TTL (90d) vive no servidor (enrichment_sources.business_registry) —
  * abrir o drawer não re-consulta a fonte.
  */
-export function BusinessRegistrySection({ placeId }: { placeId: string }) {
+export function BusinessRegistrySection({
+  placeId,
+  /** Se a empresa tem site — muda o motivo de ainda não haver CNPJ. Vem por
+   * prop de quem já carregou o lead, em vez de uma consulta só para isso. */
+  hasWebsite,
+}: {
+  placeId: string;
+  hasWebsite: boolean;
+}) {
   const { data: registration, isLoading } = useBusinessRegistration(placeId);
   const lookup = useCnpjLookupMutation(placeId);
   const { data: cnpjOrigin } = useCnpjOrigin(placeId);
@@ -221,9 +229,16 @@ export function BusinessRegistrySection({ placeId }: { placeId: string }) {
       {/* "Procurei no site e não achei" ≠ "ninguém tentou". Sem essa distinção
        * a empresa parece abandonada, e o usuário não sabe se vale digitar o
        * CNPJ à mão ou se o sistema ainda vai buscar sozinho. */}
-      {!isLoading && !hasRegistration && cnpjSearched && (
+      {/* Cabeçalho sem conteúdo é pior que dizer que não há dado. Três estados
+       * distintos, porque significam coisas diferentes para o usuário:
+       * procurei e não achei · não dava para procurar · ainda não procurei. */}
+      {!isLoading && !hasRegistration && (
         <p className="mt-2 text-[11.5px] text-muted-foreground">
-          Procuramos o CNPJ no site da empresa e não encontramos. Se você souber, informe abaixo.
+          {cnpjSearched
+            ? "Procuramos o CNPJ no site da empresa e não encontramos. Se você souber, informe abaixo."
+            : hasWebsite
+              ? "Ainda não localizamos o CNPJ desta empresa. Informe abaixo se souber."
+              : "Esta empresa não tem site onde procurar o CNPJ. Informe abaixo se souber."}
         </p>
       )}
 
